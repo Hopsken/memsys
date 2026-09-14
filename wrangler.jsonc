@@ -1,0 +1,37 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "memsys",
+  "main": "src/index.ts",
+  // Keep within the runtime version supported by the Cloudflare Vitest pool.
+  "compatibility_date": "2026-08-16",
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true,
+    },
+  },
+  "dev": {
+    "inspector_port": 0,
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "MEMORY",
+        "class_name": "MemoryDO",
+      },
+    ],
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["MemoryDO"],
+    },
+  ],
+  "rules": [
+    {
+      "type": "Text",
+      "globs": ["**/*.sql"],
+      "fallthrough": true,
+    },
+  ],
+}
