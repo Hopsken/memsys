@@ -4,9 +4,9 @@
 
 ## 1. Overview
 
-**memsys** 是一个面向 AI Agent 的极简长期记忆系统。
+**memsys** is a minimal long-term memory system for AI agents.
 
-它把记忆建模为大量小型 **fragments**。每个 fragment 是一段简短、原子化的文本，其中可以包含 hashtags。Hashtag 作为 memory anchor，使多个 fragments 自然形成关联。
+It models memory as a collection of small, atomic **fragments**. A fragment is plain text and may contain hashtags. Those hashtags act as explicit memory **anchors**, allowing fragments to become associated without storing links or graph edges.
 
 ```text
 Fragment A ── #memsys ── Fragment B
@@ -14,57 +14,66 @@ Fragment A ── #memsys ── Fragment B
                    └──── Fragment C
 ```
 
-系统只持久化 fragments。
+Only fragments are persisted.
 
-Tags、links、graph 都是从 fragment 内容中派生出来的 projection。
+Tags, associations, and the resulting graph are derived projections of fragment content.
 
-核心思想：
+The core idea is simple:
 
 > Memory is made of fragments connected by shared anchors.
 
 ---
 
-## 2. Product Philosophy
+## 2. Goals
 
-### 2.1 Memory is fragmented
+memsys should provide agents with a memory primitive that is:
 
-memsys 鼓励保存小而明确的记忆：
+- small enough to understand completely
+- explicit rather than semantically inferred
+- easy to inspect and edit
+- fuzzy enough to recall from imperfect cues
+- naturally associative through shared anchors
+- cheap to run on Cloudflare
+
+The first version should remain intentionally narrow. memsys is a memory primitive, not a general-purpose knowledge base.
+
+---
+
+## 3. Product Philosophy
+
+### 3.1 Memory is fragmented
+
+A fragment should usually express one small idea:
 
 ```text
-Minisphere uses D1 for persistent storage.
-#minisphere #d1
+memsys uses Durable Objects for persistent memory.
+#memsys #cloudflare #architecture
 ```
 
-而非一篇包含多个主题的长篇 note。
+Long notes containing many unrelated ideas should be split into multiple fragments.
 
-一个 fragment 尽量表达一件事情。
+The value comes from connecting many small pieces rather than building large documents.
 
-完整认知来自大量 fragments 之间的连接。
+### 3.2 The fragment is the source of truth
 
-### 2.2 Fragment is the source of truth
+The only canonical domain entity is the fragment.
 
-系统唯一的核心数据实体是：
-
-```text
-Fragment
-```
-
-Hashtag 直接存在于 fragment 文本：
+Hashtags live directly inside fragment text:
 
 ```text
-Agent memory should use explicit anchors.
+Associations should come from explicit anchors.
 #memsys #architecture
 ```
 
-系统可以随时从 fragment 内容派生：
+Everything else can be derived:
 
 ```text
 anchors
 associations
-graph
+graph structure
 ```
 
-因此不存在需要独立维护的：
+There are no canonical entities such as:
 
 ```text
 tags
@@ -73,35 +82,27 @@ links
 edges
 ```
 
-派生数据应该始终可以从 fragments 完整重建。
+Any derived index should be disposable and fully rebuildable from fragments.
 
-### 2.3 Hashtags are memory anchors
+### 3.3 Hashtags are memory anchors
 
-Hashtag 的作用是建立明确的记忆锚点。
-
-例如：
+Hashtags establish explicit association points.
 
 ```text
-Cloudflare Durable Objects are a good fit for memsys.
+Durable Objects are a good fit for memsys.
 #memsys #cloudflare #architecture
 
-Fuse.js can provide lexical fuzzy recall.
+Fuse.js provides fuzzy lexical recall.
 #memsys #recall #fusejs
 ```
 
-两个 fragments 因共享：
+These fragments become associated through the shared `#memsys` anchor.
 
-```text
-#memsys
-```
+memsys never needs to create an explicit link between them.
 
-自然产生关联。
+### 3.4 Recall begins with a cue
 
-系统无需显式创建 link。
-
-### 2.4 Retrieval starts from a cue
-
-Agent 回忆信息时通常只有一个模糊线索：
+Agents rarely recall memory by primary key. They usually have an incomplete textual cue:
 
 ```text
 "cloudflare memory"
@@ -109,21 +110,17 @@ Agent 回忆信息时通常只有一个模糊线索：
 "the thing about durable objects"
 ```
 
-memsys 把这个输入称为：
+memsys calls this input a **cue**.
 
-```text
-cue
-```
+`recall(cue)` performs lightweight lexical fuzzy matching against fragment text.
 
-`recall(cue)` 使用 lexical fuzzy matching 从 fragments 中找到最符合这个线索的记忆。
+This stage answers:
 
-这个阶段模拟：
+> What fragment does this vague cue remind me of?
 
-> “我隐约记得有这么一件事。”
+### 3.5 Association follows anchors
 
-### 2.5 Association follows anchors
-
-找到 initial fragment 后，系统解析其中的 hashtags，并带出共享这些 anchors 的 fragments。
+Once a fragment is recalled, memsys extracts its hashtags and surfaces other fragments that share those anchors.
 
 ```text
 cue
@@ -137,7 +134,7 @@ Fragment C
 Fragment D
 ```
 
-这里形成两个明确分层：
+This creates two deliberately separate mechanisms:
 
 ```text
 cue → fragment
@@ -147,68 +144,33 @@ fragment → anchors → fragments
 explicit association
 ```
 
-MVP 的 recall 使用 lexical fuzzy matching。
+Fuzzy matching helps locate the initial memory.
 
-Association 使用 exact hashtag matching。
-
-### 2.6 Retrieval reinforces memory
-
-真正被 `recall` 命中的 fragment 会被强化：
-
-```text
-recall_count += 1
-last_recalled_at = now
-```
-
-通过 association 被带出的 fragments 只处于外围激活状态。
-
-它们在被进一步主动 recall 时才得到 reinforcement。
-
-因此：
-
-```text
-direct recall
-    ↓
-reinforcement
-
-association
-    ↓
-context activation
-```
-
-memsys 保存这些客观行为数据。
-
-Agent 可以利用这些数据理解：
-
-```text
-frequently recalled memories
-recent memories
-long-dormant memories
-```
+Hashtags define what that memory is associated with.
 
 ---
 
-# 3. Core Vocabulary
+## 4. Core Vocabulary
 
-## Fragment
+### Fragment
 
-memsys 中最小的 memory unit。
+The smallest persistent unit of memory.
 
 ```text
-Durable Objects can keep a Fuse index in memory.
+Durable Objects can keep the recall index in memory.
 #memsys #cloudflare #architecture
 ```
 
-原则：
+A good fragment is:
 
 - short
 - atomic
 - self-contained
 - optionally anchored with hashtags
 
-## Anchor
+### Anchor
 
-从 fragment 中解析出的 hashtag。
+A hashtag parsed from fragment text.
 
 ```text
 #memsys
@@ -218,9 +180,9 @@ Durable Objects can keep a Fuse index in memory.
 #decision/storage
 ```
 
-Anchor 本身属于 derived information。
+Anchors are derived data. They do not have an independent lifecycle.
 
-推荐支持 `/`，方便形成轻量 namespace：
+`/` may be used as a lightweight namespace:
 
 ```text
 #project/minisphere
@@ -229,19 +191,19 @@ Anchor 本身属于 derived information。
 #person/alice
 ```
 
-## Cue
+### Cue
 
-传递给 `recall` 的自然语言线索：
+A piece of text supplied to `recall` as an imperfect memory clue.
 
 ```text
 "cloudflare storage"
 ```
 
-Cue 本身无需是精确关键词，也无需对应 fragment ID。
+A cue does not need to match exact wording and does not refer to a fragment ID.
 
-## Association
+### Association
 
-两个 fragments 共享一个或多个 anchors 时产生的关系。
+A relationship that exists when two fragments share one or more anchors.
 
 ```text
 Fragment A
@@ -251,26 +213,30 @@ Fragment A
 Fragment B
 ```
 
-Association 是运行时 projection。
+Associations are runtime projections rather than persisted edges.
 
-## Reinforcement
+### Ref
 
-Fragment 被主动 recall 后记录的使用历史：
+An opaque identity returned after a fragment has been found or created.
 
-```text
-recall_count
-last_recalled_at
-```
+Refs exist so an agent can precisely revise or forget a known fragment. They are not part of the recall model.
 
 ---
 
-# 4. MCP API
+## 5. MCP API
 
-memsys 对外提供极小的 MCP surface。
+The initial MCP surface contains four tools:
 
-## `remember`
+```text
+remember
+recall
+revise
+forget
+```
 
-保存一个新的 fragment。
+### `remember`
+
+Stores a new fragment.
 
 ```ts
 remember({
@@ -289,25 +255,19 @@ remember({
 })
 ```
 
-Returns:
+Possible response:
 
 ```ts
 {
-  ref: string
-  fragment: string
-  createdAt: string
+  ref: "01K...",
+  fragment: "...",
+  createdAt: "..."
 }
 ```
 
-`ref` 是内部 identity，用于之后对明确 fragment 执行 mutation。
+### `recall`
 
-Agent 无需通过 `ref` 进行 recall。
-
----
-
-## `recall`
-
-根据模糊记忆线索进行回忆。
+Recalls fragments from an imperfect textual cue and surfaces associated fragments.
 
 ```ts
 recall({
@@ -323,7 +283,7 @@ recall({
 })
 ```
 
-可能返回：
+Possible response:
 
 ```ts
 {
@@ -335,9 +295,7 @@ recall({
         "memsys",
         "cloudflare",
         "architecture"
-      ],
-      recallCount: 8,
-      lastRecalledAt: "..."
+      ]
     }
   ],
 
@@ -354,15 +312,11 @@ recall({
 }
 ```
 
-`recalled` 中的 fragments 得到 reinforcement。
+`recall` is read-only in the MVP.
 
-`associated` 中的 fragments 保持原有 reinforcement 状态。
+### `revise`
 
----
-
-## `revise`
-
-修改已经明确找到的 fragment。
+Replaces the content of a known fragment.
 
 ```ts
 revise({
@@ -371,21 +325,11 @@ revise({
 })
 ```
 
-Revision 会同步更新：
+Changing the text may change its anchors and therefore its derived associations.
 
-```text
-persistent fragment
-Fuse index
-derived anchor relationships
-```
+### `forget`
 
-无需显式更新 tags 或 links。
-
----
-
-## `forget`
-
-删除已经明确找到的 fragment。
+Removes a known fragment.
 
 ```ts
 forget({
@@ -393,15 +337,15 @@ forget({
 })
 ```
 
-删除后，该 fragment 产生的所有关联自然消失。
+Once removed, every association produced by that fragment disappears naturally because associations are derived.
 
 ---
 
-# 5. Recall Model
+## 6. Recall Model
 
-Recall 分成两个阶段。
+Recall has two stages.
 
-## Stage 1 — Cue Recall
+### Stage 1 — Cue Recall
 
 ```text
 cue
@@ -411,7 +355,7 @@ Fuse.js
 matching fragments
 ```
 
-Fuse.js 提供轻量 lexical fuzzy matching，例如可以容忍：
+Fuse.js provides lightweight lexical fuzzy matching and can tolerate imperfect spelling such as:
 
 ```text
 cloudflare
@@ -421,29 +365,25 @@ memory storage
 memry storag
 ```
 
-搜索对象只有 fragment 原始文本。
+The search corpus is fragment text only.
 
-MVP 可以采用类似：
+An initial configuration may look like:
 
 ```ts
 new Fuse(fragments, {
-  keys: ["fragment"],
+  keys: ["content"],
   threshold: 0.35,
   ignoreLocation: true,
 })
 ```
 
-具体参数通过实际使用调整。
+The exact configuration should be tuned from real usage rather than treated as part of the product model.
 
-这一层负责：
+This stage only answers which fragments best match the cue.
 
-> “我想找的记忆大概是什么？”
+### Stage 2 — Associative Recall
 
----
-
-## Stage 2 — Associative Recall
-
-对于 Stage 1 找到的 fragment：
+For each recalled fragment:
 
 ```text
 extract hashtags
@@ -451,16 +391,14 @@ extract hashtags
 find fragments sharing those hashtags
 ```
 
-例如：
+Example:
 
 ```text
-Fragment A
-
-memsys stores its active recall index in memory.
+memsys keeps its recall index in memory.
 #memsys #fusejs #architecture
 ```
 
-产生：
+Produces the anchors:
 
 ```text
 #memsys
@@ -468,19 +406,15 @@ memsys stores its active recall index in memory.
 #architecture
 ```
 
-然后从 corpus 中寻找共享这些 anchors 的 fragments。
+Those anchors are then used to surface related fragments.
 
-这一层负责：
-
-> “想到这件事之后，我还会联想到什么？”
-
-Association 完全由显式 anchors 决定。
+Association uses exact normalized anchor equality. It does not use fuzzy matching, embeddings, or semantic inference.
 
 ---
 
-# 6. Cloudflare Architecture
+## 7. Cloudflare Architecture
 
-MVP：
+The MVP architecture is:
 
 ```text
               MCP Client
@@ -500,32 +434,26 @@ MVP：
      memory            recall index
 ```
 
-Cloudflare 当前推荐新的 stateless MCP server 使用 `createMcpHandler()` 和 Streamable HTTP。
-
-MCP Worker 负责：
+### MCP Worker responsibilities
 
 ```text
-protocol handling
+MCP protocol handling
 authentication
 memory-space routing
 input validation
 ```
 
-Memory Durable Object 负责：
+### Memory Durable Object responsibilities
 
 ```text
 fragment persistence
-Fuse index
-anchor projection
-recall
-reinforcement
+in-memory fragment corpus
+Fuse recall index
+anchor extraction
+association projection
 ```
 
----
-
-# 7. Why Durable Objects
-
-一个 Memory Durable Object 可以对应一个独立 memory space：
+A single Durable Object represents one isolated memory space.
 
 ```text
 MemoryDO(user-a)
@@ -533,96 +461,70 @@ MemoryDO(user-b)
 MemoryDO(agent-a)
 ```
 
-每个 Durable Object 拥有：
-
-```text
-private SQLite database
-+
-ephemeral in-memory recall index
-```
-
-Cloudflare 推荐新的 Durable Object 使用 SQLite storage；DO storage 是对象私有、transactional、strongly consistent。
-
-这种模型和 memsys 非常自然：
-
-```text
-one memory space
-=
-one Durable Object
-```
-
 ---
 
-# 8. Persistent vs Active Memory
+## 8. Persistent and Active Memory
 
-SQLite 是 canonical memory：
+SQLite stores canonical long-term state:
 
 ```text
 SQLite
 └── fragments
 ```
 
-Fuse.js 是 active recall structure：
+The Durable Object keeps an ephemeral active representation in memory:
 
 ```text
-memory
+MemoryDO
+├── fragments
 └── Fuse index
 ```
 
-DO 初始化时：
+On initialization:
 
 ```text
 SQLite
  ↓
 load all fragments
  ↓
+build in-memory corpus
+ ↓
 build Fuse index
 ```
 
-DO warm 状态：
+While the Durable Object remains warm:
 
 ```text
-recall
+recall(cue)
  ↓
 Fuse.search()
 ```
 
-因此大多数 recall 无需再次扫描数据库。
+If the object is evicted, its in-memory state disappears. A later instance rebuilds that state from SQLite.
 
-Cloudflare Durable Objects 支持把持久化状态加载到 instance memory，并在对象仍驻留内存期间复用；对象 eviction 后这些内存状态会消失，之后可以从 persistent storage 重建。
-
-这形成了一个很自然的模型：
+This gives memsys a clean separation:
 
 ```text
-SQLite
-=
-long-term memory
-
-Fuse
-=
-active memory structure
+SQLite = durable memory
+Fuse.js = ephemeral recall structure
 ```
 
 ---
 
-# 9. Data Model
+## 9. Data Model
 
-第一版只需要一张表：
+The MVP needs one table:
 
 ```sql
 CREATE TABLE fragments (
   id TEXT PRIMARY KEY,
   content TEXT NOT NULL,
-
   created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL,
-
-  recall_count INTEGER NOT NULL DEFAULT 0,
-  last_recalled_at INTEGER
+  updated_at INTEGER NOT NULL
 );
 ```
 
-没有：
+There are no persistent tables for:
 
 ```text
 tags
@@ -633,21 +535,15 @@ vectors
 embeddings
 ```
 
-`id` 属于 storage identity。
+`id` is storage identity.
 
-对外 API 使用：
-
-```text
-ref
-```
-
-Agent 通过 cue recall memory，通过 ref 操作已经确认的 memory。
+The MCP layer exposes it as an opaque `ref` after a fragment has been created or recalled.
 
 ---
 
-# 10. In-memory Representation
+## 10. In-Memory Representation
 
-DO warm 后可以维护：
+A warm Memory Durable Object may keep:
 
 ```ts
 class MemoryDO {
@@ -656,7 +552,7 @@ class MemoryDO {
 }
 ```
 
-因为整个 corpus 已经在内存里，association 也可以直接在内存完成：
+Because the corpus is already in memory, the first implementation can resolve associations by scanning in-memory fragments:
 
 ```text
 recalled fragment
@@ -668,95 +564,83 @@ scan in-memory fragments
 associated fragments
 ```
 
-第一版无需建立单独 tag index。
-
-数据增长后，可以增加 ephemeral inverted index：
+If corpus size eventually makes this expensive, memsys can add an ephemeral inverted index:
 
 ```ts
 Map<Anchor, Set<FragmentRef>>
 ```
 
-它依然属于 derived state：
-
-```text
-SQLite fragments
-      ↓
-rebuild
-      ↓
-anchor index
-```
-
-因此不会改变核心数据模型。
+That index remains derived state and can always be rebuilt from fragment content.
 
 ---
 
-# 11. Operation Lifecycle
+## 11. Operation Lifecycle
 
-## Remember
+### Remember
 
 ```text
 remember(fragment)
        ↓
 SQLite INSERT
        ↓
-in-memory fragments update
+update in-memory corpus
        ↓
-Fuse index update
+update Fuse index
 ```
 
-## Recall
+### Recall
 
 ```text
 recall(cue)
        ↓
 Fuse fuzzy search
        ↓
-recalled fragment
+recalled fragments
        ↓
 extract anchors
        ↓
 resolve associations
        ↓
-SQLite UPDATE reinforcement
-       ↓
 return recalled + associated
 ```
 
-## Revise
+Recall does not mutate persistent state in the MVP.
+
+### Revise
 
 ```text
 revise(ref, fragment)
        ↓
 SQLite UPDATE
        ↓
-update in-memory fragment
+update in-memory corpus
        ↓
-refresh Fuse entry
+refresh Fuse index
 ```
 
-Any anchor changes immediately affect future associations.
+Any anchor changes are reflected automatically in future associations.
 
-## Forget
+### Forget
 
 ```text
 forget(ref)
        ↓
 SQLite DELETE
        ↓
-remove from memory
+remove from in-memory corpus
        ↓
-remove from Fuse
+remove from Fuse index
 ```
 
-All relationships disappear automatically because they were derived from the fragment.
+No relationship cleanup is required because relationships are derived.
 
 ---
 
-# 12. Hashtag Grammar
+## 12. Hashtag Grammar
 
-Keep the syntax intentionally small.
+The hashtag syntax should remain intentionally small.
 
-Suggested grammar:
+A reasonable starting grammar is:
 
 ```text
 #[letters|numbers|_|-|/]+
@@ -772,108 +656,66 @@ Examples:
 #concept/oauth
 ```
 
-Parsing should normalize anchors:
+Anchors should be normalized for comparison:
 
 ```text
 #Cloudflare
 #cloudflare
 ```
 
-→
+Both become:
 
 ```text
 cloudflare
 ```
 
-Exact normalized anchor equality defines association.
+Exact normalized equality defines an association.
 
 ---
 
-# 13. Reinforcement Model
+## 13. Scaling Model
 
-memsys stores facts about recall behavior:
+The initial target is a personal or agent-specific corpus containing many short fragments.
 
-```text
-recall_count
-last_recalled_at
-```
-
-Example:
-
-```text
-remember()
-   ↓
-recall_count = 0
-
-recall()
-   ↓
-recall_count = 1
-
-recall()
-   ↓
-recall_count = 2
-```
-
-Associated fragments stay unchanged.
-
-This allows future agents to reason about memory strength without requiring memsys itself to define a universal scoring formula.
-
-Potential future derived concepts:
-
-```text
-frequently recalled
-recently recalled
-dormant
-fading
-```
-
-These remain interpretations of stored history.
-
----
-
-# 14. Scaling Model
-
-The expected initial workload is a personal or agent-specific memory corpus consisting of many short fragments.
-
-Cold start cost:
+A cold Durable Object instance performs:
 
 ```text
 N fragments
      ↓
 N SQLite rows read
      ↓
+rebuild in-memory corpus
+     ↓
 build Fuse index
 ```
 
-Warm recall:
+A warm recall performs:
 
 ```text
 Fuse.search()
 +
-small SQLite reinforcement update
+in-memory association lookup
 ```
 
-SQLite-backed DO storage currently bills reads by rows read; Workers Paid includes the first 25 billion rows read per month.
+The first scaling boundary is therefore memory footprint rather than query complexity.
 
-The more relevant practical limit is in-memory corpus size. Durable Objects receive a 128 MB memory allocation, shared at the isolate level when multiple DOs share an isolate.
-
-Therefore the initial scaling strategy is:
+The initial strategy is deliberately simple:
 
 ```text
-small/medium memory space
-→ full in-memory Fuse index
+small / medium memory space
+→ full in-memory corpus + Fuse index
 
 large memory space
-→ revisit indexing strategy
+→ revisit the indexing strategy when real usage requires it
 ```
 
-This optimization should be driven by observed corpus size.
+Premature sharding or persistent search indexes would add complexity without improving the core model.
 
 ---
 
-# 15. MVP Scope
+## 14. MVP Scope
 
-Version 0.1 should contain exactly four MCP tools:
+Version `0.1` contains exactly four MCP tools:
 
 ```text
 remember
@@ -882,38 +724,37 @@ revise
 forget
 ```
 
-And exactly one persistent entity:
+And exactly one persistent domain entity:
 
 ```text
 fragment
 ```
 
-Technology:
+### Technology
 
 ```text
-Cloudflare Worker
+Cloudflare Workers
 Cloudflare Durable Objects
-SQLite-backed DO storage
+SQLite-backed Durable Object storage
 Fuse.js
-Cloudflare Agents SDK / MCP
+MCP
 ```
 
-Core features:
+### Core capabilities
 
 - atomic text fragments
 - hashtags embedded directly in fragment text
-- fuzzy cue recall
+- fuzzy lexical cue recall
 - exact hashtag association
-- automatic associated-memory expansion
-- recall reinforcement
-- durable persistence
+- automatic associated-fragment expansion
+- durable fragment persistence
 - in-memory Fuse index reconstruction
 
 ---
 
-# 16. Explicitly Deferred
+## 15. Explicitly Deferred
 
-These concepts stay outside the initial design:
+The following are outside the MVP:
 
 ```text
 vector search
@@ -926,26 +767,48 @@ folders
 documents
 pages
 rich note hierarchy
-automatic memory summarization
+automatic summarization
 automatic forgetting
+memory strength / reinforcement
+recall history
 memory scoring formulas
 ```
 
-They can be reconsidered only when actual usage demonstrates a concrete need.
+Memory reinforcement is intentionally left open. A useful design may require richer recall history than a counter or a single `last_recalled_at` timestamp, so the MVP should avoid committing to a persistence model prematurely.
 
 ---
 
-# 17. Design Principles
+## 16. Open Questions
+
+### Memory reinforcement
+
+Repeated recall may eventually strengthen a memory, inspired by how biological memory becomes reinforced through reuse.
+
+The representation is unresolved. Possible future designs may involve recall events, temporal patterns, decay, or another model entirely.
+
+For now, `recall` remains read-only.
+
+### Association breadth
+
+A common anchor may connect a large number of fragments. The MVP should return a bounded number of associated fragments, but the exact limit and selection behavior should be determined from usage.
+
+### Fragment size
+
+The product should encourage small fragments without enforcing an arbitrary hard semantic boundary. A practical size limit may still be useful for storage and MCP response control.
+
+---
+
+## 17. Design Principles
 
 ### Fragments over documents
 
-Memory should remain small and composable.
+Memory stays small and composable.
 
 ### Anchors over inferred relationships
 
 Explicit hashtags define association.
 
-### Cue over ID
+### Cues over IDs
 
 Recall begins with something vaguely remembered.
 
@@ -953,9 +816,9 @@ Recall begins with something vaguely remembered.
 
 Tags and graph relationships come from fragment content.
 
-### Behavior over scoring
+### Simple mechanisms over intelligent infrastructure
 
-memsys records recall history; interpretation can happen above the storage layer.
+Fuse.js handles imperfect lexical recall. Anchors handle association. memsys does not infer semantic relationships on behalf of the agent.
 
 ### Small API surface
 
@@ -966,11 +829,11 @@ revise
 forget
 ```
 
-The API vocabulary should feel like interacting with memory rather than manipulating database records.
+The API should feel like interacting with memory rather than manipulating database records.
 
 ---
 
-# 18. Definition
+## 18. Definition
 
 memsys can be described in one sentence:
 
@@ -978,4 +841,4 @@ memsys can be described in one sentence:
 
 Or more conceptually:
 
-> **Fragments are memories. Hashtags are anchors. Recall activates memory. Repetition reinforces it.**
+> **Fragments are memories. Hashtags are anchors. Cues trigger recall. Shared anchors create association.**
