@@ -31,7 +31,7 @@ memsys should provide agents with a memory primitive that is:
 - small enough to understand completely
 - explicit rather than semantically inferred
 - easy to inspect and edit
-- fuzzy enough to recall from imperfect cues
+- recallable from simple textual cues
 - naturally associative through shared anchors
 - cheap to run on Cloudflare
 
@@ -92,8 +92,8 @@ Hashtags establish explicit association points.
 Durable Objects are a good fit for memsys.
 #memsys #cloudflare #architecture
 
-Fuse.js provides fuzzy lexical recall.
-#memsys #recall #fusejs
+Recall starts from a textual cue.
+#memsys #recall #design
 ```
 
 These fragments become associated through the shared `#memsys` anchor.
@@ -102,21 +102,19 @@ memsys never needs to create an explicit link between them.
 
 ### 3.4 Recall begins with a cue
 
-Agents rarely recall memory by primary key. They usually have an incomplete textual cue:
+Agents rarely recall memory by primary key. They usually have a small textual clue:
 
 ```text
 "cloudflare memory"
-"fuzzy recall"
-"the thing about durable objects"
+"durable objects"
+"memory anchors"
 ```
 
 memsys calls this input a **cue**.
 
-`recall(cue)` performs lightweight lexical fuzzy matching against fragment text.
+`recall(cue)` uses lexical matching against fragment text to locate likely memories.
 
-This stage answers:
-
-> What fragment does this vague cue remind me of?
+The baseline implementation should favor simple, deterministic matching over aggressive fuzzy behavior. More advanced matching strategies are intentionally left open for experimentation.
 
 ### 3.5 Association follows anchors
 
@@ -138,13 +136,13 @@ This creates two deliberately separate mechanisms:
 
 ```text
 cue → fragment
-lexical fuzzy recall
+lexical recall
 
 fragment → anchors → fragments
 explicit association
 ```
 
-Fuzzy matching helps locate the initial memory.
+Text matching helps locate the initial memory.
 
 Hashtags define what that memory is associated with.
 
@@ -157,7 +155,7 @@ Hashtags define what that memory is associated with.
 The smallest persistent unit of memory.
 
 ```text
-Durable Objects can keep the recall index in memory.
+Durable Objects can keep a memory corpus in process memory.
 #memsys #cloudflare #architecture
 ```
 
@@ -193,13 +191,13 @@ Anchors are derived data. They do not have an independent lifecycle.
 
 ### Cue
 
-A piece of text supplied to `recall` as an imperfect memory clue.
+A piece of text supplied to `recall` as a memory clue.
 
 ```text
 "cloudflare storage"
 ```
 
-A cue does not need to match exact wording and does not refer to a fragment ID.
+A cue is textual and does not refer to a fragment ID.
 
 ### Association
 
@@ -267,7 +265,7 @@ Possible response:
 
 ### `recall`
 
-Recalls fragments from an imperfect textual cue and surfaces associated fragments.
+Recalls fragments from a textual cue and surfaces associated fragments.
 
 ```ts
 recall({
@@ -279,7 +277,7 @@ Example:
 
 ```ts
 recall({
-  cue: "cloudflare memory storage"
+  cue: "cloudflare memory"
 })
 ```
 
@@ -350,36 +348,23 @@ Recall has two stages.
 ```text
 cue
  ↓
-Fuse.js
+lexical matching
  ↓
 matching fragments
 ```
 
-Fuse.js provides lightweight lexical fuzzy matching and can tolerate imperfect spelling such as:
+The baseline should remain intentionally simple and predictable. A first implementation can normalize case and whitespace and perform straightforward lexical or substring matching against fragment content.
+
+For example:
 
 ```text
-cloudflare
-clodflare
-
-memory storage
-memry storag
+cue:      "durable objects"
+fragment: "Durable Objects are a good fit for memsys."
 ```
 
-The search corpus is fragment text only.
+The exact baseline matching behavior is an implementation detail, but it should avoid semantic inference and aggressive approximation.
 
-An initial configuration may look like:
-
-```ts
-new Fuse(fragments, {
-  keys: ["content"],
-  threshold: 0.35,
-  ignoreLocation: true,
-})
-```
-
-The exact configuration should be tuned from real usage rather than treated as part of the product model.
-
-This stage only answers which fragments best match the cue.
+This stage only answers which fragments match the cue.
 
 ### Stage 2 — Associative Recall
 
@@ -394,15 +379,15 @@ find fragments sharing those hashtags
 Example:
 
 ```text
-memsys keeps its recall index in memory.
-#memsys #fusejs #architecture
+memsys keeps its active corpus in memory.
+#memsys #cloudflare #architecture
 ```
 
 Produces the anchors:
 
 ```text
 #memsys
-#fusejs
+#cloudflare
 #architecture
 ```
 
@@ -429,9 +414,9 @@ The MVP architecture is:
           ┌────────┴─────────┐
           │                  │
           ▼                  ▼
-      SQLite              Fuse.js
-   persistent           in-memory
-     memory            recall index
+      SQLite          in-memory corpus
+   persistent            derived
+     memory               state
 ```
 
 ### MCP Worker responsibilities
@@ -448,7 +433,7 @@ input validation
 ```text
 fragment persistence
 in-memory fragment corpus
-Fuse recall index
+lexical recall
 anchor extraction
 association projection
 ```
@@ -472,12 +457,11 @@ SQLite
 └── fragments
 ```
 
-The Durable Object keeps an ephemeral active representation in memory:
+The Durable Object may keep an ephemeral copy of the fragment corpus in memory:
 
 ```text
 MemoryDO
-├── fragments
-└── Fuse index
+└── fragments
 ```
 
 On initialization:
@@ -488,17 +472,9 @@ SQLite
 load all fragments
  ↓
 build in-memory corpus
- ↓
-build Fuse index
 ```
 
-While the Durable Object remains warm:
-
-```text
-recall(cue)
- ↓
-Fuse.search()
-```
+While the Durable Object remains warm, recall can operate directly over that in-memory corpus.
 
 If the object is evicted, its in-memory state disappears. A later instance rebuilds that state from SQLite.
 
@@ -506,8 +482,10 @@ This gives memsys a clean separation:
 
 ```text
 SQLite = durable memory
-Fuse.js = ephemeral recall structure
+in-memory corpus = ephemeral active state
 ```
+
+Any future search index must remain derived and rebuildable from the fragment corpus.
 
 ---
 
@@ -548,11 +526,12 @@ A warm Memory Durable Object may keep:
 ```ts
 class MemoryDO {
   fragments: Map<string, Fragment>
-  fuse: Fuse<Fragment>
 }
 ```
 
-Because the corpus is already in memory, the first implementation can resolve associations by scanning in-memory fragments:
+Because the corpus is already in memory, both baseline recall and association resolution can operate without persistent reads on every request.
+
+Association can initially be resolved by scanning fragments:
 
 ```text
 recalled fragment
@@ -564,13 +543,15 @@ scan in-memory fragments
 associated fragments
 ```
 
-If corpus size eventually makes this expensive, memsys can add an ephemeral inverted index:
+If corpus size eventually makes this expensive, memsys can add ephemeral derived indexes such as:
 
 ```ts
 Map<Anchor, Set<FragmentRef>>
 ```
 
-That index remains derived state and can always be rebuilt from fragment content.
+or a search-specific structure.
+
+Any such index remains derived state and can always be rebuilt from fragment content.
 
 ---
 
@@ -584,8 +565,6 @@ remember(fragment)
 SQLite INSERT
        ↓
 update in-memory corpus
-       ↓
-update Fuse index
 ```
 
 ### Recall
@@ -593,7 +572,7 @@ update Fuse index
 ```text
 recall(cue)
        ↓
-Fuse fuzzy search
+lexical match against corpus
        ↓
 recalled fragments
        ↓
@@ -614,8 +593,6 @@ revise(ref, fragment)
 SQLite UPDATE
        ↓
 update in-memory corpus
-       ↓
-refresh Fuse index
 ```
 
 Any anchor changes are reflected automatically in future associations.
@@ -628,8 +605,6 @@ forget(ref)
 SQLite DELETE
        ↓
 remove from in-memory corpus
-       ↓
-remove from Fuse index
 ```
 
 No relationship cleanup is required because relationships are derived.
@@ -685,25 +660,23 @@ N fragments
 N SQLite rows read
      ↓
 rebuild in-memory corpus
-     ↓
-build Fuse index
 ```
 
 A warm recall performs:
 
 ```text
-Fuse.search()
+in-memory lexical matching
 +
 in-memory association lookup
 ```
 
-The first scaling boundary is therefore memory footprint rather than query complexity.
+The first scaling boundary is therefore corpus size and matching cost rather than persistent query complexity.
 
 The initial strategy is deliberately simple:
 
 ```text
 small / medium memory space
-→ full in-memory corpus + Fuse index
+→ full in-memory corpus
 
 large memory space
 → revisit the indexing strategy when real usage requires it
@@ -736,7 +709,6 @@ fragment
 Cloudflare Workers
 Cloudflare Durable Objects
 SQLite-backed Durable Object storage
-Fuse.js
 MCP
 ```
 
@@ -744,11 +716,11 @@ MCP
 
 - atomic text fragments
 - hashtags embedded directly in fragment text
-- fuzzy lexical cue recall
+- simple lexical cue recall
 - exact hashtag association
 - automatic associated-fragment expansion
 - durable fragment persistence
-- in-memory Fuse index reconstruction
+- reconstruction of ephemeral in-memory state
 
 ---
 
@@ -760,6 +732,8 @@ The following are outside the MVP:
 vector search
 embeddings
 semantic similarity
+fuzzy search
+stemming / lemmatization
 LLM-generated relationships
 explicit graph edges
 tag entities
@@ -776,9 +750,38 @@ memory scoring formulas
 
 Memory reinforcement is intentionally left open. A useful design may require richer recall history than a counter or a single `last_recalled_at` timestamp, so the MVP should avoid committing to a persistence model prematurely.
 
+Recall matching beyond the simple lexical baseline is also intentionally left open. It should be introduced experimentally only when it improves recall quality without creating excessive noise.
+
 ---
 
 ## 16. Open Questions
+
+### Recall matching
+
+The right amount of approximation in `recall` is unresolved.
+
+Traditional fuzzy search tools such as Fuse.js are primarily useful when queries contain misspellings or approximate character sequences. Agent-generated cues are less likely than human input to contain spelling mistakes, so typo tolerance may introduce more noise than value.
+
+Morphological matching may be more useful. For example:
+
+```text
+handle
+handled
+handling
+```
+
+These forms express closely related lexical intent while simple string matching may treat them independently.
+
+Potential experiments include:
+
+- case and whitespace normalization
+- token-based matching
+- stemming
+- lemmatization
+- morphology-aware matching
+- Fuse.js or similar fuzzy matching as an optional layer
+
+None of these are part of the core memory model. They should be evaluated empirically against real agent recall behavior before becoming default behavior.
 
 ### Memory reinforcement
 
@@ -810,15 +813,15 @@ Explicit hashtags define association.
 
 ### Cues over IDs
 
-Recall begins with something vaguely remembered.
+Recall begins with a textual clue rather than a database identity.
 
 ### Derived structure over duplicated state
 
 Tags and graph relationships come from fragment content.
 
-### Simple mechanisms over intelligent infrastructure
+### Predictable recall over aggressive approximation
 
-Fuse.js handles imperfect lexical recall. Anchors handle association. memsys does not infer semantic relationships on behalf of the agent.
+The baseline recall mechanism should remain easy to reason about. More tolerant matching belongs behind experiments until it demonstrates better recall quality.
 
 ### Small API surface
 
@@ -837,7 +840,7 @@ The API should feel like interacting with memory rather than manipulating databa
 
 memsys can be described in one sentence:
 
-> **memsys is a tiny associative memory system where agents remember fragments, recall them from fuzzy cues, and rediscover related memories through shared anchors.**
+> **memsys is a tiny associative memory system where agents remember fragments, recall them from textual cues, and rediscover related memories through shared anchors.**
 
 Or more conceptually:
 
