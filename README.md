@@ -76,7 +76,7 @@ Before deployment:
 5. Run `pnpm check`, then deploy when approved with `pnpm deploy`.
 6. Connect an OAuth-capable MCP client to `https://<hostname>/mcp`. Check login and all four tools. Check that unauthenticated API calls are blocked.
 
-The Worker returns 503 if either Access setting is empty, and 401 for missing or invalid assertions. `workers.dev` and preview URLs are disabled. No alternate public route or local auth bypass is provided. This version uses human Access identities; service tokens without a user subject are not supported.
+The default deployment returns 503 if either Access setting is empty, and 401 for missing or invalid assertions. `workers.dev` and preview URLs are disabled. This version uses human Access identities; service tokens without a user subject are not supported.
 
 For the HTTP API, use a valid Access browser session or a Managed OAuth bearer token:
 
@@ -96,10 +96,15 @@ Node.js 24 and pnpm 11 are pinned through Mise. Hono handles routing; Zod schema
 ```sh
 mise install
 pnpm install --frozen-lockfile
+cp .dev.vars.example .dev.vars
 pnpm check       # Types, tests, dry-run build, lint, format check
-pnpm dev         # Local Worker; auth remains required
+pnpm dev         # Local Worker with fixed development identity; no login
 ```
 
-Tests generate temporary signing keys and mock only the Access JWKS request. They use real JWT verification, SQLite objects, object eviction, and MCP protocol requests. No Cloudflare account is needed for these tests. Local HTTP requests need a valid Access assertion and matching `.dev.vars`; otherwise use the tests to exercise the system.
+`pnpm dev` uses local SQLite storage. The ignored `.dev.vars` file sets `DEV_IDENTITY=local-user` and clears both Access settings. REST and MCP share a test memory object named from `["local-dev", DEV_IDENTITY]`. Anyone with access to the dev server can change its test memory; do not store sensitive data there. Use `/mcp` or the JSON API routes; there is no homepage.
+
+`.dev.vars` is not deployed. Production still verifies Access, and either configured Access setting prevents the development bypass. To test Access locally, temporarily move `.dev.vars` aside and restart `pnpm dev` with a valid Access assertion. Test the full OAuth login flow on the deployed domain.
+
+Tests generate temporary signing keys and mock only the Access JWKS request. They use real JWT verification, SQLite objects, object eviction, and MCP protocol requests. Development tests also check the fixed identity and its isolation. No Cloudflare account is needed for these tests.
 
 `worker-configuration.d.ts` is generated and ignored. Keep secrets in ignored `.dev.vars` files. `pnpm build` is a local dry-run bundle; it does not deploy or run migrations on remote objects. A live Access OAuth login must be checked after the hostname and Access application are configured.

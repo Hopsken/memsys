@@ -1,0 +1,5 @@
+# Copy to .dev.vars for local development without Access login.
+# Never configure DEV_IDENTITY as a deployed Worker variable.
+ACCESS_ISSUER=""
+ACCESS_AUD=""
+DEV_IDENTITY=local-user

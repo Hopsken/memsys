@@ -4,7 +4,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 import type { MemoryDO } from "./memory-do";
 
 export interface AppEnv {
-  Bindings: Env;
+  Bindings: Env & { DEV_IDENTITY?: string };
   Variables: { memory: DurableObjectStub<MemoryDO> };
 }
 
@@ -13,6 +13,14 @@ const keySets = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 export const access = createMiddleware<AppEnv>(async (c, next) => {
   const issuer = c.env.ACCESS_ISSUER;
   const audience = c.env.ACCESS_AUD;
+  // Configured Access always takes precedence over the development identity.
+  if (c.env.DEV_IDENTITY && !issuer && !audience) {
+    c.set(
+      "memory",
+      c.env.MEMORY.getByName(JSON.stringify(["local-dev", c.env.DEV_IDENTITY]))
+    );
+    return next();
+  }
   if (!issuer || !audience) {
     return c.json({ error: "Cloudflare Access is not configured" }, 503);
   }
