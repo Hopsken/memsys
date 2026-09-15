@@ -442,8 +442,8 @@ describe("Worker", () => {
     ["/api/revise", { fragment: " \n ", ref: "7x9c2pa" }, 400],
     ["/api/remember", { fragment: " \n " }, 400],
     ["/api/remember", { fragment: 12 }, 400],
-    ["/api/remember", { fragment: "x".repeat(4096) }, 201],
-    ["/api/remember", { fragment: "x".repeat(4097) }, 400],
+    ["/api/remember", { fragment: "x".repeat(280) }, 201],
+    ["/api/remember", { fragment: "x".repeat(281) }, 400],
     ["/api/remember", { fragment: "x".repeat(33_000) }, 413],
     ["/api/remember", { fragment: "x", space: "another-user" }, 400],
     ["/api/recall", { cue: " " }, 400],
@@ -454,6 +454,85 @@ describe("Worker", () => {
       await expect(
         request(path, body, await token("validation"))
       ).resolves.toMatchObject({ status });
+    }
+  );
+
+  it.each(["REST", "MCP"])(
+    "%s applies grapheme limits to remember and revise without changing stored text",
+    async (transport) => {
+      const jwt = await token(`grapheme-${transport}`);
+      const write = async (name: string, args: Record<string, string>) => {
+        if (transport === "MCP") {
+          const { fragment, ...edit } = args;
+          const { result } = await call(
+            jwt,
+            name,
+            name === "revise" ? { ...edit, new_string: fragment ?? "" } : args
+          );
+          return result.isError
+            ? null
+            : (JSON.parse(result.content[0]?.text ?? "") as Fragment & {
+                warnings?: string[];
+              });
+        }
+        const { old_string: _oldString, ...body } = args;
+        const response = await request(`/api/${name}`, body, jwt);
+        if (response.status === 400) {
+          return null;
+        }
+        expect(response.status).toBe(name === "remember" ? 201 : 200);
+        return response.json<Fragment & { warnings?: string[] }>();
+      };
+
+      // Six graphemes, but more UTF-16 units and Unicode code points.
+      const unit = "中a👍🏽👨‍👩‍👧‍👦e\u0301🇨🇳";
+      for (const length of [140, 141, 280]) {
+        const fragment =
+          unit.repeat(Math.floor(length / 6)) + "文".repeat(length % 6);
+        const created = await write("remember", { fragment });
+        expect(created?.fragment).toBe(fragment);
+        const ref = created?.ref ?? "";
+        const revised = await write("revise", {
+          fragment,
+          old_string: fragment,
+          ref,
+        });
+        expect(revised?.fragment).toBe(fragment);
+        for (const result of [created, revised]) {
+          expect(result?.warnings).toStrictEqual(
+            length > 140
+              ? [
+                  `Fragment contains ${length} characters, above the recommended 140. Consider splitting it into smaller fragments.`,
+                ]
+              : undefined
+          );
+        }
+        expect(
+          await write("revise", {
+            fragment: "中".repeat(281),
+            old_string: fragment,
+            ref,
+          })
+        ).toBeNull();
+        const listed = await getList(jwt);
+        const page = await listed.json<{ fragments: Fragment[] }>();
+        const stored = page.fragments.find((item) => item.ref === ref);
+        expect(stored?.fragment).toBe(fragment);
+        expect(stored).not.toHaveProperty("warnings");
+        const shortened = await write("revise", {
+          fragment: "短",
+          old_string: fragment,
+          ref,
+        });
+        expect(shortened?.warnings).toBeUndefined();
+      }
+      expect(
+        await write("remember", { fragment: "中".repeat(281) })
+      ).toBeNull();
+      expect(await write("remember", { fragment: unit.repeat(47) })).toBeNull();
+      const listed = await getList(jwt);
+      const page = await listed.json<{ fragments: Fragment[] }>();
+      expect(page.fragments).toHaveLength(3);
     }
   );
 
@@ -634,12 +713,12 @@ describe("Worker", () => {
       fragment: "REST replacement",
     });
     const boundary = await call(jwt, "revise", {
-      new_string: "x".repeat(4096),
+      new_string: "x".repeat(280),
       old_string: "REST replacement",
       ref: item.ref,
     });
     expect(JSON.parse(boundary.result.content[0]?.text ?? "").fragment).toBe(
-      "x".repeat(4096)
+      "x".repeat(280)
     );
   });
 
@@ -650,7 +729,7 @@ describe("Worker", () => {
     ["aaa", "aa", "new", "more than once"],
     ["remove", "remove", "", "non-whitespace"],
     ["remove", "remove", " \n", "non-whitespace"],
-    ["ab", "a", "x".repeat(4096), "4096"],
+    ["ab", "a", "x".repeat(280), "280"],
     ["keep", "", "new", ""],
   ])(
     "rejects invalid MCP edits without changing stored content (%#)",
@@ -708,7 +787,7 @@ describe("Worker", () => {
   it.each([
     ["a a", "a", "b", false],
     ["a a", "missing", "b", true],
-    ["aa", "a", "x".repeat(2049), true],
+    ["aa", "a", "x".repeat(141), true],
     ["aa", "a", "", true],
   ])(
     "leaves memory unchanged when replaceAll cannot apply (%#)",
