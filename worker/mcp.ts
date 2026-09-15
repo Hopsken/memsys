@@ -23,12 +23,23 @@ const result = (
 };
 
 export const createMcpServer = (memory: DurableObjectStub<MemoryDO>) => {
-  const server = new McpServer({ name: "memsys", version: "0.1.0" });
+  const server = new McpServer(
+    { name: "memsys", version: "0.1.0" },
+    {
+      instructions: `Memsys is long-term fragment memory.
+
+Store durable information as small, atomic, self-contained fragments rather than summaries, transcripts, or reasoning traces. Keep fragments concise, around 140 characters when practical, and split independent ideas into separate memories.
+
+Use #anchors for stable entities or concepts that should link related fragments. Anchors are links, not classifications.
+
+Recall with short textual cues such as distinctive phrases, names, projects, or concepts. Try multiple cues when needed.`,
+    }
+  );
   server.registerTool(
     "remember",
     {
       description:
-        "Store one atomic text fragment. Add #anchors to associate memories.",
+        "Store one durable, independently recallable memory fragment. Keep it atomic, self-contained, and concise. Split multiple ideas into separate fragments. Use #anchors to link related memories.",
       inputSchema: inputs.remember,
     },
     async (input) => result(await memory.remember(input))
@@ -38,7 +49,7 @@ export const createMcpServer = (memory: DurableObjectStub<MemoryDO>) => {
     {
       annotations: { readOnlyHint: true },
       description:
-        "Find a case-insensitive phrase, then related fragments with exact shared #anchors. Returns at most 20 of each, newest updated first.",
+        "Recall memories using a short textual cue. Prefer distinctive phrases, entities, or concepts. Related fragments may also be returned through shared #anchors.",
       inputSchema: inputs.recall,
     },
     async (input) => result(await memory.recall(input))
@@ -47,7 +58,7 @@ export const createMcpServer = (memory: DurableObjectStub<MemoryDO>) => {
     "revise",
     {
       description:
-        "Revise a known fragment by ref. old_string must match exactly, including case and whitespace. By default it must match once; set replaceAll to true to replace all non-overlapping matches. new_string is literal text and may be empty to delete matches. The resulting fragment must be non-blank and at most 280 characters (Unicode grapheme clusters); above 140 returns a warning. Returns the full updated fragment. Anchors follow the new text.",
+        "Replace a known memory when its information has changed or needs correction. Keep the replacement atomic and self-contained.",
       inputSchema: inputs.revise,
     },
     async (input) => result(await memory.revise(input))
@@ -56,7 +67,8 @@ export const createMcpServer = (memory: DurableObjectStub<MemoryDO>) => {
     "forget",
     {
       annotations: { destructiveHint: true },
-      description: "Delete a known fragment by ref.",
+      description:
+        "Delete a known memory that is obsolete, incorrect, duplicated, or explicitly requested to be forgotten.",
       inputSchema: inputs.forget,
     },
     async (input) => result(await memory.forget(input))
