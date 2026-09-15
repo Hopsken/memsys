@@ -38,6 +38,9 @@ importers:
       nanoid:
         specifier: ^6.0.1
         version: 6.0.1
+      porter2:
+        specifier: ^2.0.0
+        version: 2.0.0
       react:
         specifier: ^19.3.0
         version: 19.3.0
@@ -3009,6 +3012,9 @@ packages:
     resolution: {integrity: sha512-nDywThFk1i4BQK4twPQ6TA4RT8bDY96yeuCVBWL3ePARCiEKDRSrNGbFIgUJpLp+XeIR65v8ra7WuJOFUBtkMA==}
     engines: {node: '>=8'}
 
+  porter2@2.0.0:
+    resolution: {integrity: sha512-xPP5MpmapEh5sekPO/6TynotcXfIuLjPwPMybnew68QE2Wmf9+OJ7xuyRZy6VIthS8uh2PQIyq0wOeYgkmA8dA==}
+
   postcss-selector-parser@7.1.6:
     resolution: {integrity: sha512-7qASPzhKF2l2KLboRZux8CCTRMdGiV08vWmyKzPz22qZ7ZjQBOeY7rNzNoCLSUiftJ7HUq0GERHmxw/t0dCdMw==}
     engines: {node: '>=4'}
@@ -5833,6 +5839,8 @@ snapshots:
   pkg-up@3.1.0:
     dependencies:
       find-up: 3.0.0
+
+  porter2@2.0.0: {}
 
   postcss-selector-parser@7.1.6:
     dependencies:
