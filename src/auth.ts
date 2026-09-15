@@ -1,5 +1,6 @@
 import { createMiddleware } from "hono/factory";
 import { createRemoteJWKSet, jwtVerify } from "jose";
+import { z } from "zod";
 
 import type { MemoryDO } from "./memory-do";
 
@@ -41,10 +42,11 @@ export const access = createMiddleware<AppEnv>(async (c, next) => {
       issuer,
       requiredClaims: ["sub", "exp", "iat"],
     });
-    if (!payload.sub || payload.type !== "app") {
+    const subjectResult = z.string().min(1).safeParse(payload.sub);
+    if (!subjectResult.success || payload.type !== "app") {
       return c.json({ error: "Invalid Access identity" }, 401);
     }
-    subject = payload.sub;
+    subject = subjectResult.data;
   } catch {
     return c.json({ error: "Invalid Access token" }, 401);
   }

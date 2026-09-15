@@ -126,6 +126,157 @@ describe("Worker", () => {
     ).resolves.toMatchObject({ status: 401 });
   });
 
+  it.each([42, true, {}, [], null])(
+    "rejects signed non-string subjects: %j",
+    async (sub) => {
+      // Build malformed claims dynamically; the typed JWT API expects a string sub.
+      const jwt = await new SignJWT(
+        Object.fromEntries([
+          ["sub", sub],
+          ["type", "app"],
+        ])
+      )
+        .setProtectedHeader({ alg: "RS256", kid: "test-key" })
+        .setIssuer(issuer)
+        .setAudience("memory-app")
+        .setIssuedAt()
+        .setExpirationTime("5m")
+        .sign(privateKey);
+      await expect(
+        request("/api/recall", { cue: "secret" }, jwt)
+      ).resolves.toMatchObject({ status: 401 });
+    }
+  );
+
+  it.each(["/api/remember", "/api/revise", "/api/forget", "/mcp"])(
+    "blocks cross-origin writes to %s with a valid assertion",
+    async (path) => {
+      const subject = `origin-${path}`;
+      const memory = env.MEMORY.getByName(JSON.stringify([issuer, subject]));
+      const item = await memory.remember({
+        fragment: "Original guarded memory",
+      });
+      const before = await memory.recall({ cue: "memory" });
+      const input =
+        path === "/api/forget"
+          ? { ref: item.ref }
+          : { fragment: "Injected memory", ref: item.ref };
+      const body =
+        path === "/mcp"
+          ? {
+              id: 1,
+              jsonrpc: "2.0",
+              method: "tools/call",
+              params: {
+                arguments: { fragment: "Injected memory" },
+                name: "remember",
+              },
+            }
+          : path === "/api/remember"
+            ? { fragment: "Injected memory" }
+            : input;
+      const jwt = await token(subject);
+      const responses = await Promise.all(
+        ["application/json", "text/plain"].map((contentType) =>
+          worker.fetch(
+            new Request(`https://memsys.test${path}`, {
+              body: JSON.stringify(body),
+              headers: {
+                Accept: "application/json",
+                "Cf-Access-Jwt-Assertion": jwt,
+                "Content-Type": contentType,
+                Origin: "https://attacker.test",
+                "Sec-Fetch-Site": "same-origin",
+              },
+              method: "POST",
+            }),
+            bindings
+          )
+        )
+      );
+      expect(responses.map((response) => response.status)).toStrictEqual([
+        403, 403,
+      ]);
+      await expect(memory.recall({ cue: "memory" })).resolves.toStrictEqual(
+        before
+      );
+    }
+  );
+
+  it.each(["null", "https://memsys.test.attacker.test", "http://memsys.test"])(
+    "rejects untrusted Origin %s",
+    async (origin) => {
+      await expect(
+        worker.fetch(
+          new Request("https://memsys.test/mcp", {
+            headers: { Origin: origin },
+          }),
+          bindings
+        )
+      ).resolves.toMatchObject({ status: 403 });
+    }
+  );
+
+  it.each([
+    "text/plain",
+    "application/jsonp",
+    "application/x-www-form-urlencoded",
+    "",
+  ])(
+    "rejects REST media type %j without writing memory",
+    async (contentType) => {
+      const subject = `media-${contentType}`;
+      const jwt = await token(subject);
+      const headers = new Headers({
+        "Cf-Access-Jwt-Assertion": jwt,
+        Origin: "https://memsys.test",
+      });
+      if (contentType) {
+        headers.set("Content-Type", contentType);
+      }
+      const response = await worker.fetch(
+        new Request("https://memsys.test/api/remember", {
+          body: new TextEncoder().encode(
+            '{"fragment":"Injected media memory"}'
+          ),
+          headers,
+          method: "POST",
+        }),
+        bindings
+      );
+      expect(response.status).toBe(415);
+      const memory = env.MEMORY.getByName(JSON.stringify([issuer, subject]));
+      await expect(memory.recall({ cue: "memory" })).resolves.toMatchObject({
+        recalled: [],
+      });
+    }
+  );
+
+  it.each(["/api/remember", "/mcp"])(
+    "accepts same-origin JSON requests to %s",
+    async (path) => {
+      const jwt = await token(`same-origin-${path}`);
+      const body =
+        path === "/mcp"
+          ? { id: 1, jsonrpc: "2.0", method: "tools/list" }
+          : { fragment: "Same-origin memory" };
+      const response = await worker.fetch(
+        new Request(`https://memsys.test${path}`, {
+          body: JSON.stringify(body),
+          headers: {
+            Accept: "application/json",
+            "Cf-Access-Jwt-Assertion": jwt,
+            "Content-Type": "application/json; charset=utf-8",
+            Origin: "https://memsys.test",
+          },
+          method: "POST",
+        }),
+        bindings
+      );
+      expect(response.status).toBe(path === "/mcp" ? 200 : 201);
+    }
+  );
+
   it("rejects a valid-looking token signed by another key", async () => {
     const other = await generateKeyPair("RS256");
     const jwt = await new SignJWT({ type: "app" })

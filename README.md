@@ -17,6 +17,8 @@ The JSON HTTP API uses the same inputs and memory operations:
 
 `remember` returns 201; other successful HTTP operations return 200. `remember` and `revise` return `{ ref, fragment, createdAt, updatedAt }`. Timestamps use UTC ISO 8601. `forget` returns `{ ref }`. Unknown refs return HTTP 404 or an MCP tool error. Invalid HTTP input returns 400; bodies over 32 KiB return 413.
 
+REST POST requests require `Content-Type: application/json` (optional parameters such as `charset=utf-8` are allowed); other media types return 415. REST and MCP reject a supplied `Origin` unless it exactly matches the request URL's origin, returning 403. Non-browser clients may omit `Origin`.
+
 `recall` returns:
 
 ```json
