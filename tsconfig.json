@@ -3,7 +3,9 @@
     "allowImportingTsExtensions": true,
     "exactOptionalPropertyTypes": true,
     "isolatedModules": true,
-    "lib": ["ESNext"],
+    "jsx": "react-jsx",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "paths": { "@/*": ["./client/*"] },
     "module": "Preserve",
     "moduleDetection": "force",
     "moduleResolution": "Bundler",
@@ -17,13 +19,16 @@
     "types": [
       "./worker-configuration.d.ts",
       "node",
+      "vite/client",
       "@cloudflare/vitest-pool-workers/types"
     ],
     "useUnknownInCatchVariables": true,
     "verbatimModuleSyntax": true
   },
   "include": [
-    "src/**/*.ts",
+    "client/**/*.ts",
+    "client/**/*.tsx",
+    "worker/**/*.ts",
     "tests/**/*.ts",
     "*.config.ts",
     "worker-configuration.d.ts"

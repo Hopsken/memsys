@@ -4,6 +4,12 @@ A tiny associative memory system for agents. Fragments are plain text; shared ha
 
 To connect the deployed server, follow [Use memsys in ChatGPT](docs/chatgpt.md).
 
+## Memory page
+
+Open `/` to view your fragments. The read-only React page shows plain text, refs, and last-update times in your browser's timezone. Use **Load more** for older fragments and **Refresh** to restart the list. Create, revise, and delete fragments through your connected agent or the API.
+
+The app uses Vite, React, Tailwind CSS 4, and shadcn/ui in `client/`. Hono, authentication, MCP, and the Durable Object live in `worker/`. The Cloudflare Vite plugin serves both from one origin. Cloudflare Access protects the whole hostname; the browser sends same-origin requests without storing tokens. API and MCP paths always run through the Worker rather than the HTML fallback.
+
 ## API
 
 `/mcp` serves the four tools below through `@hono/mcp`, using stateless Streamable HTTP. Each POST creates a new MCP server and transport. There are no MCP session IDs, notification streams, or session Durable Objects. GET and DELETE return 405.
@@ -41,6 +47,14 @@ REST POST requests require `Content-Type: application/json` (optional parameters
 ```
 
 Associated items contain `sharedAnchors` instead of `anchors`.
+
+### List fragments
+
+`GET /api/fragments` returns `{ fragments, nextCursor }`. Each fragment contains `{ ref, fragment, createdAt, updatedAt }`. This read-only endpoint uses the same verified identity as REST and MCP and sends `Cache-Control: no-store`.
+
+Pages contain up to 50 items, ordered by `updatedAt` descending and then ref ascending. Pass the returned cursor with `URLSearchParams` as `?cursor=...` to get the next page. `nextCursor: null` marks the end. Invalid cursors or unknown query fields return 400. There is no new MCP tool or database migration.
+
+Pagination is not a snapshot: new or revised fragments can move ahead of the cursor. Refresh to see current data. Deleting the cursor's fragment does not prevent loading the next page.
 
 ### Memory rules
 
@@ -101,14 +115,14 @@ Node.js 24 and pnpm 11 are pinned through Mise. Hono handles routing; Zod schema
 mise install
 pnpm install --frozen-lockfile
 cp .dev.vars.example .dev.vars
-pnpm check       # Types, tests, dry-run build, lint, format check
-pnpm dev         # Local Worker with fixed development identity; no login
+pnpm check       # Types, tests, production build, lint, format check
+pnpm dev         # Vite frontend and local Worker; no login
 ```
 
-`pnpm dev` uses local SQLite storage. The ignored `.dev.vars` file sets `DEV_IDENTITY=local-user` and clears both Access settings. REST and MCP share a test memory object named from `["local-dev", DEV_IDENTITY]`. Anyone with access to the dev server can change its test memory; do not store sensitive data there. Use `/mcp` or the JSON API routes; there is no homepage.
+`pnpm dev` uses local SQLite storage. The ignored `.dev.vars` file sets `DEV_IDENTITY=local-user` and clears both Access settings. The page, REST, and MCP share a test memory object named from `["local-dev", DEV_IDENTITY]`. Anyone with access to the dev server can change its test memory; do not store sensitive data there. Open `/` on the development server to view the memory page.
 
 `.dev.vars` is not deployed. Production still verifies Access, and either configured Access setting prevents the development bypass. To test Access locally, temporarily move `.dev.vars` aside and restart `pnpm dev` with a valid Access assertion. Test the full OAuth login flow on the deployed domain.
 
 Tests generate temporary signing keys and mock only the Access JWKS request. They use real JWT verification, SQLite objects, object eviction, and MCP protocol requests. Development tests also check the fixed identity and its isolation. No Cloudflare account is needed for these tests.
 
-`worker-configuration.d.ts` is generated and ignored. Keep secrets in ignored `.dev.vars` files. `pnpm build` is a local dry-run bundle; it does not deploy or run migrations on remote objects. A live Access OAuth login must be checked after the hostname and Access application are configured.
+`worker-configuration.d.ts` is generated and ignored. Keep secrets in ignored `.dev.vars` files. `pnpm build` builds `dist/client` and `dist/memsys` locally; it does not deploy or run migrations on remote objects. `pnpm deploy` builds before deploying. A live Access OAuth login must be checked after the hostname and Access application are configured.

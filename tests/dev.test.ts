@@ -1,8 +1,8 @@
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
-import worker from "../src/index";
-import type { Fragment } from "../src/memory";
+import worker from "../worker/index";
+import type { Fragment } from "../worker/memory";
 
 const local = {
   ...env,

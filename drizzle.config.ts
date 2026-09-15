@@ -4,5 +4,5 @@ export default defineConfig({
   dialect: "sqlite",
   driver: "durable-sqlite",
   out: "./migrations",
-  schema: "./src/db/schema.ts",
+  schema: "./worker/db/schema.ts",
 });

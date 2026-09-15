@@ -4,6 +4,7 @@ import { z } from "zod";
 export const REF_ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz";
 export const REF_LENGTH = 7;
 export const RESULT_LIMIT = 20;
+export const PAGE_SIZE = 50;
 
 const fragment = z
   .string()
@@ -14,6 +15,14 @@ const ref = z
   .string()
   .length(REF_LENGTH)
   .regex(/^[23456789abcdefghjkmnpqrstuvwxyz]+$/u);
+
+const cursor = z
+  .string()
+  .max(64)
+  .transform((value) => value.split(","))
+  .pipe(z.tuple([z.iso.datetime({ precision: 3 }), ref]));
+
+export const listInput = z.object({ cursor: cursor.optional() }).strict();
 
 export const inputs = {
   forget: z.object({ ref }).strict(),
@@ -28,6 +37,35 @@ export interface Fragment {
   createdAt: string;
   updatedAt: string;
 }
+
+export const listFragments = (
+  corpus: Iterable<Fragment>,
+  input: { cursor?: string }
+) => {
+  const { cursor: after } = listInput.parse(input);
+  const ordered = [...corpus]
+    .filter(
+      (item) =>
+        !after ||
+        item.updatedAt < after[0] ||
+        (item.updatedAt === after[0] && item.ref > after[1])
+    )
+    .toSorted(
+      (a, b) =>
+        b.updatedAt.localeCompare(a.updatedAt) || a.ref.localeCompare(b.ref)
+    );
+  const fragments = ordered.slice(0, PAGE_SIZE);
+  const last = fragments.at(-1);
+  return {
+    fragments,
+    nextCursor:
+      ordered.length > PAGE_SIZE && last
+        ? `${last.updatedAt},${last.ref}`
+        : null,
+  };
+};
+
+export type FragmentPage = ReturnType<typeof listFragments>;
 
 const normalize = (text: string): string =>
   text.toLowerCase().replaceAll(/\s+/gu, " ").trim();

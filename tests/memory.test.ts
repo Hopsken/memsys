@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { extractAnchors, recall } from "../src/memory";
-import type { Fragment } from "../src/memory";
+import { extractAnchors, recall } from "../worker/memory";
+import type { Fragment } from "../worker/memory";
 
 const item = (ref: string, fragment: string, day = "01"): Fragment => ({
   createdAt: "2026-01-01T00:00:00.000Z",
