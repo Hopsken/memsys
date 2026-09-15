@@ -6,7 +6,13 @@ import { customAlphabet } from "nanoid";
 
 import migrations from "../migrations/migrations.js";
 import { fragments } from "./db/schema";
-import { inputs, recall, REF_ALPHABET, REF_LENGTH } from "./memory";
+import {
+  inputs,
+  listFragments,
+  recall,
+  REF_ALPHABET,
+  REF_LENGTH,
+} from "./memory";
 import type { Fragment } from "./memory";
 
 const newRef = customAlphabet(REF_ALPHABET, REF_LENGTH);
@@ -58,6 +64,10 @@ export class MemoryDO extends DurableObject<Env> {
 
   recall(input: { cue: string }) {
     return recall(this.corpus.values(), inputs.recall.parse(input).cue);
+  }
+
+  list(input: { cursor?: string }) {
+    return listFragments(this.corpus.values(), input);
   }
 
   revise(input: { ref: string; fragment: string }): Fragment | null {

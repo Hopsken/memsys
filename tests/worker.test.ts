@@ -5,8 +5,8 @@ import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import worker from "../src/index";
-import type { Fragment } from "../src/memory";
+import worker from "../worker/index";
+import type { Fragment } from "../worker/memory";
 
 const issuer = "https://memsys-test.cloudflareaccess.com";
 const bindings = { ...env, ACCESS_AUD: "memory-app", ACCESS_ISSUER: issuer };
@@ -75,6 +75,65 @@ describe("Worker", () => {
   });
 
   afterAll(() => vi.restoreAllMocks());
+
+  const getList = (assertion: string, query = "") =>
+    worker.fetch(
+      new Request(`https://memsys.test/api/fragments${query}`, {
+        headers: { "Cf-Access-Jwt-Assertion": assertion },
+      }),
+      bindings
+    );
+
+  it("lists only the verified user's fragments without caching or writes", async () => {
+    const jwt = await token("list-owner");
+    const saved = await request(
+      "/api/remember",
+      { fragment: "Private list item" },
+      jwt
+    );
+    const item = await saved.json<Fragment>();
+    const response = await getList(jwt);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    await expect(response.json()).resolves.toStrictEqual({
+      fragments: [item],
+      nextCursor: null,
+    });
+    const other = await getList(await token("list-other"));
+    await expect(other.json()).resolves.toStrictEqual({
+      fragments: [],
+      nextCursor: null,
+    });
+    const memory = env.MEMORY.getByName(JSON.stringify([issuer, "list-owner"]));
+    await evictDurableObject(memory);
+    await expect(memory.list({})).resolves.toStrictEqual({
+      fragments: [item],
+      nextCursor: null,
+    });
+  });
+
+  it("validates list authentication and query parameters", async () => {
+    const jwt = await token("list-validation");
+    await expect(getList("")).resolves.toMatchObject({ status: 401 });
+    await expect(getList(jwt, "?cursor=invalid")).resolves.toMatchObject({
+      status: 400,
+    });
+    await expect(getList(jwt, "?space=other")).resolves.toMatchObject({
+      status: 400,
+    });
+    const memory = env.MEMORY.getByName(
+      JSON.stringify([issuer, "list-validation"])
+    );
+    const item = await memory.remember({ fragment: "Cursor boundary" });
+    const response = await getList(
+      jwt,
+      `?${new URLSearchParams({ cursor: `${item.updatedAt},${item.ref}` })}`
+    );
+    await expect(response.json()).resolves.toStrictEqual({
+      fragments: [],
+      nextCursor: null,
+    });
+  });
 
   it("fails closed without configuration or a verified assertion", async () => {
     const url = "https://memsys.test/api/remember";

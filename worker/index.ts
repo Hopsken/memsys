@@ -7,7 +7,7 @@ import { z } from "zod";
 import { access } from "./auth";
 import type { AppEnv } from "./auth";
 import { createMcpServer } from "./mcp";
-import { inputs } from "./memory";
+import { inputs, listInput } from "./memory";
 
 const app = new Hono<AppEnv>();
 
@@ -48,6 +48,16 @@ app.all("/mcp", async (c) => {
   } finally {
     await server.close();
   }
+});
+
+app.get("/api/fragments", async (c) => {
+  c.header("Cache-Control", "no-store");
+  const query = c.req.query();
+  if (!listInput.safeParse(query).success) {
+    return c.json({ error: "Invalid list query" }, 400);
+  }
+  // Hono's query object has a null prototype; RPC requires a plain object.
+  return c.json(await c.get("memory").list({ ...query }));
 });
 
 app.post("/api/remember", async (c) =>
