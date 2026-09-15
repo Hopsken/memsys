@@ -2,6 +2,8 @@
 
 A tiny associative memory system for agents. Fragments are plain text; shared hashtags associate them. See [the project brief](docs/project-brief.md).
 
+To connect the deployed server, follow [Use memsys in ChatGPT](docs/chatgpt.md).
+
 ## API
 
 `/mcp` serves the four tools below through `@hono/mcp`, using stateless Streamable HTTP. Each POST creates a new MCP server and transport. There are no MCP session IDs, notification streams, or session Durable Objects. GET and DELETE return 405.
