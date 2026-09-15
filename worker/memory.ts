@@ -24,11 +24,20 @@ const cursor = z
 
 export const listInput = z.object({ cursor: cursor.optional() }).strict();
 
+export const restReviseInput = z.object({ fragment, ref }).strict();
+
 export const inputs = {
   forget: z.object({ ref }).strict(),
   recall: z.object({ cue: z.string().trim().min(1).max(256) }).strict(),
   remember: z.object({ fragment }).strict(),
-  revise: z.object({ fragment, ref }).strict(),
+  revise: z
+    .object({
+      new_string: z.string().max(4096),
+      old_string: z.string().min(1).max(4096),
+      ref,
+      replaceAll: z.boolean().optional(),
+    })
+    .strict(),
 };
 
 export interface Fragment {

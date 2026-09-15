@@ -14,7 +14,7 @@ The app uses Vite, React, Tailwind CSS 4, and shadcn/ui in `client/`. Hono, auth
 
 `/mcp` serves the four tools below through `@hono/mcp`, using stateless Streamable HTTP. Each POST creates a new MCP server and transport. There are no MCP session IDs, notification streams, or session Durable Objects. GET and DELETE return 405.
 
-The JSON HTTP API uses the same inputs and memory operations:
+The JSON HTTP API exposes the same memory operations. The inputs below are for HTTP; MCP `revise` uses a text edit instead of full replacement:
 
 | MCP tool | HTTP endpoint | JSON input |
 | --- | --- | --- |
@@ -22,6 +22,8 @@ The JSON HTTP API uses the same inputs and memory operations:
 | `recall` | `POST /api/recall` | `{ "cue": "durable objects" }` |
 | `revise` | `POST /api/revise` | `{ "ref": "7x9c2pa", "fragment": "Replacement text. #memsys" }` |
 | `forget` | `POST /api/forget` | `{ "ref": "7x9c2pa" }` |
+
+MCP `revise` accepts `{ "ref": "7x9c2pa", "old_string": "old text", "new_string": "new text", "replaceAll": false }`. The non-empty `old_string` must match exactly, including case and whitespace. By default it must match once; add context to select one occurrence, or set `replaceAll: true` to replace all non-overlapping matches. No match is an error in either mode. `new_string` is literal text and can be empty to delete matches. The resulting fragment must be non-blank and at most 4096 characters. A failed edit returns an MCP tool error and leaves content and timestamps unchanged. HTTP `revise` keeps `{ ref, fragment }` and requires no old text. Each interface validates its own input schema; both share the final content validation and storage update.
 
 `remember` returns 201; other successful HTTP operations return 200. `remember` and `revise` return `{ ref, fragment, createdAt, updatedAt }`. Timestamps use UTC ISO 8601. `forget` returns `{ ref }`. Unknown refs return HTTP 404 or an MCP tool error. Invalid HTTP input returns 400; bodies over 32 KiB return 413.
 

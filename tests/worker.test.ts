@@ -28,7 +28,7 @@ const request = (path: string, body: JSONValue, jwt: string) =>
 const call = async (
   jwt: string,
   name: string,
-  args: Record<string, string>
+  args: Record<string, string | boolean>
 ) => {
   const response = await request(
     "/mcp",
@@ -219,7 +219,10 @@ describe("Worker", () => {
       const input =
         path === "/api/forget"
           ? { ref: item.ref }
-          : { fragment: "Injected memory", ref: item.ref };
+          : {
+              fragment: "Injected memory",
+              ref: item.ref,
+            };
       const body =
         path === "/mcp"
           ? {
@@ -392,7 +395,10 @@ describe("Worker", () => {
     expect(item.ref).toMatch(/^[23456789abcdefghjkmnpqrstuvwxyz]{7}$/u);
     const revised = await request(
       "/api/revise",
-      { fragment: "Changed design #project/b", ref: item.ref },
+      {
+        fragment: "Changed design #project/b",
+        ref: item.ref,
+      },
       jwt
     );
     await expect(revised.json()).resolves.toMatchObject({
@@ -433,6 +439,7 @@ describe("Worker", () => {
 
   it.each([
     ["/api/remember", { fragment: "" }, 400],
+    ["/api/revise", { fragment: " \n ", ref: "7x9c2pa" }, 400],
     ["/api/remember", { fragment: " \n " }, 400],
     ["/api/remember", { fragment: 12 }, 400],
     ["/api/remember", { fragment: "x".repeat(4096) }, 201],
@@ -483,7 +490,11 @@ describe("Worker", () => {
       associated: [{ ref: neighbor.ref, sharedAnchors: ["cloudflare"] }],
       recalled: [{ anchors: ["cloudflare"], ref: seed.ref }],
     });
-    await memory.revise({ fragment: "Workers #changed", ref: neighbor.ref });
+    await memory.revise({
+      new_string: "Workers #changed",
+      old_string: neighbor.fragment,
+      ref: neighbor.ref,
+    });
     await evictDurableObject(memory);
     await expect(
       memory.recall({ cue: "Durable objects" })
@@ -536,10 +547,19 @@ describe("Worker", () => {
       { id: 2, jsonrpc: "2.0", method: "tools/list" },
       jwt
     );
-    const tools = await list.json<{ result: { tools: { name: string }[] } }>();
+    const tools = await list.json<{
+      result: {
+        tools: { name: string; inputSchema: { required: string[] } }[];
+      };
+    }>();
     expect(
       tools.result.tools.map((tool) => tool.name).toSorted()
     ).toStrictEqual(["forget", "recall", "remember", "revise"]);
+    expect(
+      tools.result.tools
+        .find((tool) => tool.name === "revise")
+        ?.inputSchema.required.toSorted()
+    ).toStrictEqual(["new_string", "old_string", "ref"]);
   });
 
   it("runs all MCP tools without initialization and shares memory with REST", async () => {
@@ -553,18 +573,189 @@ describe("Worker", () => {
     await expect(rest.json()).resolves.toMatchObject({
       recalled: [{ ref: item.ref }],
     });
-    await call(jwt, "revise", { fragment: "Revised MCP #new", ref: item.ref });
+    await call(jwt, "revise", {
+      new_string: "Revised MCP #new",
+      old_string: "MCP memory #test",
+      ref: item.ref,
+    });
     const found = await call(jwt, "recall", { cue: "Revised MCP" });
     expect(JSON.parse(found.result.content[0]?.text ?? "")).toMatchObject({
       recalled: [{ anchors: ["new"], ref: item.ref }],
     });
     await call(jwt, "forget", { ref: item.ref });
     await expect(
-      call(jwt, "revise", { fragment: "Gone", ref: item.ref })
+      call(jwt, "revise", {
+        new_string: "Gone",
+        old_string: "Revised",
+        ref: item.ref,
+      })
     ).resolves.toMatchObject({ result: { isError: true } });
     await expect(
       call(jwt, "remember", { fragment: " " })
     ).resolves.toMatchObject({ result: { isError: true } });
+  });
+
+  it("edits literal text through MCP while preserving surrounding content and REST replacement", async () => {
+    const jwt = await token("mcp-edit");
+    const response = await request(
+      "/api/remember",
+      { fragment: "Before\n旧内容 #old\nAfter" },
+      jwt
+    );
+    const item = await response.json<Fragment>();
+    const edited = await call(jwt, "revise", {
+      new_string: "$& $1 $` $' #new",
+      old_string: "旧内容 #old",
+      ref: item.ref,
+    });
+    expect(JSON.parse(edited.result.content[0]?.text ?? "")).toMatchObject({
+      createdAt: item.createdAt,
+      fragment: "Before\n$& $1 $` $' #new\nAfter",
+      ref: item.ref,
+    });
+    const deleted = await call(jwt, "revise", {
+      new_string: "",
+      old_string: "$& $1 $` $' ",
+      ref: item.ref,
+    });
+    expect(JSON.parse(deleted.result.content[0]?.text ?? "").fragment).toBe(
+      "Before\n#new\nAfter"
+    );
+    const rest = await request(
+      "/api/revise",
+      {
+        fragment: "REST replacement",
+        ref: item.ref,
+      },
+      jwt
+    );
+    expect(rest.status).toBe(200);
+    await expect(rest.json()).resolves.toMatchObject({
+      fragment: "REST replacement",
+    });
+    const boundary = await call(jwt, "revise", {
+      new_string: "x".repeat(4096),
+      old_string: "REST replacement",
+      ref: item.ref,
+    });
+    expect(JSON.parse(boundary.result.content[0]?.text ?? "").fragment).toBe(
+      "x".repeat(4096)
+    );
+  });
+
+  it.each([
+    ["Case  sensitive", "case  sensitive", "new", "not found"],
+    ["Case  sensitive", "Case sensitive", "new", "not found"],
+    ["one one", "one", "new", "more than once"],
+    ["aaa", "aa", "new", "more than once"],
+    ["remove", "remove", "", "non-whitespace"],
+    ["remove", "remove", " \n", "non-whitespace"],
+    ["ab", "a", "x".repeat(4096), "4096"],
+    ["keep", "", "new", ""],
+  ])(
+    "rejects invalid MCP edits without changing stored content (%#)",
+    async (fragment, oldString, newString, error) => {
+      const jwt = await token("mcp-edit-errors");
+      const response = await request("/api/remember", { fragment }, jwt);
+      const item = await response.json<Fragment>();
+      const edited = await call(jwt, "revise", {
+        new_string: newString,
+        old_string: oldString,
+        ref: item.ref,
+      });
+      expect(edited.result.isError).toBeTruthy();
+      expect(edited.result.content[0]?.text).toContain(error);
+      const recalled = await request("/api/recall", { cue: fragment }, jwt);
+      const data = await recalled.json<{ recalled: Fragment[] }>();
+      expect(
+        data.recalled.find((entry) => entry.ref === item.ref)
+      ).toMatchObject(item);
+    }
+  );
+
+  it.each([
+    ["a #old b #old c", "#old", "$& #new", "a $& #new b $& #new c"],
+    ["aaa", "aa", "x", "xa"],
+    ["a-a-b", "a-", "", "b"],
+  ])(
+    "replaces all non-overlapping literal matches (%#)",
+    async (fragment, oldString, newString, expected) => {
+      const jwt = await token("mcp-replace-all");
+      const response = await request("/api/remember", { fragment }, jwt);
+      const item = await response.json<Fragment>();
+      const revised = await call(jwt, "revise", {
+        new_string: newString,
+        old_string: oldString,
+        ref: item.ref,
+        replaceAll: true,
+      });
+      expect(JSON.parse(revised.result.content[0]?.text ?? "")).toMatchObject({
+        createdAt: item.createdAt,
+        fragment: expected,
+        ref: item.ref,
+      });
+      const recalled = await request("/api/recall", { cue: expected }, jwt);
+      const data = await recalled.json<{ recalled: Fragment[] }>();
+      expect(
+        data.recalled.find((entry) => entry.ref === item.ref)
+      ).toMatchObject({
+        fragment: expected,
+        ref: item.ref,
+      });
+    }
+  );
+
+  it.each([
+    ["a a", "a", "b", false],
+    ["a a", "missing", "b", true],
+    ["aa", "a", "x".repeat(2049), true],
+    ["aa", "a", "", true],
+  ])(
+    "leaves memory unchanged when replaceAll cannot apply (%#)",
+    async (fragment, oldString, newString, replaceAll) => {
+      const jwt = await token("mcp-replace-all-errors");
+      const response = await request("/api/remember", { fragment }, jwt);
+      const item = await response.json<Fragment>();
+      const revised = await call(jwt, "revise", {
+        new_string: newString,
+        old_string: oldString,
+        ref: item.ref,
+        replaceAll,
+      });
+      expect(revised.result.isError).toBeTruthy();
+      const recalled = await request("/api/recall", { cue: fragment }, jwt);
+      const data = await recalled.json<{ recalled: Fragment[] }>();
+      expect(
+        data.recalled.find((entry) => entry.ref === item.ref)
+      ).toMatchObject(item);
+    }
+  );
+
+  it("keeps REST full replacement separate from MCP edits", async () => {
+    const jwt = await token("rest-replace-all");
+    const created = await request(
+      "/api/remember",
+      { fragment: "a old b old c" },
+      jwt
+    );
+    const item = await created.json<Fragment>();
+    const input = { new_string: "new", old_string: "old", ref: item.ref };
+    const rejected = await request("/api/revise", input, jwt);
+    expect(rejected.status).toBe(400);
+    await expect(
+      call(jwt, "revise", { fragment: "new text", ref: item.ref })
+    ).resolves.toMatchObject({ result: { isError: true } });
+    const revised = await request(
+      "/api/revise",
+      { fragment: "Entirely new text", ref: item.ref },
+      jwt
+    );
+    expect(revised.status).toBe(200);
+    await expect(revised.json()).resolves.toMatchObject({
+      createdAt: item.createdAt,
+      fragment: "Entirely new text",
+      ref: item.ref,
+    });
   });
 
   it("accepts MCP notifications and rejects GET and DELETE", async () => {

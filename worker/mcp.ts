@@ -13,6 +13,12 @@ const result = (
       isError: true,
     };
   }
+  if ("error" in value) {
+    return {
+      content: [{ text: value.error, type: "text" }],
+      isError: true,
+    };
+  }
   return { content: [{ text: JSON.stringify(value), type: "text" }] };
 };
 
@@ -41,7 +47,7 @@ export const createMcpServer = (memory: DurableObjectStub<MemoryDO>) => {
     "revise",
     {
       description:
-        "Replace a known fragment by ref. Anchors follow the new text.",
+        "Revise a known fragment by ref. old_string must match exactly, including case and whitespace. By default it must match once; set replaceAll to true to replace all non-overlapping matches. new_string is literal text and may be empty to delete matches. The result must be non-blank and at most 4096 characters. Returns the full updated fragment. Anchors follow the new text.",
       inputSchema: inputs.revise,
     },
     async (input) => result(await memory.revise(input))

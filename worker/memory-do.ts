@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/durable-sqlite";
 import { migrate } from "drizzle-orm/durable-sqlite/migrator";
 import { customAlphabet } from "nanoid";
+import type { z } from "zod";
 
 import migrations from "../migrations/migrations.js";
 import { fragments } from "./db/schema";
@@ -12,6 +13,7 @@ import {
   recall,
   REF_ALPHABET,
   REF_LENGTH,
+  restReviseInput,
 } from "./memory";
 import type { Fragment } from "./memory";
 
@@ -70,8 +72,42 @@ export class MemoryDO extends DurableObject<Env> {
     return listFragments(this.corpus.values(), input);
   }
 
-  revise(input: { ref: string; fragment: string }): Fragment | null {
-    const { ref, fragment } = inputs.revise.parse(input);
+  revise(input: z.input<typeof inputs.revise>) {
+    const {
+      ref,
+      old_string: oldString,
+      new_string: newString,
+      replaceAll,
+    } = inputs.revise.parse(input);
+    const existing = this.corpus.get(ref);
+    if (!existing) {
+      return null;
+    }
+    const start = existing.fragment.indexOf(oldString);
+    if (start === -1) {
+      return {
+        error:
+          "old_string not found. Recall the fragment and use its exact text.",
+      };
+    }
+    if (!replaceAll && existing.fragment.includes(oldString, start + 1)) {
+      return {
+        error:
+          "old_string matches more than once. Include more context or set replaceAll to true.",
+      };
+    }
+    const fragment = existing.fragment.replaceAll(oldString, () => newString);
+    if (!restReviseInput.safeParse({ fragment, ref }).success) {
+      return {
+        error:
+          "The resulting fragment must contain non-whitespace text and be at most 4096 characters.",
+      };
+    }
+    return this.replace({ fragment, ref });
+  }
+
+  replace(input: z.input<typeof restReviseInput>): Fragment | null {
+    const { fragment, ref } = restReviseInput.parse(input);
     const existing = this.corpus.get(ref);
     if (!existing) {
       return null;
