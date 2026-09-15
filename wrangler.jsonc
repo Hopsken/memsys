@@ -13,7 +13,7 @@
   // Access application for memsys.hopsken.com.
   "vars": {
     "ACCESS_ISSUER": "https://hopsken.cloudflareaccess.com",
-    "ACCESS_AUD": "651f57ff004c43109e99abfe12f21d076a4ea3aaa5cc30d6286863588a87f0d3",
+    "ACCESS_AUD": "1057d4d820dff96ff37befbb0fd68a026d728868654867182fd2e1659ca8360b",
   },
   // Keep within the runtime version supported by the Cloudflare Vitest pool.
   "compatibility_date": "2026-08-16",
