@@ -1,4 +1,7 @@
-// Empty bootstrap bundle; Drizzle Kit updates this file when migrations are generated.
+import m0000 from "./20260914151731_fragments/migration.sql";
+
 export default {
-  migrations: {},
+  migrations: {
+    "20260914151731_fragments": m0000,
+  },
 };

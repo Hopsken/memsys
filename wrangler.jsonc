@@ -2,6 +2,19 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "memsys",
   "main": "src/index.ts",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    {
+      "pattern": "memsys.hopsken.com",
+      "custom_domain": true,
+    },
+  ],
+  // Access application for memsys.hopsken.com.
+  "vars": {
+    "ACCESS_ISSUER": "https://hopsken.cloudflareaccess.com",
+    "ACCESS_AUD": "651f57ff004c43109e99abfe12f21d076a4ea3aaa5cc30d6286863588a87f0d3",
+  },
   // Keep within the runtime version supported by the Cloudflare Vitest pool.
   "compatibility_date": "2026-08-16",
   "observability": {
