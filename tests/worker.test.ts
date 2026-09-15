@@ -619,7 +619,16 @@ describe("Worker", () => {
     expect(init.status).toBe(200);
     expect(init.headers.has("mcp-session-id")).toBeFalsy();
     await expect(init.json()).resolves.toMatchObject({
-      result: { serverInfo: { name: "memsys" } },
+      result: {
+        instructions: `Memsys is long-term fragment memory.
+
+Store durable information as small, atomic, self-contained fragments rather than summaries, transcripts, or reasoning traces. Keep fragments concise, around 140 characters when practical, and split independent ideas into separate memories.
+
+Use #anchors for stable entities or concepts that should link related fragments. Anchors are links, not classifications.
+
+Recall with short textual cues such as distinctive phrases, names, projects, or concepts. Try multiple cues when needed.`,
+        serverInfo: { name: "memsys" },
+      },
     });
     const list = await request(
       "/mcp",
@@ -634,6 +643,30 @@ describe("Worker", () => {
     expect(
       tools.result.tools.map((tool) => tool.name).toSorted()
     ).toStrictEqual(["forget", "recall", "remember", "revise"]);
+    expect(tools.result.tools).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          description:
+            "Store one durable, independently recallable memory fragment. Keep it atomic, self-contained, and concise. Split multiple ideas into separate fragments. Use #anchors to link related memories.",
+          name: "remember",
+        }),
+        expect.objectContaining({
+          description:
+            "Recall memories using a short textual cue. Prefer distinctive phrases, entities, or concepts. Related fragments may also be returned through shared #anchors.",
+          name: "recall",
+        }),
+        expect.objectContaining({
+          description:
+            "Replace a known memory when its information has changed or needs correction. Keep the replacement atomic and self-contained.",
+          name: "revise",
+        }),
+        expect.objectContaining({
+          description:
+            "Delete a known memory that is obsolete, incorrect, duplicated, or explicitly requested to be forgotten.",
+          name: "forget",
+        }),
+      ])
+    );
     expect(
       tools.result.tools
         .find((tool) => tool.name === "revise")
