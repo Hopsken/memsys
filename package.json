@@ -28,6 +28,7 @@
     "jose": "^6.2.12",
     "lucide-react": "^1.45.0",
     "nanoid": "^6.0.1",
+    "porter2": "^2.0.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "tailwind-merge": "^3.7.0",

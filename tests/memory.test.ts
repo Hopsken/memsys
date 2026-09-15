@@ -26,7 +26,7 @@ describe("Recall projections", () => {
     ]);
   });
 
-  it("uses phrase matching and exact one-hop associations without duplicate results", () => {
+  it("uses phrase matching and one-hop associations without duplicate results", () => {
     const corpus = [
       item("a", "Durable\n  Objects #Project/A #shared"),
       item("b", "Related #project/a #shared #next"),
@@ -44,6 +44,56 @@ describe("Recall projections", () => {
       associated: [],
       recalled: [],
     });
+  });
+
+  it("stems both sides of English associations while preserving returned anchors", () => {
+    const corpus = [
+      item("a", "Seed #PROGRAMMING #relational"),
+      item("b", "Neighbor #program #programs #relation #next"),
+      item("c", "Not transitive #next"),
+      item("d", "Not an anchor: program relation"),
+      item("e", "Different stem #programmer"),
+    ];
+    expect(recall(corpus, "Seed")).toStrictEqual({
+      associated: [
+        { ...corpus[1], sharedAnchors: ["program", "programs", "relation"] },
+      ],
+      hasMoreAssociated: false,
+      hasMoreRecalled: false,
+      recalled: [{ ...corpus[0], anchors: ["programming", "relational"] }],
+    });
+    expect(recall(corpus, "Neighbor").associated).toContainEqual({
+      ...corpus[0],
+      sharedAnchors: ["programming", "relational"],
+    });
+    expect(recall(corpus, "#programming").recalled).toStrictEqual([
+      { ...corpus[0], anchors: ["programming", "relational"] },
+    ]);
+    expect(recall(corpus, "relations")).toMatchObject({
+      associated: [],
+      recalled: [],
+    });
+  });
+
+  it("keeps structured, numeric, and Unicode anchors exact", () => {
+    const anchors = [
+      "project/programs",
+      "agent-programs",
+      "a_programs",
+      "123s",
+      "记忆s",
+    ];
+    const corpus = [
+      item("a", `Seed ${anchors.map((anchor) => `#${anchor}`).join(" ")}`),
+      item(
+        "b",
+        "Different #project/program #agent-program #a_program #123 #记忆"
+      ),
+      item("c", `Exact ${anchors.map((anchor) => `#${anchor}`).join(" ")}`),
+    ];
+    expect(recall(corpus, "Seed").associated).toStrictEqual([
+      { ...corpus[2], sharedAnchors: anchors.toSorted() },
+    ]);
   });
 
   it("bounds both lists, sorts deterministically, and expands only returned seeds", () => {

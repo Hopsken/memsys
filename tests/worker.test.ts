@@ -556,18 +556,18 @@ describe("Worker", () => {
   it("rebuilds from SQLite and updates associations after revise and forget", async () => {
     const memory = env.MEMORY.getByName("persistence");
     const seed = await memory.remember({
-      fragment: "Durable objects #Cloudflare",
+      fragment: "Durable objects #Programming",
     });
     const neighbor = await memory.remember({
-      fragment: "Workers #cloudflare #other",
+      fragment: "Workers #program #other",
     });
     await memory.remember({ fragment: "Not transitive #other" });
     await evictDurableObject(memory);
     await expect(
       memory.recall({ cue: " DURABLE\nobjects " })
     ).resolves.toMatchObject({
-      associated: [{ ref: neighbor.ref, sharedAnchors: ["cloudflare"] }],
-      recalled: [{ anchors: ["cloudflare"], ref: seed.ref }],
+      associated: [{ ref: neighbor.ref, sharedAnchors: ["program"] }],
+      recalled: [{ anchors: ["programming"], ref: seed.ref }],
     });
     await memory.revise({
       new_string: "Workers #changed",

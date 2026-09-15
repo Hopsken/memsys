@@ -1,3 +1,4 @@
+import { stem } from "porter2";
 import { z } from "zod";
 
 // Lowercase only; omit 0, 1, i, l, and o. 31^7 possible refs.
@@ -114,6 +115,10 @@ export const extractAnchors = (text: string): string[] =>
     ),
   ].toSorted();
 
+// Porter2 expects English words; keep structured and non-English anchors exact.
+const associationKey = (anchor: string): string =>
+  /^[a-z]+$/u.test(anchor) ? stem(anchor) : anchor;
+
 export const recall = (corpus: Iterable<Fragment>, cue: string) => {
   const ordered = [...corpus].toSorted(
     (a, b) =>
@@ -128,13 +133,15 @@ export const recall = (corpus: Iterable<Fragment>, cue: string) => {
     anchors: extractAnchors(item.fragment),
   }));
   const refs = new Set(matches.map((item) => item.ref));
-  const anchors = new Set(recalled.flatMap((item) => item.anchors));
+  const anchors = new Set(
+    recalled.flatMap((item) => item.anchors.map(associationKey))
+  );
   const associated = ordered
     .filter((item) => !refs.has(item.ref))
     .map((item) => ({
       ...item,
       sharedAnchors: extractAnchors(item.fragment).filter((anchor) =>
-        anchors.has(anchor)
+        anchors.has(associationKey(anchor))
       ),
     }))
     .filter((item) => item.sharedAnchors.length > 0);

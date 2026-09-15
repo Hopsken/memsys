@@ -397,7 +397,7 @@ Produces the anchors:
 
 Those anchors are then used to surface related fragments.
 
-Association uses exact normalized anchor equality. It does not use fuzzy matching, embeddings, or semantic inference.
+Association compares pure English-letter anchors by their Porter2 stems, so `#program` and `#programming` link fragments. All other anchors use exact lowercase equality. Cue matching and stored text do not use stemming. Returned anchors retain their lowercase spelling. Association does not use fuzzy matching, embeddings, or semantic inference.
 
 ---
 
@@ -648,7 +648,7 @@ Both become:
 cloudflare
 ```
 
-Exact normalized equality defines an association.
+For pure English-letter anchors, equal Porter2 stems define an association. Anchors with numbers, non-English characters, `_`, `-`, or `/` still use exact lowercase equality.
 
 ---
 
@@ -721,7 +721,7 @@ MCP
 - atomic text fragments
 - hashtags embedded directly in fragment text
 - simple lexical cue recall
-- exact hashtag association
+- hashtag association with Porter2 stemming for English-letter anchors
 - automatic associated-fragment expansion
 - durable fragment persistence
 - reconstruction of ephemeral in-memory state
