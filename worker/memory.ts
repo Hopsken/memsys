@@ -6,11 +6,21 @@ export const REF_LENGTH = 7;
 export const RESULT_LIMIT = 20;
 export const PAGE_SIZE = 50;
 
+const FRAGMENT_SOFT_LIMIT = 140;
+const FRAGMENT_HARD_LIMIT = 280;
+const segmenter = new Intl.Segmenter("und", { granularity: "grapheme" });
+const fragmentLength = (value: string) => [...segmenter.segment(value)].length;
+
 const fragment = z
   .string()
   .min(1)
-  .max(4096)
-  .refine((value) => value.trim().length > 0);
+  .refine((value) => value.trim().length > 0)
+  .refine((value) => fragmentLength(value) <= FRAGMENT_HARD_LIMIT, {
+    message: `Fragment must contain at most ${FRAGMENT_HARD_LIMIT} characters (Unicode grapheme clusters).`,
+  })
+  .describe(
+    "One atomic text fragment. Prefer at most 140 characters; 141–280 returns a warning; over 280 is rejected. Count Unicode grapheme clusters, including whitespace and #anchors."
+  );
 const ref = z
   .string()
   .length(REF_LENGTH)
@@ -32,8 +42,8 @@ export const inputs = {
   remember: z.object({ fragment }).strict(),
   revise: z
     .object({
-      new_string: z.string().max(4096),
-      old_string: z.string().min(1).max(4096),
+      new_string: z.string(),
+      old_string: z.string().min(1),
       ref,
       replaceAll: z.boolean().optional(),
     })
@@ -46,6 +56,20 @@ export interface Fragment {
   createdAt: string;
   updatedAt: string;
 }
+
+export const fragmentWriteResult = (item: Fragment) => {
+  const length = fragmentLength(item.fragment);
+  return {
+    ...item,
+    ...(length > FRAGMENT_SOFT_LIMIT
+      ? {
+          warnings: [
+            `Fragment contains ${length} characters, above the recommended ${FRAGMENT_SOFT_LIMIT}. Consider splitting it into smaller fragments.`,
+          ],
+        }
+      : {}),
+  };
+};
 
 export const listFragments = (
   corpus: Iterable<Fragment>,

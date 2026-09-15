@@ -8,6 +8,7 @@ import type { z } from "zod";
 import migrations from "../migrations/migrations.js";
 import { fragments } from "./db/schema";
 import {
+  fragmentWriteResult,
   inputs,
   listFragments,
   recall,
@@ -43,7 +44,7 @@ export class MemoryDO extends DurableObject<Env> {
     });
   }
 
-  remember(input: { fragment: string }): Fragment {
+  remember(input: { fragment: string }) {
     const { fragment } = inputs.remember.parse(input);
     let ref = newRef();
     while (this.corpus.has(ref)) {
@@ -61,7 +62,7 @@ export class MemoryDO extends DurableObject<Env> {
       .values({ content: fragment, createdAt: now, id: ref, updatedAt: now })
       .run();
     this.corpus.set(ref, item);
-    return item;
+    return fragmentWriteResult(item);
   }
 
   recall(input: { cue: string }) {
@@ -100,13 +101,13 @@ export class MemoryDO extends DurableObject<Env> {
     if (!restReviseInput.safeParse({ fragment, ref }).success) {
       return {
         error:
-          "The resulting fragment must contain non-whitespace text and be at most 4096 characters.",
+          "The resulting fragment must contain non-whitespace text and be at most 280 characters (Unicode grapheme clusters).",
       };
     }
     return this.replace({ fragment, ref });
   }
 
-  replace(input: z.input<typeof restReviseInput>): Fragment | null {
+  replace(input: z.input<typeof restReviseInput>) {
     const { fragment, ref } = restReviseInput.parse(input);
     const existing = this.corpus.get(ref);
     if (!existing) {
@@ -124,7 +125,7 @@ export class MemoryDO extends DurableObject<Env> {
       .where(eq(fragments.id, ref))
       .run();
     this.corpus.set(ref, item);
-    return item;
+    return fragmentWriteResult(item);
   }
 
   forget(input: { ref: string }): { ref: string } | null {
