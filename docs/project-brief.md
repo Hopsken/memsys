@@ -314,14 +314,18 @@ Possible response:
 
 ### `revise`
 
-Replaces the content of a known fragment.
+Edits the content of a known fragment through MCP.
 
 ```ts
 revise({
   ref: string,
-  fragment: string
-})
+  old_string: string,
+  new_string: string,
+  replaceAll: false, // Optional; true replaces all non-overlapping matches.
+});
 ```
+
+`old_string` must be non-empty and match exactly, including case and whitespace. By default it must match once; `replaceAll: true` replaces all non-overlapping matches. No match is an error in either mode. `new_string` replaces matches literally and may be empty. The result must be non-blank and at most 4096 characters; failed revisions leave the fragment unchanged. MCP uses `inputs.revise`. REST uses a separate schema, `{ ref, fragment }`, to replace the full content without old text. Both paths share the final content validation and storage update.
 
 Changing the text may change its anchors and therefore its derived associations.
 

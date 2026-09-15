@@ -7,7 +7,7 @@ import { z } from "zod";
 import { access } from "./auth";
 import type { AppEnv } from "./auth";
 import { createMcpServer } from "./mcp";
-import { inputs, listInput } from "./memory";
+import { inputs, listInput, restReviseInput } from "./memory";
 
 const app = new Hono<AppEnv>();
 
@@ -72,7 +72,7 @@ app.post("/api/recall", async (c) =>
 app.post("/api/revise", async (c) => {
   const result = await c
     .get("memory")
-    .revise(inputs.revise.parse(await c.req.json()));
+    .replace(restReviseInput.parse(await c.req.json()));
   return result ? c.json(result) : c.json({ error: "Fragment not found" }, 404);
 });
 app.post("/api/forget", async (c) => {

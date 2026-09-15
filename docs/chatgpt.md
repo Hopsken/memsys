@@ -86,7 +86,7 @@ Use disposable data for the first test:
 | --- | --- | --- |
 | Remember | `Use memsys remember to store exactly: ChatGPT connection test: prefer short answers. #chatgpt-test` | A tool result returns the stored text and a ref. |
 | Recall | `Use memsys recall with the cue "ChatGPT connection test".` | The recalled list contains that fragment. |
-| Revise | `Use memsys revise to replace that fragment with: ChatGPT connection test: prefer detailed answers. #chatgpt-test` | ChatGPT uses the returned ref; the ref stays the same and the text changes. |
+| Revise | `Use memsys revise on that ref with old_string "prefer short answers" and new_string "prefer detailed answers".` | ChatGPT uses the returned ref; only the matched text changes, preserving the rest of the fragment. |
 | Verify revision | `Use memsys recall with the cue "ChatGPT connection test" again.` | The new text is returned. |
 | Forget | `Use memsys forget to delete only the test fragment using its ref.` | The tool reports that ref as deleted. |
 | Verify deletion | `Use memsys recall with the cue "ChatGPT connection test" again.` | The deleted fragment is absent. |
