@@ -60,16 +60,13 @@ export interface Fragment {
 
 export const fragmentWriteResult = (item: Fragment) => {
   const length = fragmentLength(item.fragment);
-  return {
-    ...item,
-    ...(length > FRAGMENT_SOFT_LIMIT
-      ? {
-          warnings: [
-            `Fragment contains ${length} characters, above the recommended ${FRAGMENT_SOFT_LIMIT}. Consider splitting it into smaller fragments.`,
-          ],
-        }
-      : {}),
-  };
+  const result: Fragment & { warnings?: string[] } = { ...item };
+  if (length > FRAGMENT_SOFT_LIMIT) {
+    result.warnings = [
+      `Fragment contains ${length} characters, above the recommended ${FRAGMENT_SOFT_LIMIT}. Consider splitting it into smaller fragments.`,
+    ];
+  }
+  return result;
 };
 
 export const listFragments = (

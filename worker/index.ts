@@ -11,23 +11,25 @@ import { inputs, listInput, restReviseInput } from "./memory";
 
 const app = new Hono<AppEnv>();
 
-app.use("*", async (c, next) => {
+app.use("*", (c, next) => {
   const origin = c.req.header("Origin");
   if (origin !== undefined && origin !== new URL(c.req.url).origin) {
-    return c.json({ error: "Untrusted origin" }, 403);
+    return Promise.resolve(c.json({ error: "Untrusted origin" }, 403));
   }
   return next();
 });
 app.use("*", access);
 app.use("*", bodyLimit({ maxSize: 32 * 1024 }));
-app.use("/api/*", async (c, next) => {
+app.use("/api/*", (c, next) => {
   const mediaType = c.req
     .header("Content-Type")
     ?.split(";", 1)[0]
     ?.trim()
     .toLowerCase();
   if (c.req.method === "POST" && mediaType !== "application/json") {
-    return c.json({ error: "Content-Type must be application/json" }, 415);
+    return Promise.resolve(
+      c.json({ error: "Content-Type must be application/json" }, 415)
+    );
   }
   return next();
 });
