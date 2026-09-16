@@ -397,7 +397,7 @@ Produces the anchors:
 
 Those anchors are then used to surface related fragments.
 
-Association compares pure English-letter anchors by their Porter2 stems, so `#program` and `#programming` link fragments. All other anchors use exact lowercase equality. Cue matching and stored text do not use stemming. Returned anchors retain their lowercase spelling. Association does not use fuzzy matching, embeddings, or semantic inference.
+Association splits anchors without `/` at `-`. Any shared nonempty word links fragments in both directions. Pure English-letter words use Porter2 stems, so `#agents` and `#agent-memory` link fragments, as do `#memory` and `#agent-memory`. Other words use exact lowercase equality. Anchors with `/` remain complete exact lowercase matches, without splitting or stemming. Cue matching and stored text do not use stemming. Returned anchors retain their complete lowercase spelling. Association does not use fuzzy matching, embeddings, or semantic inference.
 
 ---
 
@@ -648,7 +648,7 @@ Both become:
 cloudflare
 ```
 
-For pure English-letter anchors, equal Porter2 stems define an association. Anchors with numbers, non-English characters, `_`, `-`, or `/` still use exact lowercase equality.
+For anchors without `/`, split at `-` and compare any nonempty word. Pure English-letter words match by equal Porter2 stems; other words match by exact lowercase equality. Anchors with `/` use complete exact lowercase equality without splitting or stemming.
 
 ---
 
