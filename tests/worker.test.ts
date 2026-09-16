@@ -223,20 +223,20 @@ describe("Worker", () => {
               fragment: "Injected memory",
               ref: item.ref,
             };
-      const body =
-        path === "/mcp"
-          ? {
-              id: 1,
-              jsonrpc: "2.0",
-              method: "tools/call",
-              params: {
-                arguments: { fragment: "Injected memory" },
-                name: "remember",
-              },
-            }
-          : path === "/api/remember"
-            ? { fragment: "Injected memory" }
-            : input;
+      let body: JSONValue = input;
+      if (path === "/mcp") {
+        body = {
+          id: 1,
+          jsonrpc: "2.0",
+          method: "tools/call",
+          params: {
+            arguments: { fragment: "Injected memory" },
+            name: "remember",
+          },
+        };
+      } else if (path === "/api/remember") {
+        body = { fragment: "Injected memory" };
+      }
       const jwt = await token(subject);
       const responses = await Promise.all(
         ["application/json", "text/plain"].map((contentType) =>
@@ -461,6 +461,11 @@ describe("Worker", () => {
     "%s applies grapheme limits to remember and revise without changing stored text",
     async (transport) => {
       const jwt = await token(`grapheme-${transport}`);
+      const writeResult = z.object({
+        fragment: z.string(),
+        ref: z.string(),
+        warnings: z.array(z.string()).optional(),
+      });
       const write = async (name: string, args: Record<string, string>) => {
         if (transport === "MCP") {
           const { fragment, ...edit } = args;
@@ -471,9 +476,7 @@ describe("Worker", () => {
           );
           return result.isError
             ? null
-            : (JSON.parse(result.content[0]?.text ?? "") as Fragment & {
-                warnings?: string[];
-              });
+            : writeResult.parse(JSON.parse(result.content[0]?.text ?? ""));
         }
         const { old_string: _oldString, ...body } = args;
         const response = await request(`/api/${name}`, body, jwt);
@@ -481,55 +484,61 @@ describe("Worker", () => {
           return null;
         }
         expect(response.status).toBe(name === "remember" ? 201 : 200);
-        return response.json<Fragment & { warnings?: string[] }>();
+        return response.json<z.infer<typeof writeResult>>();
       };
 
       // Six graphemes, but more UTF-16 units and Unicode code points.
       const unit = "中a👍🏽👨‍👩‍👧‍👦e\u0301🇨🇳";
-      for (const length of [140, 141, 280]) {
-        const fragment =
-          unit.repeat(Math.floor(length / 6)) + "文".repeat(length % 6);
-        const created = await write("remember", { fragment });
-        expect(created?.fragment).toBe(fragment);
-        const ref = created?.ref ?? "";
-        const revised = await write("revise", {
-          fragment,
-          old_string: fragment,
-          ref,
-        });
-        expect(revised?.fragment).toBe(fragment);
-        for (const result of [created, revised]) {
-          expect(result?.warnings).toStrictEqual(
-            length > 140
-              ? [
-                  `Fragment contains ${length} characters, above the recommended 140. Consider splitting it into smaller fragments.`,
-                ]
-              : undefined
-          );
-        }
-        expect(
-          await write("revise", {
-            fragment: "中".repeat(281),
+      await Promise.all(
+        [140, 141, 280].map(async (length) => {
+          const fragment =
+            unit.repeat(Math.floor(length / 6)) + "文".repeat(length % 6);
+          const created = await write("remember", { fragment });
+          expect(created?.fragment).toBe(fragment);
+          const ref = created?.ref ?? "";
+          const revised = await write("revise", {
+            fragment,
             old_string: fragment,
             ref,
-          })
-        ).toBeNull();
-        const listed = await getList(jwt);
-        const page = await listed.json<{ fragments: Fragment[] }>();
-        const stored = page.fragments.find((item) => item.ref === ref);
-        expect(stored?.fragment).toBe(fragment);
-        expect(stored).not.toHaveProperty("warnings");
-        const shortened = await write("revise", {
-          fragment: "短",
-          old_string: fragment,
-          ref,
-        });
-        expect(shortened?.warnings).toBeUndefined();
-      }
-      expect(
-        await write("remember", { fragment: "中".repeat(281) })
-      ).toBeNull();
-      expect(await write("remember", { fragment: unit.repeat(47) })).toBeNull();
+          });
+          expect(revised?.fragment).toBe(fragment);
+          for (const result of [created, revised]) {
+            expect(result?.warnings).toStrictEqual(
+              length > 140
+                ? [
+                    `Fragment contains ${length} characters, above the recommended 140. Consider splitting it into smaller fragments.`,
+                  ]
+                : undefined
+            );
+          }
+          await expect(
+            write("revise", {
+              fragment: "中".repeat(281),
+              old_string: fragment,
+              ref,
+            })
+          ).resolves.toBeNull();
+          const listed = await getList(jwt);
+          const page = await listed.json<{ fragments: Fragment[] }>();
+          const stored = page.fragments.find((item) => item.ref === ref);
+          expect({
+            fragment: stored?.fragment,
+            hasWarnings: stored !== undefined && "warnings" in stored,
+          }).toStrictEqual({ fragment, hasWarnings: false });
+          const shortened = await write("revise", {
+            fragment: "短",
+            old_string: fragment,
+            ref,
+          });
+          expect(shortened?.warnings).toBeUndefined();
+        })
+      );
+      await expect(
+        write("remember", { fragment: "中".repeat(281) })
+      ).resolves.toBeNull();
+      await expect(
+        write("remember", { fragment: unit.repeat(47) })
+      ).resolves.toBeNull();
       const listed = await getList(jwt);
       const page = await listed.json<{ fragments: Fragment[] }>();
       expect(page.fragments).toHaveLength(3);
@@ -637,41 +646,36 @@ Recall with short textual cues such as distinctive phrases, names, projects, or 
     );
     const tools = await list.json<{
       result: {
-        tools: { name: string; inputSchema: { required: string[] } }[];
+        tools: {
+          description: string;
+          name: string;
+          inputSchema: { required: string[] };
+        }[];
       };
     }>();
-    expect(
-      tools.result.tools.map((tool) => tool.name).toSorted()
-    ).toStrictEqual(["forget", "recall", "remember", "revise"]);
-    expect(tools.result.tools).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          description:
-            "Store one durable, independently recallable memory fragment. Keep it atomic, self-contained, and concise. Split multiple ideas into separate fragments. Use #anchors to link related memories.",
-          name: "remember",
-        }),
-        expect.objectContaining({
-          description:
-            "Recall memories using a short textual cue. Prefer distinctive phrases, entities, or concepts. Related fragments may also be returned through shared #anchors.",
-          name: "recall",
-        }),
-        expect.objectContaining({
-          description:
-            "Replace a known memory when its information has changed or needs correction. Keep the replacement atomic and self-contained.",
-          name: "revise",
-        }),
-        expect.objectContaining({
-          description:
-            "Delete a known memory that is obsolete, incorrect, duplicated, or explicitly requested to be forgotten.",
-          name: "forget",
-        }),
-      ])
+    const toolsByName = Object.fromEntries(
+      tools.result.tools.map((tool) => [tool.name, tool])
     );
-    expect(
-      tools.result.tools
-        .find((tool) => tool.name === "revise")
-        ?.inputSchema.required.toSorted()
-    ).toStrictEqual(["new_string", "old_string", "ref"]);
+    expect({
+      descriptions: Object.fromEntries(
+        tools.result.tools.map((tool) => [tool.name, tool.description])
+      ),
+      names: tools.result.tools.map((tool) => tool.name).toSorted(),
+      reviseRequired: toolsByName.revise?.inputSchema.required.toSorted(),
+    }).toStrictEqual({
+      descriptions: {
+        forget:
+          "Delete a known memory that is obsolete, incorrect, duplicated, or explicitly requested to be forgotten.",
+        recall:
+          "Recall memories using a short textual cue. Prefer distinctive phrases, entities, or concepts. Related fragments may also be returned through shared #anchors.",
+        remember:
+          "Store one durable, independently recallable memory fragment. Keep it atomic, self-contained, and concise. Split multiple ideas into separate fragments. Use #anchors to link related memories.",
+        revise:
+          "Replace a known memory when its information has changed or needs correction. Keep the replacement atomic and self-contained.",
+      },
+      names: ["forget", "recall", "remember", "revise"],
+      reviseRequired: ["new_string", "old_string", "ref"],
+    });
   });
 
   it("runs all MCP tools without initialization and shares memory with REST", async () => {

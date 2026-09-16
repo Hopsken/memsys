@@ -238,8 +238,8 @@ Stores a new fragment.
 
 ```ts
 remember({
-  fragment: string
-})
+  fragment: string,
+});
 ```
 
 Example:
@@ -249,8 +249,8 @@ remember({
   fragment: `
     memsys uses Durable Objects for persistent memory.
     #memsys #cloudflare #architecture
-  `
-})
+  `,
+});
 ```
 
 Possible response:
@@ -269,16 +269,16 @@ Recalls fragments from a textual cue and surfaces associated fragments.
 
 ```ts
 recall({
-  cue: string
-})
+  cue: string,
+});
 ```
 
 Example:
 
 ```ts
 recall({
-  cue: "cloudflare memory"
-})
+  cue: "cloudflare memory",
+});
 ```
 
 Possible response:
@@ -335,8 +335,8 @@ Removes a known fragment.
 
 ```ts
 forget({
-  ref: string
-})
+  ref: string,
+});
 ```
 
 Once removed, every association produced by that fragment disappears naturally because associations are derived.
@@ -529,7 +529,7 @@ A warm Memory Durable Object may keep:
 
 ```ts
 class MemoryDO {
-  fragments: Map<string, Fragment>
+  fragments: Map<string, Fragment>;
 }
 ```
 
@@ -550,7 +550,7 @@ associated fragments
 If corpus size eventually makes this expensive, memsys can add ephemeral derived indexes such as:
 
 ```ts
-Map<Anchor, Set<FragmentRef>>
+Map<Anchor, Set<FragmentRef>>;
 ```
 
 or a search-specific structure.
