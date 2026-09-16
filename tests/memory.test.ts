@@ -75,10 +75,44 @@ describe("Recall projections", () => {
     });
   });
 
-  it("keeps structured, numeric, and Unicode anchors exact", () => {
+  it.each([
+    ["agent", "agent-memory"],
+    ["product", "product-philosophy"],
+    ["agents", "agent-memory"],
+    ["memory", "agent-memory"],
+    ["agent-memory", "agent-tools"],
+    ["agents-memories", "memory-storage"],
+    ["记忆", "agent-记忆"],
+  ])("associates #%s and #%s in both directions", (left, right) => {
+    const corpus = [item("a", `Left #${left}`), item("b", `Right #${right}`)];
+    expect(recall(corpus, "Left").associated).toStrictEqual([
+      { ...corpus[1], sharedAnchors: [right] },
+    ]);
+    expect(recall(corpus, "Right").associated).toStrictEqual([
+      { ...corpus[0], sharedAnchors: [left] },
+    ]);
+  });
+
+  it("matches whole tokens without empty-token or transitive associations", () => {
+    const corpus = [
+      item("a", "Seed #agents--memories-"),
+      item("b", "Related #agent-memory #agent-tools"),
+      item("c", "Not transitive #tools"),
+      item("d", "Not a whole token #agency #memoryful"),
+      item("e", "Not an empty token #-unrelated"),
+      item("f", "Not an anchor: agent memory"),
+      item("g", "Namespace #project/agent-memory #agents-memories/archive"),
+    ];
+    expect(recall(corpus, "Seed").associated).toStrictEqual([
+      { ...corpus[1], sharedAnchors: ["agent-memory", "agent-tools"] },
+    ]);
+    expect(recall(corpus, "Namespace").associated).toStrictEqual([]);
+  });
+
+  it("keeps namespace, underscore, numeric, and Unicode anchors exact", () => {
     const anchors = [
       "project/programs",
-      "agent-programs",
+      "project/agent-programs",
       "a_programs",
       "123s",
       "记忆s",
@@ -87,7 +121,7 @@ describe("Recall projections", () => {
       item("a", `Seed ${anchors.map((anchor) => `#${anchor}`).join(" ")}`),
       item(
         "b",
-        "Different #project/program #agent-program #a_program #123 #记忆"
+        "Different #project/program #project/agent-program #a_program #123 #记忆"
       ),
       item("c", `Exact ${anchors.map((anchor) => `#${anchor}`).join(" ")}`),
     ];

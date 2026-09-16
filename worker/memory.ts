@@ -115,9 +115,13 @@ export const extractAnchors = (text: string): string[] =>
     ),
   ].toSorted();
 
-// Porter2 expects English words; keep structured and non-English anchors exact.
-const associationKey = (anchor: string): string =>
-  /^[a-z]+$/u.test(anchor) ? stem(anchor) : anchor;
+// Keep namespaces exact; stem English words in other anchors independently.
+const associationKeys = (anchor: string): string[] =>
+  anchor.includes("/")
+    ? [anchor]
+    : [anchor, ...anchor.split("-").filter(Boolean)].map((word) =>
+        /^[a-z]+$/u.test(word) ? stem(word) : word
+      );
 
 export const recall = (corpus: Iterable<Fragment>, cue: string) => {
   const ordered = [...corpus].toSorted(
@@ -134,14 +138,14 @@ export const recall = (corpus: Iterable<Fragment>, cue: string) => {
   }));
   const refs = new Set(matches.map((item) => item.ref));
   const anchors = new Set(
-    recalled.flatMap((item) => item.anchors.map(associationKey))
+    recalled.flatMap((item) => item.anchors.flatMap(associationKeys))
   );
   const associated = ordered
     .filter((item) => !refs.has(item.ref))
     .map((item) => ({
       ...item,
       sharedAnchors: extractAnchors(item.fragment).filter((anchor) =>
-        anchors.has(associationKey(anchor))
+        associationKeys(anchor).some((key) => anchors.has(key))
       ),
     }))
     .filter((item) => item.sharedAnchors.length > 0);
