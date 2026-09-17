@@ -7,7 +7,13 @@ import { z } from "zod";
 import { access } from "./auth";
 import type { AppEnv } from "./auth";
 import { createMcpServer } from "./mcp";
-import { inputs, listInput, restReviseInput } from "./memory";
+import {
+  inputs,
+  listInput,
+  refInput,
+  restoreInput,
+  restReviseInput,
+} from "./memory";
 
 const app = new Hono<AppEnv>();
 
@@ -61,6 +67,15 @@ app.get("/api/fragments", async (c) => {
   // Hono's query object has a null prototype; RPC requires a plain object.
   return c.json(await c.get("memory").list({ ...query }));
 });
+app.get("/api/fragments/:ref/history", async (c) => {
+  c.header("Cache-Control", "no-store");
+  const input = refInput.safeParse({ ref: c.req.param("ref") });
+  if (!input.success) {
+    return c.json({ error: "Invalid ref" }, 400);
+  }
+  const result = await c.get("memory").history(input.data);
+  return result ? c.json(result) : c.json({ error: "Fragment not found" }, 404);
+});
 
 app.post("/api/remember", async (c) =>
   c.json(
@@ -82,6 +97,12 @@ app.post("/api/forget", async (c) => {
     .get("memory")
     .forget(inputs.forget.parse(await c.req.json()));
   return result ? c.json(result) : c.json({ error: "Fragment not found" }, 404);
+});
+app.post("/api/restore", async (c) => {
+  const result = await c
+    .get("memory")
+    .restore(restoreInput.parse(await c.req.json()));
+  return result ? c.json(result) : c.json({ error: "Revision not found" }, 404);
 });
 
 app.onError((cause, c) => {

@@ -6,7 +6,7 @@ To connect the deployed server, follow [Use memsys in ChatGPT](docs/chatgpt.md).
 
 ## Memory page
 
-Open `/` to view your fragments. The read-only React page shows plain text, refs, and last-update times in your browser's timezone. Use **Load more** for older fragments and **Refresh** to restart the list. Create, revise, and delete fragments through your connected agent or the API.
+Open `/` to view your fragments. The React page shows plain text, refs, versions, and last-update times in your browser's timezone. Use **Load more** for older fragments and **Refresh** to restart the list. **History** on a fragment shows every revision and lets you restore an earlier one. The **Archived** view lists forgotten fragments and lets you restore them. Create, revise, and forget fragments through your connected agent or the API.
 
 The app uses Vite, React, Tailwind CSS 4, and shadcn/ui in `client/`. Hono, authentication, MCP, and the Durable Object live in `worker/`. The Cloudflare Vite plugin serves both from one origin. Cloudflare Access protects the whole hostname; the browser sends same-origin requests without storing tokens. API and MCP paths always run through the Worker rather than the HTML fallback.
 
@@ -22,10 +22,14 @@ The JSON HTTP API exposes the same memory operations. The inputs below are for H
 | `recall` | `POST /api/recall` | `{ "cue": "durable objects" }` |
 | `revise` | `POST /api/revise` | `{ "ref": "7x9c2pa", "fragment": "Replacement text. #memsys" }` |
 | `forget` | `POST /api/forget` | `{ "ref": "7x9c2pa" }` |
+| — | `POST /api/restore` | `{ "ref": "7x9c2pa", "version": 2 }` |
+| — | `GET /api/fragments/:ref/history` | — |
 
 MCP `revise` accepts `{ "ref": "7x9c2pa", "old_string": "old text", "new_string": "new text", "replaceAll": false }`. The non-empty `old_string` must match exactly, including case and whitespace. By default it must match once; add context to select one occurrence, or set `replaceAll: true` to replace all non-overlapping matches. No match is an error in either mode. `new_string` is literal text and can be empty to delete matches. The resulting fragment must be non-blank and meet the character limits below. A failed edit returns an MCP tool error and leaves content and timestamps unchanged. HTTP `revise` keeps `{ ref, fragment }` and requires no old text. Each interface validates its own input schema; both share the final content validation and storage update.
 
-`remember` returns 201; other successful HTTP operations return 200. `remember` and `revise` return `{ ref, fragment, createdAt, updatedAt }`. Timestamps use UTC ISO 8601. `forget` returns `{ ref }`. Unknown refs return HTTP 404 or an MCP tool error. Invalid HTTP input returns 400; bodies over 32 KiB return 413.
+`remember` returns 201; other successful HTTP operations return 200. `remember`, `revise`, and `restore` return `{ ref, fragment, version, createdAt, updatedAt }`. Timestamps use UTC ISO 8601. `forget` returns `{ ref }`. Unknown refs return HTTP 404 or an MCP tool error. Invalid HTTP input returns 400; bodies over 32 KiB return 413.
+
+`forget` archives a fragment instead of deleting it. An archived fragment leaves `recall` and the default list, and `revise` or `forget` on it returns not found, but its history remains. `GET /api/fragments?archived=1` lists archived fragments with the same cursor paging. `GET /api/fragments/:ref/history` returns `{ ref, revisions: [{ version, fragment, archived, createdAt }] }` in version order for any known ref. `POST /api/restore` makes `version` (default: the latest) the current content and un-archives the fragment; it appends a new revision rather than rewriting history. Restoring an active fragment to its current content writes nothing. Restore and history are HTTP only; the MCP surface stays at four tools.
 
 Fragments have a **140-character soft limit** and a **280-character hard limit**. `remember` and `revise` accept 141–280 characters but add a `warnings` array of messages to the result, for both HTTP and MCP. More than 280 characters is rejected without writing. Warnings are not stored. Existing longer fragments remain readable; revisions must meet the new limit.
 
@@ -76,7 +80,11 @@ Pagination is not a snapshot: new or revised fragments can move ahead of the cur
 
 One SQLite Durable Object holds each user's memory. Its name is `JSON.stringify([verifiedIssuer, verifiedSubject])`. REST and MCP use the same object. Clients cannot select another user's memory space.
 
-`fragments` is the only domain table. Drizzle migrations run inside `blockConcurrencyWhile` before the object accepts requests. The object then loads all fragments into a map. Writes update SQLite before the map. Object eviction removes only the map; the next instance rebuilds it from SQLite. Anchor and search results are disposable projections.
+`revisions` is the authoritative append-only log keyed by `(ref, version)`. Each row stores content, archive state, and revision time. `fragments` stores each latest revision and the fragment's original creation time. The creation time is stored only in `fragments.created_at`, not repeated in revisions. `remember`, `revise`, `forget`, and `restore` append a revision and upsert its head in one local SQLite transaction; the in-memory maps change only after that transaction succeeds. Refs are never reused.
+
+Drizzle migrations run inside `blockConcurrencyWhile` before the object accepts requests. Cold objects load current heads from `fragments` rather than folding the complete history. Object eviction removes only the in-memory maps; `revisions` and `fragments` remain in SQLite. Anchor and search results are disposable projections.
+
+The unshipped revisions migration converts each original `fragments` row to one imported version 1 snapshot. It preserves the original `created_at` in `fragments` and `updated_at` as both the imported revision time and current head update time. This does not invent a historical edit. Disposable local databases that already ran an earlier draft of this migration need to be reset or updated locally; those drafts are not production migration paths.
 
 For future schema changes:
 

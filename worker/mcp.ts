@@ -66,9 +66,10 @@ Recall with short textual cues such as distinctive phrases, names, projects, or 
   server.registerTool(
     "forget",
     {
-      annotations: { destructiveHint: true },
+      // Forget archives the fragment; nothing is erased, so it is reversible.
+      annotations: { destructiveHint: false },
       description:
-        "Delete a known memory that is obsolete, incorrect, duplicated, or explicitly requested to be forgotten.",
+        "Remove a known memory from recall when it is obsolete, incorrect, duplicated, or explicitly requested to be forgotten.",
       inputSchema: inputs.forget,
     },
     async (input) => result(await memory.forget(input))

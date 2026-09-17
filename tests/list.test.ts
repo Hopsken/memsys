@@ -12,6 +12,7 @@ const item = (
   fragment: `Fragment ${ref}`,
   ref,
   updatedAt,
+  version: 1,
 });
 
 describe("Fragment pages", () => {

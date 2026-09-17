@@ -331,7 +331,7 @@ Changing the text may change its anchors and therefore its derived associations.
 
 ### `forget`
 
-Removes a known fragment.
+Archives a known fragment.
 
 ```ts
 forget({
@@ -339,7 +339,7 @@ forget({
 });
 ```
 
-Once removed, every association produced by that fragment disappears naturally because associations are derived.
+The fragment leaves recall and the default list, and every association it produced disappears naturally because associations are derived. Nothing is erased: the fragment's history remains, and the web UI or HTTP API can restore it. Restore and history are deliberately not MCP tools, so the agent's surface stays at four tools.
 
 ---
 
@@ -454,28 +454,30 @@ MemoryDO(agent-a)
 
 ## 8. Persistent and Active Memory
 
-SQLite stores canonical long-term state:
+SQLite stores canonical long-term state as an append-only log and a synchronous head projection:
 
 ```text
 SQLite
-└── fragments
+├── revisions  authoritative history
+└── fragments  latest materialized heads
 ```
 
-The Durable Object may keep an ephemeral copy of the fragment corpus in memory:
+The Durable Object keeps the projected heads in memory, split by archive state:
 
 ```text
 MemoryDO
-└── fragments
+├── active    Map<ref, Fragment>
+└── archived  Map<ref, Fragment>
 ```
 
 On initialization:
 
 ```text
-SQLite
+fragments
  ↓
-load all fragments
+read current heads
  ↓
-build in-memory corpus
+populate active and archived maps
 ```
 
 While the Durable Object remains warm, recall can operate directly over that in-memory corpus.
@@ -485,7 +487,8 @@ If the object is evicted, its in-memory state disappears. A later instance rebui
 This gives memsys a clean separation:
 
 ```text
-SQLite = durable memory
+revisions = canonical durable history
+fragments = persisted latest-head projection
 in-memory corpus = ephemeral active state
 ```
 
@@ -495,16 +498,30 @@ Any future search index must remain derived and rebuildable from the fragment co
 
 ## 9. Data Model
 
-The MVP needs one table:
+The authoritative table is an append-only log:
 
 ```sql
-CREATE TABLE fragments (
-  id TEXT PRIMARY KEY,
-  content TEXT NOT NULL,
-  created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL
-);
+CREATE TABLE revisions (
+  ref        TEXT    NOT NULL,
+  version    INTEGER NOT NULL,           -- 1-based, per ref
+  content    TEXT    NOT NULL,           -- full snapshot, not a diff
+  archived   INTEGER NOT NULL DEFAULT 0, -- state after this revision
+  created_at INTEGER NOT NULL,           -- revision time
+  PRIMARY KEY (ref, version)
+) WITHOUT ROWID;
 ```
+
+Rows are only ever inserted. A **fragment** stores the latest revision of a ref and its original creation time:
+
+```text
+createdAt  = fragments.created_at (unchanged by revisions)
+updatedAt  = created_at of the latest version
+archived   = archived flag of the latest version
+```
+
+The `fragments` table materializes the latest values and retains the fragment's creation time with one row per ref. The creation time is not repeated in revisions. The head is updated in the same synchronous local SQLite transaction that appends the revision. It is not independently editable. Cold startup reads this bounded current-head set instead of folding history.
+
+Storing state (`archived`) rather than an event type keeps history direct; the event is derivable when needed: version 1 is _remembered_, a content change is _revised_, `archived` flipping to 1 is _forgotten_, flipping back to 0 is _restored_. Every row carries the full content so no read has to walk backwards. Refs are never reused, including refs whose head is archived. An imported original-schema row retains its original creation timestamp in `fragments.created_at` and uses its original update timestamp for the version 1 revision, so migration preserves both values without inventing an edit.
 
 There are no persistent tables for:
 
@@ -517,9 +534,7 @@ vectors
 embeddings
 ```
 
-`id` is storage identity.
-
-The MCP layer exposes it as an opaque `ref` after a fragment has been created or recalled.
+`ref` is storage identity. The MCP layer exposes it as an opaque `ref` after a fragment has been created or recalled.
 
 ---
 
@@ -561,14 +576,18 @@ Any such index remains derived state and can always be rebuilt from fragment con
 
 ## 11. Operation Lifecycle
 
+Every write is the same operation: atomically append one revision and upsert its persisted head, then move the in-memory head after the transaction succeeds.
+
 ### Remember
 
 ```text
 remember(fragment)
        ↓
-SQLite INSERT
+INSERT revision (ref, version 1)
        ↓
-update in-memory corpus
+UPSERT fragments head
+       ↓
+active.set(ref, head)
 ```
 
 ### Recall
@@ -594,9 +613,11 @@ Recall does not mutate persistent state in the MVP.
 ```text
 revise(ref, fragment)
        ↓
-SQLite UPDATE
+INSERT revision (ref, version n+1, new content)
        ↓
-update in-memory corpus
+UPSERT fragments head
+       ↓
+active.set(ref, head)
 ```
 
 Any anchor changes are reflected automatically in future associations.
@@ -606,12 +627,28 @@ Any anchor changes are reflected automatically in future associations.
 ```text
 forget(ref)
        ↓
-SQLite DELETE
+INSERT revision (ref, version n+1, same content, archived = 1)
        ↓
-remove from in-memory corpus
+UPSERT fragments head
+       ↓
+active.delete(ref); archived.set(ref, head)
 ```
 
 No relationship cleanup is required because relationships are derived.
+
+### Restore
+
+```text
+restore(ref, version?)
+       ↓
+INSERT revision (ref, version n+1, content of `version`, archived = 0)
+       ↓
+UPSERT fragments head
+       ↓
+archived.delete(ref); active.set(ref, head)
+```
+
+Restore never rewrites history; rolling back is just another revision. Restoring an active fragment to content it already has writes nothing.
 
 ---
 
@@ -659,11 +696,11 @@ The initial target is a personal or agent-specific corpus containing many short 
 A cold Durable Object instance performs:
 
 ```text
-N fragments
+N current fragments
      ↓
 N SQLite rows read
      ↓
-rebuild in-memory corpus
+populate in-memory corpus
 ```
 
 A warm recall performs:
