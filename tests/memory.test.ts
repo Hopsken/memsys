@@ -8,6 +8,7 @@ const item = (ref: string, fragment: string, day = "01"): Fragment => ({
   fragment,
   ref,
   updatedAt: `2026-01-${day}T00:00:00.000Z`,
+  version: 1,
 });
 
 describe("Recall projections", () => {

@@ -437,6 +437,253 @@ describe("Worker", () => {
     await expect(found.json()).resolves.toMatchObject({ recalled: [] });
   });
 
+  const getHistory = (assertion: string, ref: string) =>
+    worker.fetch(
+      new Request(`https://memsys.test/api/fragments/${ref}/history`, {
+        headers: { "Cf-Access-Jwt-Assertion": assertion },
+      }),
+      bindings
+    );
+
+  it("archives forgotten fragments instead of deleting them", async () => {
+    const jwt = await token("rest-archive");
+    const created = await request(
+      "/api/remember",
+      { fragment: "Archive me #keep" },
+      jwt
+    );
+    const item = await created.json<Fragment>();
+    await request("/api/forget", { ref: item.ref }, jwt);
+
+    const active = await getList(jwt);
+    await expect(active.json()).resolves.toStrictEqual({
+      fragments: [],
+      nextCursor: null,
+    });
+    const recalled = await request("/api/recall", { cue: "#keep" }, jwt);
+    await expect(recalled.json()).resolves.toMatchObject({
+      associated: [],
+      recalled: [],
+    });
+    const archived = await getList(jwt, "?archived=1");
+    const page = await archived.json<{ fragments: Fragment[] }>();
+    expect(page.fragments).toStrictEqual([
+      {
+        createdAt: item.createdAt,
+        fragment: item.fragment,
+        ref: item.ref,
+        updatedAt: expect.stringMatching(/Z$/u),
+        version: 2,
+      },
+    ]);
+    const archivedAt = page.fragments[0]?.updatedAt ?? "";
+    expect(archivedAt.localeCompare(item.updatedAt)).toBeGreaterThanOrEqual(0);
+
+    // The archive survives eviction because it is just the latest revision.
+    const memory = env.MEMORY.getByName(
+      JSON.stringify([issuer, "rest-archive"])
+    );
+    await evictDurableObject(memory);
+    await expect(memory.list({ archived: "true" })).resolves.toStrictEqual({
+      fragments: page.fragments,
+      nextCursor: null,
+    });
+  });
+
+  it("records forget and restore as revisions in the history", async () => {
+    const jwt = await token("rest-archive-history");
+    const created = await request(
+      "/api/remember",
+      { fragment: "Archive me #keep" },
+      jwt
+    );
+    const item = await created.json<Fragment>();
+    await request("/api/forget", { ref: item.ref }, jwt);
+    const archived = await getHistory(jwt, item.ref);
+    expect(archived.headers.get("Cache-Control")).toBe("no-store");
+    await expect(archived.json()).resolves.toStrictEqual({
+      ref: item.ref,
+      revisions: [
+        {
+          archived: false,
+          createdAt: item.createdAt,
+          fragment: item.fragment,
+          version: 1,
+        },
+        {
+          archived: true,
+          createdAt: expect.stringMatching(/Z$/u),
+          fragment: item.fragment,
+          version: 2,
+        },
+      ],
+    });
+
+    const restored = await request("/api/restore", { ref: item.ref }, jwt);
+    await expect(restored.json()).resolves.toMatchObject({
+      createdAt: item.createdAt,
+      fragment: item.fragment,
+      ref: item.ref,
+      version: 3,
+    });
+    const back = await request("/api/recall", { cue: "#keep" }, jwt);
+    await expect(back.json()).resolves.toMatchObject({
+      recalled: [{ ref: item.ref, version: 3 }],
+    });
+    const emptied = await getList(jwt, "?archived=1");
+    await expect(emptied.json()).resolves.toStrictEqual({
+      fragments: [],
+      nextCursor: null,
+    });
+  });
+
+  it("restores an earlier version as a new revision without rewriting history", async () => {
+    const jwt = await token("rest-restore");
+    const created = await request(
+      "/api/remember",
+      { fragment: "First #v1" },
+      jwt
+    );
+    const item = await created.json<Fragment>();
+    await request(
+      "/api/revise",
+      { fragment: "Second #v2", ref: item.ref },
+      jwt
+    );
+    // Restoring the current content of an active fragment writes nothing.
+    const same = await request(
+      "/api/restore",
+      { ref: item.ref, version: 2 },
+      jwt
+    );
+    await expect(same.json()).resolves.toMatchObject({
+      fragment: "Second #v2",
+      version: 2,
+    });
+    const reverted = await request(
+      "/api/restore",
+      { ref: item.ref, version: 1 },
+      jwt
+    );
+    await expect(reverted.json()).resolves.toMatchObject({
+      createdAt: item.createdAt,
+      fragment: "First #v1",
+      version: 3,
+    });
+    const recalled = await request("/api/recall", { cue: "#v1" }, jwt);
+    await expect(recalled.json()).resolves.toMatchObject({
+      recalled: [{ fragment: "First #v1", ref: item.ref, version: 3 }],
+    });
+    const history = await getHistory(jwt, item.ref);
+    const { revisions } = await history.json<{
+      revisions: { fragment: string; version: number }[];
+    }>();
+    expect(
+      revisions.map(({ fragment, version }) => [version, fragment])
+    ).toStrictEqual([
+      [1, "First #v1"],
+      [2, "Second #v2"],
+      [3, "First #v1"],
+    ]);
+  });
+
+  it("rejects restore targets that do not exist or belong to another identity", async () => {
+    const jwt = await token("rest-restore-errors");
+    const created = await request(
+      "/api/remember",
+      { fragment: "Only version" },
+      jwt
+    );
+    const item = await created.json<Fragment>();
+    await expect(
+      request("/api/restore", { ref: item.ref, version: 9 }, jwt)
+    ).resolves.toMatchObject({ status: 404 });
+    await expect(
+      request("/api/restore", { ref: "2222222" }, jwt)
+    ).resolves.toMatchObject({ status: 404 });
+    await expect(
+      request("/api/restore", { ref: item.ref, version: 0 }, jwt)
+    ).resolves.toMatchObject({ status: 400 });
+    await expect(
+      request("/api/restore", { ref: item.ref }, await token("rest-other"))
+    ).resolves.toMatchObject({ status: 404 });
+    const recalled = await request("/api/recall", { cue: "Only version" }, jwt);
+    await expect(recalled.json()).resolves.toMatchObject({
+      recalled: [{ ...item, version: 1 }],
+    });
+  });
+
+  it("validates history requests", async () => {
+    const jwt = await token("rest-history");
+    await expect(getHistory(jwt, "invalid!")).resolves.toMatchObject({
+      status: 400,
+    });
+    await expect(getHistory(jwt, "2222222")).resolves.toMatchObject({
+      status: 404,
+    });
+    await expect(getList(jwt, "?archived=maybe")).resolves.toMatchObject({
+      status: 400,
+    });
+  });
+
+  it("migrates original heads without losing distinct timestamps", async () => {
+    const memory = env.MEMORY.getByName("migration");
+    await runInDurableObject(memory, (_instance, state) => {
+      // Rewind storage to the state before the revisions migration.
+      state.storage.sql.exec(
+        "DELETE FROM __drizzle_migrations WHERE name = '20260917014706_revisions'"
+      );
+      state.storage.sql.exec("DROP TABLE revisions");
+      state.storage.sql.exec("DROP TABLE fragments");
+      state.storage.sql.exec(
+        "CREATE TABLE fragments (id text PRIMARY KEY, content text NOT NULL, created_at integer NOT NULL, updated_at integer NOT NULL)"
+      );
+      state.storage.sql.exec(
+        "INSERT INTO fragments VALUES ('abcdefg', 'Legacy #old', 1000, 2000)"
+      );
+    });
+    await evictDurableObject(memory);
+    await expect(memory.list({})).resolves.toStrictEqual({
+      fragments: [
+        {
+          createdAt: "1970-01-01T00:00:01.000Z",
+          fragment: "Legacy #old",
+          ref: "abcdefg",
+          updatedAt: "1970-01-01T00:00:02.000Z",
+          version: 1,
+        },
+      ],
+      nextCursor: null,
+    });
+    await runInDurableObject(memory, (_instance, state) => {
+      expect([
+        ...state.storage.sql.exec("SELECT * FROM revisions"),
+      ]).toStrictEqual([
+        {
+          archived: 0,
+          content: "Legacy #old",
+          created_at: 2000,
+          ref: "abcdefg",
+          version: 1,
+        },
+      ]);
+      expect([
+        ...state.storage.sql.exec(
+          "SELECT archived, content, created_at, ref, updated_at, version FROM fragments"
+        ),
+      ]).toStrictEqual([
+        {
+          archived: 0,
+          content: "Legacy #old",
+          created_at: 1000,
+          ref: "abcdefg",
+          updated_at: 2000,
+          version: 1,
+        },
+      ]);
+    });
+  });
+
   it.each([
     ["/api/remember", { fragment: "" }, 400],
     ["/api/revise", { fragment: " \n ", ref: "7x9c2pa" }, 400],
@@ -588,25 +835,127 @@ describe("Worker", () => {
       memory.recall({ cue: "Durable objects" })
     ).resolves.toMatchObject({ associated: [] });
     await runInDurableObject(memory, (instance, state) => {
-      const before = [
-        ...state.storage.sql.exec("SELECT * FROM fragments ORDER BY id"),
-      ];
+      const rows = "SELECT * FROM revisions ORDER BY ref, version";
+      const before = [...state.storage.sql.exec(rows)];
       instance.recall({ cue: "Durable objects" });
-      expect([
-        ...state.storage.sql.exec("SELECT * FROM fragments ORDER BY id"),
-      ]).toStrictEqual(before);
+      expect([...state.storage.sql.exec(rows)]).toStrictEqual(before);
       expect([
         ...state.storage.sql.exec(
-          "SELECT content FROM fragments WHERE id = ?",
+          "SELECT version, content, archived FROM revisions WHERE ref = ? ORDER BY version",
           neighbor.ref
         ),
-      ]).toStrictEqual([{ content: "Workers #changed" }]);
+      ]).toStrictEqual([
+        { archived: 0, content: "Workers #program #other", version: 1 },
+        { archived: 0, content: "Workers #changed", version: 2 },
+      ]);
     });
     await memory.forget({ ref: seed.ref });
     await evictDurableObject(memory);
     await expect(
       memory.recall({ cue: "Durable objects" })
     ).resolves.toMatchObject({ associated: [], recalled: [] });
+  });
+
+  it("rolls back history and the head when the projection write fails", async () => {
+    const memory = env.MEMORY.getByName("atomic-projection");
+    const item = await memory.remember({ fragment: "Atomic original" });
+    await runInDurableObject(memory, (instance, state) => {
+      state.storage.sql.exec(
+        "CREATE TRIGGER reject_head BEFORE UPDATE ON fragments BEGIN SELECT RAISE(FAIL, 'head rejected'); END"
+      );
+      expect(() =>
+        instance.replace({ fragment: "Partial update", ref: item.ref })
+      ).toThrow('insert into "fragments"');
+      expect([
+        ...state.storage.sql.exec(
+          "SELECT content, version FROM revisions WHERE ref = ? ORDER BY version",
+          item.ref
+        ),
+      ]).toStrictEqual([{ content: "Atomic original", version: 1 }]);
+      expect([
+        ...state.storage.sql.exec(
+          "SELECT content, version FROM fragments WHERE ref = ?",
+          item.ref
+        ),
+      ]).toStrictEqual([{ content: "Atomic original", version: 1 }]);
+      expect(instance.list({})).toStrictEqual({
+        fragments: [item],
+        nextCursor: null,
+      });
+    });
+  });
+
+  it("keeps complete history through archive, unarchive, rollback, and eviction", async () => {
+    const memory = env.MEMORY.getByName("history-eviction");
+    const item = await memory.remember({ fragment: "Version one" });
+    await memory.replace({ fragment: "Version two", ref: item.ref });
+    await memory.forget({ ref: item.ref });
+    await memory.restore({ ref: item.ref });
+    await memory.restore({ ref: item.ref, version: 1 });
+    await evictDurableObject(memory);
+
+    const history = await memory.history({ ref: item.ref });
+    expect(
+      history?.revisions.map(({ archived, fragment, version }) => ({
+        archived,
+        fragment,
+        version,
+      }))
+    ).toStrictEqual([
+      { archived: false, fragment: "Version one", version: 1 },
+      { archived: false, fragment: "Version two", version: 2 },
+      { archived: true, fragment: "Version two", version: 3 },
+      { archived: false, fragment: "Version two", version: 4 },
+      { archived: false, fragment: "Version one", version: 5 },
+    ]);
+    await expect(memory.list({})).resolves.toMatchObject({
+      fragments: [
+        {
+          createdAt: item.createdAt,
+          fragment: "Version one",
+          ref: item.ref,
+          version: 5,
+        },
+      ],
+    });
+  });
+
+  it("loads cold heads from fragments instead of folding revisions", async () => {
+    const memory = env.MEMORY.getByName("head-projection-read");
+    const item = await memory.remember({ fragment: "Projected current" });
+    await runInDurableObject(memory, (_instance, state) => {
+      state.storage.sql.exec(
+        "UPDATE revisions SET content = 'History sentinel' WHERE ref = ? AND version = 1",
+        item.ref
+      );
+    });
+    await evictDurableObject(memory);
+
+    await expect(
+      memory.recall({ cue: "Projected current" })
+    ).resolves.toMatchObject({
+      recalled: [{ fragment: "Projected current", ref: item.ref }],
+    });
+    await expect(
+      memory.recall({ cue: "History sentinel" })
+    ).resolves.toMatchObject({ recalled: [] });
+  });
+
+  it("does not reuse an archived ref after eviction", async () => {
+    const memory = env.MEMORY.getByName("archived-ref-collision");
+    const archived = await memory.remember({ fragment: "Archived identity" });
+    await memory.forget({ ref: archived.ref });
+    await evictDurableObject(memory);
+
+    await runInDurableObject(memory, (instance) => {
+      const refs = [archived.ref, "2222222"];
+      Reflect.set(instance, "createRef", () => refs.shift() ?? "3333333");
+      const created = instance.remember({ fragment: "New identity" });
+      expect(created.ref).toBe("2222222");
+      expect(instance.list({ archived: "true" })).toMatchObject({
+        fragments: [{ ref: archived.ref }],
+      });
+    });
   });
 
   it("initializes MCP without a session and lists exactly four tools", async () => {
@@ -633,7 +982,7 @@ describe("Worker", () => {
 
 Store durable information as small, atomic, self-contained fragments rather than summaries, transcripts, or reasoning traces. Keep fragments concise, around 140 characters when practical, and split independent ideas into separate memories.
 
-Use #anchors for stable entities or concepts that should link related fragments. Anchors are links, not classifications.
+Use #anchors for stable entities or concepts that should link related fragments. Fragments with similar anchors are considered as associated and will be returned when recall.
 
 Recall with short textual cues such as distinctive phrases, names, projects, or concepts. Try multiple cues when needed.`,
         serverInfo: { name: "memsys" },
@@ -665,7 +1014,7 @@ Recall with short textual cues such as distinctive phrases, names, projects, or 
     }).toStrictEqual({
       descriptions: {
         forget:
-          "Delete a known memory that is obsolete, incorrect, duplicated, or explicitly requested to be forgotten.",
+          "Remove a known memory from recall when it is obsolete, incorrect, duplicated, or explicitly requested to be forgotten.",
         recall:
           "Recall memories using a short textual cue. Prefer distinctive phrases, entities, or concepts. Related fragments may also be returned through shared #anchors.",
         remember:

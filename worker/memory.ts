@@ -33,12 +33,18 @@ const cursor = z
   .transform((value) => value.split(","))
   .pipe(z.tuple([z.iso.datetime({ precision: 3 }), ref]));
 
-export const listInput = z.object({ cursor: cursor.optional() }).strict();
+export const listInput = z
+  .object({ archived: z.stringbool().optional(), cursor: cursor.optional() })
+  .strict();
 
+export const refInput = z.object({ ref }).strict();
 export const restReviseInput = z.object({ fragment, ref }).strict();
+export const restoreInput = z
+  .object({ ref, version: z.int().positive().optional() })
+  .strict();
 
 export const inputs = {
-  forget: z.object({ ref }).strict(),
+  forget: refInput,
   recall: z.object({ cue: z.string().trim().min(1).max(256) }).strict(),
   remember: z.object({ fragment }).strict(),
   revise: z
@@ -51,11 +57,21 @@ export const inputs = {
     .strict(),
 };
 
+// The latest revision of a ref, retaining the fragment's original createdAt.
+// For an archived fragment, updatedAt is the archive time.
 export interface Fragment {
   ref: string;
   fragment: string;
+  version: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Revision {
+  version: number;
+  fragment: string;
+  archived: boolean;
+  createdAt: string;
 }
 
 export const fragmentWriteResult = (item: Fragment) => {
@@ -69,9 +85,10 @@ export const fragmentWriteResult = (item: Fragment) => {
   return result;
 };
 
+// The caller picks the corpus (active or archived); this only pages it.
 export const listFragments = (
   corpus: Iterable<Fragment>,
-  input: { cursor?: string }
+  input: z.input<typeof listInput>
 ) => {
   const { cursor: after } = listInput.parse(input);
   const ordered = [...corpus]
