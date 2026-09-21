@@ -10,7 +10,7 @@ describe("Fragment HTTP API", () => {
   const token = useAccess();
 
   it("creates and replaces text while preserving identity and creation time", async () => {
-    const jwt = await token("replace");
+    const jwt = await token();
     const saved = await post("/api/remember", { fragment: "Original" }, jwt);
     expect(saved.status).toBe(201);
     const item = await saved.json<Fragment>();
@@ -38,7 +38,7 @@ describe("Fragment HTTP API", () => {
   });
 
   it("deletes a fragment and reports missing refs", async () => {
-    const jwt = await token("forget");
+    const jwt = await token();
     const saved = await post("/api/remember", { fragment: "Delete this" }, jwt);
     const { ref } = await saved.json<Fragment>();
     const deleted = await post("/api/forget", { ref }, jwt);
@@ -57,7 +57,7 @@ describe("Fragment HTTP API", () => {
   });
 
   it("follows the returned page cursor without caching or changing fragments", async () => {
-    const jwt = await token("pages");
+    const jwt = await token();
     const saved = await Promise.all(
       Array.from({ length: 51 }, async (_, index) => {
         const response = await post(
@@ -93,9 +93,9 @@ describe("Fragment HTTP API", () => {
     "?cursor=2026-01-01T00:00:00.000Z,aaaaaaa,extra",
     "?space=other",
   ])("rejects invalid list query %s", async (query) => {
-    await expect(
-      getList(await token("list-validation"), query)
-    ).resolves.toMatchObject({ status: 400 });
+    await expect(getList(await token(), query)).resolves.toMatchObject({
+      status: 400,
+    });
   });
 
   it.each([
@@ -109,9 +109,9 @@ describe("Fragment HTTP API", () => {
   ] satisfies [string, JSONValue, number][])(
     "rejects invalid request %#",
     async (path, body, status) => {
-      await expect(
-        post(path, body, await token("validation"))
-      ).resolves.toMatchObject({ status });
+      await expect(post(path, body, await token())).resolves.toMatchObject({
+        status,
+      });
     }
   );
 
@@ -121,7 +121,7 @@ describe("Fragment HTTP API", () => {
         new Request("https://memsys.test/api/remember", {
           body: "{",
           headers: {
-            "Cf-Access-Jwt-Assertion": await token("malformed"),
+            "Cf-Access-Jwt-Assertion": await token(),
             "Content-Type": "application/json",
           },
           method: "POST",

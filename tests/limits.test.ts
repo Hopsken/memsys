@@ -11,7 +11,7 @@ describe("Fragment length limits", () => {
   it.each(["REST", "MCP"])(
     "%s counts graphemes, warns on long text, and rejects oversized writes atomically",
     async (transport) => {
-      const jwt = await token(`limits-${transport}`);
+      const jwt = await token();
       const write = async (
         fragment: string,
         previous?: Fragment
@@ -59,6 +59,13 @@ describe("Fragment length limits", () => {
           );
           expect(revised?.fragment).toBe(`改${fragment.slice(1)}`);
           expect(revised?.warnings?.length ?? 0).toBe(length > 140 ? 1 : 0);
+          const page = await list(jwt);
+          expect(page.fragments).toContainEqual({
+            createdAt: created?.createdAt,
+            fragment: `改${fragment.slice(1)}`,
+            ref: created?.ref,
+            updatedAt: revised?.updatedAt,
+          });
           return revised;
         })
       );
@@ -67,18 +74,7 @@ describe("Fragment length limits", () => {
       await expect(write(oversized)).resolves.toBeNull();
       await expect(write(oversized, saved[2] ?? undefined)).resolves.toBeNull();
       await expect(list(jwt)).resolves.toStrictEqual(before);
-      expect(
-        before.fragments.toSorted((a, b) => a.ref.localeCompare(b.ref))
-      ).toStrictEqual(
-        saved
-          .map((item) => ({
-            createdAt: item?.createdAt,
-            fragment: item?.fragment,
-            ref: item?.ref,
-            updatedAt: item?.updatedAt,
-          }))
-          .toSorted((a, b) => (a.ref ?? "").localeCompare(b.ref ?? ""))
-      );
+      expect(before.fragments).toHaveLength(3);
       const shortened = await write("短", saved[2] ?? undefined);
       expect({
         fragment: shortened?.fragment,

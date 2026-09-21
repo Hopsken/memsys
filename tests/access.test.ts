@@ -40,24 +40,20 @@ describe("Access identity", () => {
     { nbf: 9_999_999_999 },
   ])("rejects invalid signed identity claims: %j", async (claims) => {
     await expect(
-      post("/api/recall", { cue: "secret" }, await token("alice", claims))
+      post("/api/recall", { cue: "secret" }, await token(claims))
     ).resolves.toMatchObject({ status: 401 });
   });
 
   it("rejects a valid-looking token signed by another key", async () => {
     const other = await generateKeyPair("RS256");
     await expect(
-      post(
-        "/api/recall",
-        { cue: "secret" },
-        await token("alice", {}, other.privateKey)
-      )
+      post("/api/recall", { cue: "secret" }, await token({}, other.privateKey))
     ).resolves.toMatchObject({ status: 401 });
   });
 
   it("isolates reads, edits, and deletion across REST and MCP identities", async () => {
-    const alice = await token("owner");
-    const bob = await token("other-user");
+    const alice = await token();
+    const bob = await token();
     const saved = await post(
       "/api/remember",
       { fragment: "Private design #private" },

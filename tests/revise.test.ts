@@ -7,7 +7,7 @@ describe("MCP text edits", () => {
   const token = useAccess();
 
   it("treats replacement text literally and preserves surrounding text and identity", async () => {
-    const jwt = await token("literal");
+    const jwt = await token();
     const saved = await post(
       "/api/remember",
       { fragment: "Before\n旧内容 #old\nAfter" },
@@ -50,7 +50,7 @@ describe("MCP text edits", () => {
   ])(
     "leaves content and timestamps unchanged when an edit cannot apply (%#)",
     async (fragment, oldString, newString, replaceAll) => {
-      const jwt = await token("invalid-edit");
+      const jwt = await token();
       const saved = await post("/api/remember", { fragment }, jwt);
       const item = await saved.json<Fragment>();
       const edited = await call(jwt, "revise", {
@@ -74,7 +74,7 @@ describe("MCP text edits", () => {
   ])(
     "replaces all non-overlapping literal matches (%#)",
     async (fragment, oldString, newString, expected) => {
-      const jwt = await token("replace-all");
+      const jwt = await token();
       const saved = await post("/api/remember", { fragment }, jwt);
       const item = await saved.json<Fragment>();
       const result = content<Fragment>(
@@ -98,7 +98,7 @@ describe("MCP text edits", () => {
   );
 
   it("keeps HTTP full replacement separate from MCP edits", async () => {
-    const jwt = await token("input-contracts");
+    const jwt = await token();
     const saved = await post(
       "/api/remember",
       { fragment: "a old b old c" },

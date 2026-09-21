@@ -12,7 +12,7 @@ describe("Stateless MCP", () => {
   const token = useAccess();
 
   it("initializes without a session and advertises the supported tools", async () => {
-    const jwt = await token("init");
+    const jwt = await token();
     const init = await post(
       "/mcp",
       {
@@ -58,7 +58,7 @@ describe("Stateless MCP", () => {
   });
 
   it("shares writes, recall, and deletion with REST without initialization", async () => {
-    const jwt = await token("tools");
+    const jwt = await token();
     const item = content<Fragment>(
       await call(jwt, "remember", { fragment: "MCP memory #test" })
     );
@@ -81,8 +81,8 @@ describe("Stateless MCP", () => {
   });
 
   it("lists complete, unique tags from current memory with identity isolation", async () => {
-    const jwt = await token("tags");
-    const other = await token("other-tags");
+    const jwt = await token();
+    const other = await token();
     await expect(tags(jwt)).resolves.toStrictEqual([]);
     const first = content<Fragment>(
       await call(jwt, "remember", {
@@ -119,7 +119,7 @@ describe("Stateless MCP", () => {
   });
 
   it("returns tool errors for invalid input and missing fragments", async () => {
-    const jwt = await token("errors");
+    const jwt = await token();
     await expect(
       call(jwt, "remember", { fragment: " " })
     ).resolves.toMatchObject({ isError: true });
@@ -136,7 +136,7 @@ describe("Stateless MCP", () => {
   });
 
   it("accepts notifications and rejects GET and DELETE", async () => {
-    const jwt = await token("methods");
+    const jwt = await token();
     await expect(
       post("/mcp", { jsonrpc: "2.0", method: "notifications/initialized" }, jwt)
     ).resolves.toMatchObject({ status: 202 });

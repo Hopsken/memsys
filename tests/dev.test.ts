@@ -55,7 +55,7 @@ describe("Development identity", () => {
     );
     await expect(other.json()).resolves.toMatchObject({ recalled: [] });
     // The same subject under Access must not share the development identity.
-    const jwt = await token("local-test", { sub: local.DEV_IDENTITY });
+    const jwt = await token({ sub: local.DEV_IDENTITY });
     await expect(list(jwt)).resolves.toStrictEqual({
       fragments: [],
       nextCursor: null,

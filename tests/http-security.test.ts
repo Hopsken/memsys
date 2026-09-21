@@ -11,7 +11,7 @@ describe("HTTP request safety", () => {
   it.each(["/api/remember", "/api/revise", "/api/forget", "/mcp"] as const)(
     "blocks cross-origin writes to %s without changing memory",
     async (path) => {
-      const jwt = await token(`origin-${path}`);
+      const jwt = await token();
       const saved = await post(
         "/api/remember",
         { fragment: "Original memory" },
@@ -49,7 +49,7 @@ describe("HTTP request safety", () => {
     "rejects untrusted Origin %s",
     async (origin) => {
       await expect(
-        post("/mcp", {}, await token("origin"), { Origin: origin })
+        post("/mcp", {}, await token(), { Origin: origin })
       ).resolves.toMatchObject({ status: 403 });
     }
   );
@@ -62,7 +62,7 @@ describe("HTTP request safety", () => {
   ])(
     "rejects REST media type %j without writing memory",
     async (contentType) => {
-      const jwt = await token(`media-${contentType}`);
+      const jwt = await token();
       const headers = new Headers({ "Cf-Access-Jwt-Assertion": jwt });
       if (contentType) {
         headers.set("Content-Type", contentType);
@@ -91,7 +91,7 @@ describe("HTTP request safety", () => {
           ? { id: 1, jsonrpc: "2.0", method: "tools/list" }
           : { fragment: "Same-origin memory" };
       await expect(
-        post(path, body, await token(`same-origin-${path}`), {
+        post(path, body, await token(), {
           "Content-Type": "application/json; charset=utf-8",
           Origin: "https://memsys.test",
         })

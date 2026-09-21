@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import type { JSONValue } from "hono/utils/types";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
-import { afterAll, beforeAll, beforeEach, vi } from "vitest";
+import { afterAll, beforeAll, vi } from "vitest";
 
 import worker from "../worker/index";
 import type { FragmentPage } from "../worker/memory";
@@ -9,11 +9,6 @@ import type { FragmentPage } from "../worker/memory";
 // Exercise real Access verification; only the remote signing-key lookup is mocked.
 export const useAccess = () => {
   let privateKey: CryptoKey;
-  let scope: string;
-  // The Workers pool retains DO storage between tests. Scope identities per test.
-  beforeEach(() => {
-    scope = crypto.randomUUID();
-  });
   beforeAll(async () => {
     const pair = await generateKeyPair("RS256", { extractable: true });
     ({ privateKey } = pair);
@@ -32,7 +27,6 @@ export const useAccess = () => {
   afterAll(() => vi.restoreAllMocks());
 
   return (
-    subject: string,
     claims: Record<string, JSONValue | undefined> = {},
     key = privateKey
   ) =>
@@ -41,7 +35,8 @@ export const useAccess = () => {
       exp: Math.floor(Date.now() / 1000) + 300,
       iat: Math.floor(Date.now() / 1000),
       iss: env.ACCESS_ISSUER,
-      sub: `${scope}:${subject}`,
+      // Fresh identities isolate DO storage; explicit claims can reuse a subject.
+      sub: crypto.randomUUID(),
       type: "app",
       ...claims,
     })
