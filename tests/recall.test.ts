@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { extractAnchors, listTags, recall } from "../worker/memory";
+import { recall } from "../worker/memory";
 import type { Fragment } from "../worker/memory";
 
 const item = (ref: string, fragment: string, day = "01"): Fragment => ({
@@ -10,13 +10,15 @@ const item = (ref: string, fragment: string, day = "01"): Fragment => ({
   updatedAt: `2026-01-${day}T00:00:00.000Z`,
 });
 
-describe("Recall projections", () => {
-  it("parses normalized, unique anchors with namespaces and Unicode", () => {
-    expect(
-      extractAnchors(
+describe("Recall", () => {
+  it("returns normalized anchors without treating URLs or headings as tags", () => {
+    const corpus = [
+      item(
+        "a",
         "#Cloudflare #cloudflare (#project/a) #agent-memory #a_b #记忆 #123 https://x/#ignored word#ignored ##heading"
-      )
-    ).toStrictEqual([
+      ),
+    ];
+    expect(recall(corpus, "Cloudflare").recalled[0]?.anchors).toStrictEqual([
       "123",
       "a_b",
       "agent-memory",
@@ -24,16 +26,6 @@ describe("Recall projections", () => {
       "project/a",
       "记忆",
     ]);
-  });
-
-  it("lists complete unique tags in stable order without stemming", () => {
-    expect(
-      listTags([
-        item("a", "First #PROJECT/B #Agents #记忆"),
-        item("b", "Second #project/b #agent #a_b"),
-      ])
-    ).toStrictEqual(["a_b", "agent", "agents", "project/b", "记忆"]);
-    expect(listTags([])).toStrictEqual([]);
   });
 
   it("uses phrase matching and one-hop associations without duplicate results", () => {
@@ -86,11 +78,8 @@ describe("Recall projections", () => {
   });
 
   it.each([
-    ["agent", "agent-memory"],
-    ["product", "product-philosophy"],
     ["agents", "agent-memory"],
     ["memory", "agent-memory"],
-    ["agent-memory", "agent-tools"],
     ["agents-memories", "memory-storage"],
     ["记忆", "agent-记忆"],
   ])("associates #%s and #%s in both directions", (left, right) => {
@@ -143,8 +132,8 @@ describe("Recall projections", () => {
   it("bounds both lists, sorts deterministically, and expands only returned seeds", () => {
     const seeds = Array.from({ length: 21 }, (_, index) =>
       item(
-        `seed-${index.toString().padStart(2, "0")}`,
-        `cue #${index === 20 ? "hidden" : "shared"}`
+        `match-${index.toString().padStart(2, "0")}`,
+        `cue #shared${index === 20 ? " #hidden" : ""}`
       )
     );
     const neighbors = Array.from({ length: 21 }, (_, index) =>

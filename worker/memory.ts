@@ -4,8 +4,8 @@ import { z } from "zod";
 // Lowercase only; omit 0, 1, i, l, and o. 31^7 possible refs.
 export const REF_ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz";
 export const REF_LENGTH = 7;
-export const RESULT_LIMIT = 20;
-export const PAGE_SIZE = 50;
+const RESULT_LIMIT = 20;
+const PAGE_SIZE = 50;
 
 const FRAGMENT_SOFT_LIMIT = 140;
 const FRAGMENT_HARD_LIMIT = 280;
@@ -102,7 +102,7 @@ export type FragmentPage = ReturnType<typeof listFragments>;
 const normalize = (text: string): string =>
   text.toLowerCase().replaceAll(/\s+/gu, " ").trim();
 
-export const extractAnchors = (text: string): string[] =>
+const extractAnchors = (text: string): string[] =>
   [
     ...new Set(
       [
