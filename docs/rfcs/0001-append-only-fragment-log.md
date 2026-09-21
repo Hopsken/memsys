@@ -9,7 +9,7 @@
 
 Replace the assumption that a memory space is stored in a SQLite table with a small `FragmentLog` abstraction backed by a logical append-only NDJSON stream. OpenDAL is the proposed portable storage adapter beneath that abstraction.
 
-Each active log record contains the complete fragment state for one revision. A revision therefore remains understandable without replaying a patch language. Deletion is represented by a tombstone. Replaying records in file order materializes the current corpus; anchors, associations, and search structures remain disposable projections derived from that corpus.
+Each fragment record contains a complete fragment snapshot. A record therefore remains understandable without replaying a patch language. Deletion is represented by an explicit tombstone. Replaying records in file order with a last-record-wins rule materializes the current corpus; anchors, associations, and search structures remain disposable projections derived from that corpus.
 
 The initial object-storage implementation may keep one physical `fragments.ndjson` object and update it with conditional writes. Native append and immutable segmented logs are storage strategies that can be selected from backend capabilities without changing the record format.
 
@@ -22,7 +22,7 @@ A portable fragment log would provide:
 - the same durable format on R2, S3, MinIO, and a local filesystem;
 - a human-readable export that remains useful without memsys;
 - reconstruction of the current corpus and every derived index from one canonical stream;
-- the evolution of a memory, including revisions and logical deletions;
+- the evolution of a memory, including updates and logical deletions;
 - efficient cold loading for the expected small personal corpus;
 - optional byte-range reads once a corpus grows beyond the in-memory model.
 
@@ -31,7 +31,7 @@ OpenDAL fits the persistence boundary because it normalizes storage operations a
 ## Goals
 
 - Define a stable, versioned, human-readable log format.
-- Preserve every committed fragment revision in append order.
+- Preserve every committed fragment snapshot in append order.
 - Keep active fragment records self-contained.
 - Rebuild the current corpus, anchor index, and search projection from canonical data.
 - Allow storage backends with different append and conditional-write capabilities.
@@ -49,7 +49,7 @@ OpenDAL fits the persistence boundary because it normalizes storage operations a
 
 ## Terminology
 
-- **Fragment state record**: a complete active snapshot of one fragment at one revision.
+- **Fragment record**: a complete snapshot of one fragment at one point in time.
 - **Tombstone**: a record that makes a fragment absent from the current corpus while retaining its preceding history.
 - **Logical log**: the ordered sequence of records seen by memsys.
 - **Physical layout**: one object, several immutable segments, or a local file used to store the logical log.
@@ -100,71 +100,73 @@ The canonical serialization is UTF-8 NDJSON:
 - unknown top-level fields are ignored by readers of the same major format version;
 - `format` versions the record schema, beginning at `1`.
 
-### Active fragment
+### Fragment record
 
-Creation writes revision 1:
-
-```json
-{"format":1,"state":"active","ref":"7x9c2pa","revision":1,"fragment":"OpenDAL can provide portable storage. #memsys #opendal","createdAt":"2026-09-21T08:00:00.000Z","updatedAt":"2026-09-21T08:00:00.000Z"}
-```
-
-A revision appends another complete state record:
+Creation writes the first record for a ref:
 
 ```json
-{"format":1,"state":"active","ref":"7x9c2pa","revision":2,"fragment":"OpenDAL is the portable persistence adapter. #memsys #opendal","createdAt":"2026-09-21T08:00:00.000Z","updatedAt":"2026-09-21T08:05:00.000Z"}
+{"format":1,"ref":"7x9c2pa","fragment":"OpenDAL can provide portable storage. #memsys #opendal","at":"2026-09-21T08:00:00.000Z"}
 ```
 
-An active record MUST contain:
+An update appends another complete fragment record:
+
+```json
+{"format":1,"ref":"7x9c2pa","fragment":"OpenDAL is the portable persistence adapter. #memsys #opendal","at":"2026-09-21T08:05:00.000Z"}
+```
+
+A fragment record MUST contain:
 
 - `format`: integer record-format version;
-- `state`: the literal `"active"`;
 - `ref`: the stable fragment reference;
-- `revision`: a per-ref integer beginning at 1 and increasing by 1;
-- `fragment`: the complete fragment text at this revision;
-- `createdAt`: the original creation time, unchanged by later revisions;
-- `updatedAt`: the time this revision became current.
+- `fragment`: the complete fragment text at this point in time;
+- `at`: the time this record was committed.
 
-The record stores the updated fragment, rather than an edit operation such as `replace old_string with new_string`. MCP edit inputs are request semantics. Persisted history is a sequence of complete states.
+The record stores the updated fragment, rather than an edit operation such as `replace old_string with new_string`. MCP edit inputs are request semantics. Persisted history is a sequence of complete snapshots.
+
+The public fragment timestamps are derived during replay:
+
+- `createdAt` is the `at` value of the first fragment record for a ref;
+- `updatedAt` is the `at` value of its latest fragment record.
+
+The log therefore avoids repeating the original creation time in every snapshot.
 
 ### Deleted fragment
 
 Deletion appends a tombstone:
 
 ```json
-{"format":1,"state":"deleted","ref":"7x9c2pa","revision":3,"createdAt":"2026-09-21T08:00:00.000Z","deletedAt":"2026-09-21T08:10:00.000Z"}
+{"format":1,"ref":"7x9c2pa","tombstone":true,"at":"2026-09-21T08:10:00.000Z"}
 ```
 
-A tombstone MUST contain `format`, `state`, `ref`, `revision`, `createdAt`, and `deletedAt`. It MUST omit `fragment`. This keeps the final record concise while the preceding active records preserve the fragment's history.
+A tombstone MUST contain `format`, `ref`, `tombstone: true`, and `at`. It MUST omit `fragment`. A reader distinguishes a tombstone by the explicit boolean and treats a record missing both `fragment` and `tombstone: true` as malformed.
 
 `forget` therefore becomes a logical deletion. The historical text remains in the log until retention or hard-purge policy removes it. API documentation must disclose this behavior before this storage model becomes the default.
 
-### Why state records instead of operation records
+### Why snapshots instead of operation records
 
 An operation-oriented log could store commands such as `put`, `replace`, and `delete`. That representation couples durable data to mutation APIs and requires replay to understand every historical edit instruction.
 
-Complete state records provide these properties:
+Complete fragment snapshots provide these properties:
 
-- every active line is independently readable;
-- replay only needs last-record-wins materialization plus revision validation;
+- every fragment line is independently readable;
+- replay only needs last-record-wins materialization;
 - future API changes do not change historical interpretation;
-- corrupted or missing earlier active revisions do not prevent inspection of a later complete state;
+- corrupted or missing earlier fragment records do not prevent inspection of a later complete snapshot;
 - migrations can transform records without executing an edit language.
 
-The `state` discriminator expresses whether the complete materialized state is active or deleted. It is part of the data model rather than an application command.
+The explicit `tombstone: true` marker represents the only exceptional state. Ordinary fragment records need no discriminator because the required `fragment` field identifies them.
 
 ## Replay and validation
 
-A reader processes records in physical order and maintains `Map<ref, state>`.
+A reader processes records in physical order and maintains `Map<ref, Fragment>`.
 
-For each ref:
+For each record:
 
-1. The first record MUST have `revision: 1` and `state: "active"`.
-2. Each following record MUST increment `revision` by exactly one.
-3. An active record replaces the current materialized fragment.
-4. A tombstone removes the ref from the current corpus.
-5. A later active record after a tombstone is invalid in format 1. Restoring a forgotten memory creates a new ref.
+1. A fragment record replaces the current materialized fragment for its ref.
+2. A tombstone removes its ref from the current corpus.
+3. The last record for a ref determines whether that ref is active or deleted.
 
-Timestamps provide user-visible history and do not determine ordering. Physical log order and `revision` determine ordering.
+The log has no revision counter. Physical order is the sole authority for conflict resolution. The `at` timestamp supports display and history inspection; it does not determine ordering.
 
 Malformed interior records are corruption and stop replay. A final unterminated line may be treated as an interrupted append and ignored, then repaired before the next write. Backends that replace complete objects atomically should never expose a partial final line.
 
@@ -189,7 +191,7 @@ Warm recall continues to operate on the materialized in-memory corpus:
 
 Hashtag association belongs in memsys. An OpenDAL `Layer` is appropriate for cross-cutting storage behavior such as metrics, retry, encryption, compression, or cache. Parsing fragment content and expanding recall would couple domain behavior to storage verbs and is outside the layer boundary.
 
-For the expected corpus size, cold start should read and replay the full logical log. Range reads become useful when loading a selected revision by a known byte offset or when a future snapshot/index avoids full replay.
+For the expected corpus size, cold start should read and replay the full logical log. Range reads become useful when loading a selected historical record by a known byte offset or when a future snapshot/index avoids full replay.
 
 ## Physical storage strategies
 
@@ -234,14 +236,14 @@ The current Durable Object already provides a single coordination point. A porta
 
 An append succeeds only after the new logical head is durable. The in-memory corpus is updated after that point. A failed append leaves the in-memory state unchanged.
 
-Retries must be idempotent. A writer should retain the intended `{ref, revision}` across retries and verify whether that revision is already present before committing again.
+Retries are materially idempotent because appending the same complete snapshot twice produces the same current state under last-record-wins. An adapter should still compare the current tail when possible to avoid redundant history after an uncertain write result.
 
 ## Compaction, history, and deletion
 
-Append-only history grows with every revision. Compaction is policy-driven:
+Append-only history grows with every update. Compaction is policy-driven:
 
 - **History-preserving rotation** seals the current generation and starts a new generation from a snapshot while retaining the sealed log as an archive.
-- **History-pruning compaction** writes only the latest active record for each ref and discards superseded revisions after a configured retention period.
+- **History-pruning compaction** retains the first and latest fragment records for each active ref so `createdAt` and `updatedAt` remain derivable, and discards intermediate records after a configured retention period.
 - **Hard purge** rewrites every retained generation that contains a ref, then removes the replaced generations after the backend's consistency and retention requirements are satisfied.
 
 The default proposed policy is history-preserving rotation. A production design must define storage lifecycle, user-visible export behavior, backup interaction, and a hard-purge path before claiming physical erasure.
@@ -272,9 +274,9 @@ The log format and `FragmentLog` contract remain useful if the Cloudflare implem
 
 ## Migration from SQLite
 
-Existing SQLite rows contain only current state, so migration cannot reconstruct earlier revisions.
+Existing SQLite rows contain only current state, so migration cannot reconstruct earlier updates.
 
-For each row, migration writes one active record with `revision: 1`, preserving `ref`, `fragment`, `createdAt`, and `updatedAt`. The migration then:
+For each row, migration writes a fragment record preserving `ref` and `fragment`. Its `at` is the row's `updatedAt`. When `createdAt` differs, migration writes a synthetic initial snapshot at `createdAt` with `migrated: true`, followed by the same snapshot at `updatedAt`. This preserves both public timestamps while marking that the original text at creation is unknown. The migration then:
 
 1. Replays the generated log.
 2. Compares all materialized fragments with the SQLite source.
@@ -287,7 +289,7 @@ The cutover requires paused writes or a dual-write protocol with a defined commi
 ## Failure handling
 
 - Unknown format versions stop replay with a clear compatibility error.
-- Revision gaps, duplicate revisions with different bytes, and active records after a tombstone are corruption.
+- Records missing both `fragment` and `tombstone: true`, records containing both, and invalid timestamps are corruption.
 - Derived indexes are deleted and rebuilt after any generation change.
 - Conditional-write conflicts reload the logical head before retrying.
 - Orphaned immutable segments remain unreachable and are garbage-collected later.
@@ -306,8 +308,8 @@ Encryption can be supplied beneath `FragmentLog`, including through an OpenDAL l
 The implementation must include:
 
 - round-trip tests for Unicode, escaped newlines, and the 280-grapheme limit;
-- replay tests across create, multiple revisions, and deletion;
-- revision-gap, duplicate, malformed-line, and unknown-version tests;
+- replay tests across create, multiple updates, deletion, and last-record-wins restoration;
+- duplicate-record, malformed-line, ambiguous-record, and unknown-version tests;
 - crash tests around every durable-write boundary;
 - concurrent-writer tests for conditional replacement and manifests;
 - migration equivalence tests against SQLite;
@@ -334,15 +336,15 @@ This retains strong local transactions and the smallest Cloudflare-specific impl
 
 ### Store one object per fragment
 
-This makes individual reads simple, but recall and export require listing and many object reads or separate persistent indexes. Revision history also needs another convention.
+This makes individual reads simple, but recall and export require listing and many object reads or separate persistent indexes. Update history also needs another convention.
 
 ### Persist edit operations
 
-Patch records can be smaller. They make historical interpretation depend on mutation semantics and all preceding revisions. Complete state records suit short fragments and favor durability, readability, and migration simplicity.
+Patch records can be smaller. They make historical interpretation depend on mutation semantics and all preceding records. Complete fragment snapshots suit short fragments and favor durability, readability, and migration simplicity.
 
 ### Persist only the latest snapshot
 
-This minimizes replay and storage. It removes the evolution path that motivates the log and turns each revision into a whole-file state replacement without durable history.
+This minimizes replay and storage. It removes the evolution path that motivates the log and turns each update into a whole-file state replacement without durable history.
 
 ### Store a JSON array
 
@@ -361,7 +363,7 @@ A JSON array is familiar but cannot accept a standalone record append while rema
 Approve the following architectural direction for prototyping:
 
 1. Canonical persistence is a versioned, append-only NDJSON logical log.
-2. Every create and revise record stores the complete updated fragment state.
+2. Every create and revise record stores the complete updated fragment with one `at` timestamp; public creation and update times are derived from log order.
 3. Delete records are tombstones; history retention and hard purge are explicit policies.
 4. Recall and hashtag association stay in memsys and operate on derived projections.
 5. `FragmentLog` shields the domain from physical layout and provider differences.
