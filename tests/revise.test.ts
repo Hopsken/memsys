@@ -42,10 +42,10 @@ describe("MCP text edits", () => {
     ["aaa", "aa", "new", false],
     ["remove", "remove", "", false],
     ["remove", "remove", " \n", false],
-    ["ab", "a", "x".repeat(280), false],
+    ["ab", "a", "x".repeat(500), false],
     ["keep", "", "new", false],
     ["a a", "missing", "b", true],
-    ["aa", "a", "x".repeat(141), true],
+    ["aa", "a", "x".repeat(251), true],
     ["aa", "a", "", true],
   ])(
     "leaves content and timestamps unchanged when an edit cannot apply (%#)",

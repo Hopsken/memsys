@@ -7,8 +7,8 @@ export const REF_LENGTH = 7;
 const RESULT_LIMIT = 20;
 const PAGE_SIZE = 50;
 
-const FRAGMENT_SOFT_LIMIT = 140;
-const FRAGMENT_HARD_LIMIT = 280;
+const FRAGMENT_SOFT_LIMIT = 300;
+const FRAGMENT_HARD_LIMIT = 500;
 const segmenter = new Intl.Segmenter("und", { granularity: "grapheme" });
 const fragmentLength = (value: string) => [...segmenter.segment(value)].length;
 
@@ -20,7 +20,7 @@ const fragment = z
     message: `Fragment must contain at most ${FRAGMENT_HARD_LIMIT} characters (Unicode grapheme clusters).`,
   })
   .describe(
-    "One atomic text fragment. Prefer at most 140 characters; 141–280 returns a warning; over 280 is rejected. Count Unicode grapheme clusters, including whitespace and #anchors."
+    "One atomic text fragment. Prefer at most 300 characters; 301–500 returns a warning; over 500 is rejected. Count Unicode grapheme clusters, including whitespace and #anchors."
   );
 const ref = z
   .string()
