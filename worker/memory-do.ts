@@ -106,7 +106,7 @@ export class MemoryDO extends DurableObject<Env> {
     if (!restReviseInput.safeParse({ fragment, ref }).success) {
       return {
         error:
-          "The resulting fragment must contain non-whitespace text and be at most 280 characters (Unicode grapheme clusters).",
+          "The resulting fragment must contain non-whitespace text and be at most 500 characters (Unicode grapheme clusters).",
       };
     }
     return this.replace({ fragment, ref });

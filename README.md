@@ -30,7 +30,7 @@ MCP `revise` accepts `{ "ref": "7x9c2pa", "old_string": "old text", "new_string"
 
 `remember` returns 201; other successful HTTP operations return 200. `remember` and `revise` return `{ ref, fragment, createdAt, updatedAt }`. Timestamps use UTC ISO 8601. `forget` returns `{ ref }`. Unknown refs return HTTP 404 or an MCP tool error. Invalid HTTP input returns 400; bodies over 32 KiB return 413.
 
-Fragments have a **140-character soft limit** and a **280-character hard limit**. `remember` and `revise` accept 141–280 characters but add a `warnings` array of messages to the result, for both HTTP and MCP. More than 280 characters is rejected without writing. Warnings are not stored. Existing longer fragments remain readable; revisions must meet the new limit.
+Fragments have a **300-character soft limit** and a **500-character hard limit**. `remember` and `revise` accept 301–500 characters but add a `warnings` array of messages to the result, for both HTTP and MCP. More than 500 characters is rejected without writing. Warnings are not stored. Existing longer fragments remain readable; revisions must meet the new limit.
 
 Length uses Unicode grapheme clusters (`Intl.Segmenter`), not UTF-8 bytes or JavaScript UTF-16 code units. A Chinese character, `👍🏽`, `👨‍👩‍👧‍👦`, and `e` with a combining acute accent each count as one character. Spaces, punctuation, and `#anchors` also count. Text is stored unchanged, and blank fragments are rejected. The separate 32 KiB request-body limit still applies.
 

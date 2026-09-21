@@ -45,20 +45,20 @@ describe("Fragment length limits", () => {
 
       // Six graphemes; UTF-16 units and Unicode code points give different lengths.
       const unit = "中a👍🏽👨‍👩‍👧‍👦e\u0301🇨🇳";
-      const oversized = unit.repeat(46) + "文".repeat(5);
+      const oversized = unit.repeat(83) + "文".repeat(3);
       const saved = await Promise.all(
-        [140, 141, 280].map(async (length) => {
+        [300, 301, 500].map(async (length) => {
           const fragment =
             unit.repeat(Math.floor(length / 6)) + "文".repeat(length % 6);
           const created = await write(fragment);
           expect(created?.fragment).toBe(fragment);
-          expect(created?.warnings?.length ?? 0).toBe(length > 140 ? 1 : 0);
+          expect(created?.warnings?.length ?? 0).toBe(length > 300 ? 1 : 0);
           const revised = await write(
             `改${fragment.slice(1)}`,
             created ?? undefined
           );
           expect(revised?.fragment).toBe(`改${fragment.slice(1)}`);
-          expect(revised?.warnings?.length ?? 0).toBe(length > 140 ? 1 : 0);
+          expect(revised?.warnings?.length ?? 0).toBe(length > 300 ? 1 : 0);
           const page = await list(jwt);
           expect(page.fragments).toContainEqual({
             createdAt: created?.createdAt,

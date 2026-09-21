@@ -30,7 +30,7 @@ export const createMcpServer = (memory: DurableObjectStub<MemoryDO>) => {
     {
       instructions: `Memsys is long-term fragment memory.
 
-Store durable information as small, atomic, self-contained fragments rather than summaries, transcripts, or reasoning traces. Keep fragments concise, around 140 characters when practical, and split independent ideas into separate memories.
+Store durable information as small, atomic, self-contained fragments rather than summaries, transcripts, or reasoning traces. Keep fragments concise and split independent ideas into separate memories.
 
 Use #anchors for stable entities or concepts that should link related fragments. Fragments with similar anchors are considered as associated and will be returned when recall.
 
