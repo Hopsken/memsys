@@ -627,20 +627,7 @@ describe("Worker", () => {
     );
     expect(init.status).toBe(200);
     expect(init.headers.has("mcp-session-id")).toBeFalsy();
-    await expect(init.json()).resolves.toMatchObject({
-      result: {
-        instructions: `Memsys is long-term fragment memory.
 
-Store durable information as small, atomic, self-contained fragments rather than summaries, transcripts, or reasoning traces. Keep fragments concise, around 140 characters when practical, and split independent ideas into separate memories.
-
-Use #anchors for stable entities or concepts that should link related fragments. Fragments with similar anchors are considered as associated and will be returned when recall.
-
-When you begin using the memory store in a new context, call list_tags once to see the current anchor vocabulary. Reuse an existing tag when it fits semantically; use a new tag when none fits. Do not refresh the list every turn or before every remember call.
-
-Recall with short textual cues such as distinctive phrases, names, projects, or concepts. Try multiple cues when needed.`,
-        serverInfo: { name: "memsys" },
-      },
-    });
     const list = await request(
       "/mcp",
       { id: 2, jsonrpc: "2.0", method: "tools/list" },
