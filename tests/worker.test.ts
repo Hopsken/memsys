@@ -633,7 +633,7 @@ describe("Worker", () => {
 
 Store durable information as small, atomic, self-contained fragments rather than summaries, transcripts, or reasoning traces. Keep fragments concise, around 140 characters when practical, and split independent ideas into separate memories.
 
-Use #anchors for stable entities or concepts that should link related fragments. Anchors are links, not classifications.
+Use #anchors for stable entities or concepts that should link related fragments. Fragments with similar anchors are considered as associated and will be returned when recall.
 
 Recall with short textual cues such as distinctive phrases, names, projects, or concepts. Try multiple cues when needed.`,
         serverInfo: { name: "memsys" },
