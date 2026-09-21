@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import worker from "../worker/index";
 import type { Fragment } from "../worker/memory";
+import { list, useAccess } from "./helpers";
 
 const local = {
   ...env,
@@ -18,6 +19,8 @@ const post = (path: string, body: string) =>
   });
 
 describe("Development identity", () => {
+  const token = useAccess();
+
   it("shares local memory between REST and stateless MCP without a JWT", async () => {
     const saved = await worker.fetch(
       post(
@@ -51,12 +54,12 @@ describe("Development identity", () => {
       { ...local, DEV_IDENTITY: "other-local-user" }
     );
     await expect(other.json()).resolves.toMatchObject({ recalled: [] });
-    const authenticatedSpace = env.MEMORY.getByName(
-      JSON.stringify([env.ACCESS_ISSUER, "local-test"])
-    );
-    await expect(
-      authenticatedSpace.recall({ cue: "Local portal memory" })
-    ).resolves.toMatchObject({ recalled: [] });
+    // The same subject under Access must not share the development identity.
+    const jwt = await token("local-test", { sub: local.DEV_IDENTITY });
+    await expect(list(jwt)).resolves.toStrictEqual({
+      fragments: [],
+      nextCursor: null,
+    });
   });
 
   it("does not bypass configured Access even when a dev identity is set", async () => {

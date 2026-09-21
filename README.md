@@ -1,6 +1,8 @@
 # memsys
 
-A tiny associative memory system for agents. Fragments are plain text; shared hashtags associate them. See [the project brief](docs/project-brief.md).
+A tiny associative memory system for agents. Fragments are plain text; shared hashtags associate them.
+
+Store one durable idea per fragment. Recall starts from a textual cue and follows explicit anchors, not inferred relationships. Fragments are the source of truth; tags and associations are derived. Vector search, automatic summaries, and memory reinforcement are outside the current scope.
 
 To connect the deployed server, follow [Use memsys in ChatGPT](docs/chatgpt.md).
 
@@ -68,7 +70,7 @@ Pagination is not a snapshot: new or revised fragments can move ahead of the cur
 ### Memory rules
 
 - Refs use Nano ID with 7 characters from `23456789abcdefghjkmnpqrstuvwxyz`. There are about 27.5 billion possible refs. At 10,000 records, the chance of at least one collision is about 0.18% before retries. The object retries occupied refs; it never replaces a fragment on collision. Refs are identifiers, not credentials. Shorter text does not guarantee a specific tokenizer count.
-- Fragments must contain non-whitespace text and can have up to 4,096 UTF-16 code units. The original text is preserved. Cues can have up to 256 code units after trimming.
+- Fragment length follows the grapheme limits above. Cues can have up to 256 UTF-16 code units after trimming.
 - Recall normalizes case and whitespace, then matches the complete cue as a substring. `durable objects` matches `Durable\nObjects`, but not `objects are durable`.
 - Anchors contain Unicode letters, numbers, `_`, `-`, or `/`. They start at a text boundary, so URL fragments, embedded `word#tags`, and Markdown `##headings` are not anchors. Anchors are lowercase and deduplicated. Namespace matching is exact: `#project/a` does not match `#project/ab`.
 - Association splits anchors without `/` at `-` and compares any shared word in both directions. Pure English-letter words use Porter2 stemming: `#agents`, `#agent-memory`, and `#agent-tools` link fragments; `#memory` also links to `#agent-memory`. Empty words are ignored. Words with numbers, non-English characters, or `_` require exact lowercase matches. Anchors with `/` require a complete exact lowercase match and are not split or stemmed. Stemming applies only to association, not cue matching or stored text. Returned `anchors` and `sharedAnchors` keep each fragment's complete lowercase tag spelling, not its stem.
@@ -133,6 +135,8 @@ pnpm dev         # Vite frontend and local Worker; no login
 
 `.dev.vars` is not deployed. Production still verifies Access, and either configured Access setting prevents the development bypass. To test Access locally, temporarily move `.dev.vars` aside and restart `pnpm dev` with a valid Access assertion. Test the full OAuth login flow on the deployed domain.
 
-Tests generate temporary signing keys and mock only the Access JWKS request. They use real JWT verification, SQLite objects, object eviction, and MCP protocol requests. Development tests also check the fixed identity and its isolation. No Cloudflare account is needed for these tests.
+Tests use real JWT verification, SQLite objects, object eviction, and MCP protocol requests. Only the Access JWKS request is mocked, with temporary signing keys. No Cloudflare account is needed.
+
+Tests are grouped by behavior in `tests/`: access and HTTP safety, REST and MCP contracts, edits and length limits, persistence, recall, pagination, and development identity. `helpers.ts` contains only shared request and authentication setup. Keep assertions on returned data, rejected requests, identity isolation, and persisted results. Test matching and pagination edge cases with pure functions; test transport and storage behavior through their public interfaces. Do not lock tests to prose, generated schema formatting, cursor encoding, or SQL layout.
 
 `worker-configuration.d.ts` is generated and ignored. Keep secrets in ignored `.dev.vars` files. `pnpm build` builds `dist/client` and `dist/memsys` locally; it does not deploy or run migrations on remote objects. `pnpm deploy` builds before deploying. A live Access OAuth login must be checked after the hostname and Access application are configured.

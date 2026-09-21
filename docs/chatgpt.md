@@ -14,21 +14,13 @@ Connect the deployed memsys MCP server to ChatGPT with Cloudflare Access Managed
 | Client registration | Dynamic client registration (DCR) |
 | OAuth issuer | `https://hopsken.cloudflareaccess.com` |
 
-Use the deployed URL, not the orb portal or the website root. The root has no homepage. ChatGPT cannot use the orb's browser login as Cloudflare Access authentication.
+Use the deployed MCP URL, not the orb portal or the memory page at `/`. ChatGPT cannot use the orb's browser login as Cloudflare Access authentication.
 
 The live discovery documents checked on September 15, 2026 advertised DCR, authorization-code flow, refresh tokens, and PKCE `S256`. They did not advertise Client ID Metadata Documents (CIMD) or RFC 9207 issuer identification. A complete ChatGPT login and tool call has not yet been verified for this deployment. Use the checks below to verify the connection.
 
 ## 1. Prepare Cloudflare Access
 
-An administrator must configure the Access application for `memsys.hopsken.com`:
-
-1. Protect the whole hostname, including `/mcp` and `/api/*`.
-2. Add an Allow policy for the users who can use this memory service. Do not add an authentication Bypass policy.
-3. In **Advanced settings**, enable **Managed OAuth** and dynamic client registration.
-4. Set **Allowed redirect URIs** as described below.
-5. Save the application.
-
-The Worker's `ACCESS_ISSUER` and `ACCESS_AUD` must match this Access application. The audience is the Access application audience tag, not the MCP URL. Do not change it to `https://memsys.hopsken.com/mcp`.
+An administrator must complete the [Access setup](../README.md#cloudflare-access-and-managed-oauth), enable dynamic client registration, and allow the ChatGPT callback below. The audience is the Access application audience tag, not the MCP URL.
 
 ### Allow the ChatGPT callback
 
@@ -72,11 +64,11 @@ OpenAI's current instructions use the following web interface. Labels and availa
 6. Choose **DCR** if the interface asks for a client registration method. Do not choose CIMD unless Cloudflare later advertises support for it.
 7. For DCR, leave optional static Client ID and Client Secret fields empty. ChatGPT obtains the client credentials through registration. Do not put an Access service token, audience tag, or user token in those fields.
 8. Create the connection and complete the Cloudflare Access login when prompted. Use an identity permitted by the Access policy.
-9. Check the discovered tools: `remember`, `recall`, `revise`, and `forget`.
+9. Check the discovered tools against the [API table](../README.md#api).
 
 Use the normal login page. Never paste Access tokens into a chat message. This server uses user OAuth, not machine-to-machine service-token authentication.
 
-## 3. Test the four memory operations
+## 3. Test the connection
 
 Start a new conversation. Add memsys from the tools menu; in developer mode this can appear under the composer's **Developer mode** tool. Approve write actions when ChatGPT asks.
 
@@ -84,6 +76,7 @@ Use disposable data for the first test:
 
 | Step | Example prompt | Check |
 | --- | --- | --- |
+| List tags | `Use memsys list_tags.` | The result is a list of anchor names, or `[]` for an empty store. |
 | Remember | `Use memsys remember to store exactly: ChatGPT connection test: prefer short answers. #chatgpt-test` | A tool result returns the stored text and a ref. |
 | Recall | `Use memsys recall with the cue "ChatGPT connection test".` | The recalled list contains that fragment. |
 | Revise | `Use memsys revise on that ref with old_string "prefer short answers" and new_string "prefer detailed answers".` | ChatGPT uses the returned ref; only the matched text changes, preserving the rest of the fragment. |
@@ -93,9 +86,7 @@ Use disposable data for the first test:
 
 Inspect the actual tool calls and results, not only ChatGPT's prose. Connecting memsys does not enable automatic storage of every conversation, and memsys is separate from ChatGPT's built-in Memory feature.
 
-Recall matches a case-insensitive phrase, not semantic meaning. Shared hashtags add related fragments. For routine use, store one idea per fragment and use explicit anchors such as `#project/memsys`. See the [memory rules](../README.md#memory-rules) for limits and matching behavior.
-
-The verified Access identity selects the memory space. Two clients using the same Access identity share memory; different Access identities have separate memory spaces. ChatGPT conversations do not create separate spaces.
+See the [memory rules](../README.md#memory-rules) for matching behavior and limits. Memory belongs to the verified Access identity, not the ChatGPT conversation.
 
 ## Troubleshooting
 
@@ -109,7 +100,7 @@ The verified Access identity selects the memory space. Two clients using the sam
 | `401` before login | Expected. Access should return a `WWW-Authenticate` header pointing to discovery metadata. |
 | `401` continues after login | Check registration, token exchange, and refresh with MCP Inspector. If the response comes from the Worker, check its Access issuer and audience. |
 | `403` from the Worker with `Untrusted origin` | The request supplied a cross-origin `Origin`. The server currently does not support cross-origin browser clients. Do not add a CORS wildcard to fix OAuth callbacks; callback allowlisting is a separate Access setting. |
-| Root returns `404`, or opening `/mcp` returns `405` after login | There is no homepage. MCP uses POST requests; entering the URL in a browser is not a tool test. |
+| Opening `/mcp` returns `405` after login | MCP uses POST requests; entering the URL in a browser is not a tool test. Open `/` to view the memory page. |
 | No memories appear | Check the Access identity and use a phrase present in the fragment. ChatGPT's built-in memories are not imported. |
 | Tools or descriptions are stale | Refresh the connection metadata and start a new conversation. |
 
@@ -125,7 +116,7 @@ curl -sS https://hopsken.cloudflareaccess.com/.well-known/oauth-authorization-se
 
 Expect a `401` OAuth challenge from the first request and JSON discovery documents from the other two. Follow the `resource_metadata` URL in the challenge if Cloudflare changes its path. The advertised MCP resource should be `https://memsys.hopsken.com/mcp`, and the issuer should be `https://hopsken.cloudflareaccess.com`. Authorization metadata must include PKCE `S256` and a registration endpoint for DCR.
 
-Cloudflare handles discovery, registration, authorization, and token exchange. It validates the opaque OAuth bearer token and forwards a signed Access JWT to the Worker. The Worker verifies that assertion before selecting a user's memory. No callback route or OAuth server is needed in Hono.
+See [Access and Managed OAuth](../README.md#cloudflare-access-and-managed-oauth) for the authentication flow.
 
 ## References
 

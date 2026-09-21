@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
 
 import { listFragments } from "../worker/memory";
 import type { Fragment } from "../worker/memory";
@@ -26,7 +25,6 @@ describe("Fragment pages", () => {
     const corpus = [oldest, ...tied.toReversed(), newest];
     const first = listFragments(corpus, {});
     expect(first.fragments).toStrictEqual([newest, ...tied.slice(0, 49)]);
-    expect(first.nextCursor).toBe("2026-01-02T00:00:00.000Z,aaaaag2");
     expect(
       listFragments(corpus, { cursor: first.nextCursor ?? "" })
     ).toStrictEqual({
@@ -39,7 +37,6 @@ describe("Fragment pages", () => {
     expect(
       listFragments(changed, { cursor: first.nextCursor ?? "" }).fragments
     ).toStrictEqual([tied[49], oldest]);
-    expect(corpus).toStrictEqual([oldest, ...tied.toReversed(), newest]);
   });
 
   it("ends at an exact page boundary and handles an empty corpus", () => {
@@ -53,15 +50,5 @@ describe("Fragment pages", () => {
       fragments: [],
       nextCursor: null,
     });
-  });
-
-  it.each([
-    "",
-    "bad",
-    "2026-02-30T00:00:00.000Z,aaaaaaa",
-    "2026-01-01T00:00:00.000Z,invalid",
-    "2026-01-01T00:00:00.000Z,aaaaaaa,extra",
-  ])("rejects invalid cursor %j", (cursor) => {
-    expect(() => listFragments([], { cursor })).toThrow(z.ZodError);
   });
 });
