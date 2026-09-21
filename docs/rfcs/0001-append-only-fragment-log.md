@@ -98,25 +98,25 @@ The canonical serialization is UTF-8 NDJSON:
 - embedded line breaks in fragment text are JSON-escaped;
 - byte offsets are measured against the serialized UTF-8 bytes;
 - unknown top-level fields are ignored by readers of the same schema version;
-- `schemaVersion` identifies the record schema, beginning at `1`.
+- `v` identifies the record schema version, beginning at `1`.
 
 ### Fragment record
 
 Creation writes the first record for a ref:
 
 ```json
-{"schemaVersion":1,"ref":"7x9c2pa","fragment":"OpenDAL can provide portable storage. #memsys #opendal","at":"2026-09-21T08:00:00.000Z"}
+{"v":1,"ref":"7x9c2pa","fragment":"OpenDAL can provide portable storage. #memsys #opendal","at":"2026-09-21T08:00:00.000Z"}
 ```
 
 An update appends another complete fragment record:
 
 ```json
-{"schemaVersion":1,"ref":"7x9c2pa","fragment":"OpenDAL is the portable persistence adapter. #memsys #opendal","at":"2026-09-21T08:05:00.000Z"}
+{"v":1,"ref":"7x9c2pa","fragment":"OpenDAL is the portable persistence adapter. #memsys #opendal","at":"2026-09-21T08:05:00.000Z"}
 ```
 
 A fragment record MUST contain:
 
-- `schemaVersion`: integer record-schema version;
+- `v`: integer record-schema version;
 - `ref`: the stable fragment reference;
 - `fragment`: the complete fragment text at this point in time;
 - `at`: the time this record was committed.
@@ -135,10 +135,10 @@ The log therefore avoids repeating the original creation time in every snapshot.
 Deletion appends a tombstone:
 
 ```json
-{"schemaVersion":1,"ref":"7x9c2pa","tombstone":true,"at":"2026-09-21T08:10:00.000Z"}
+{"v":1,"ref":"7x9c2pa","tombstone":true,"at":"2026-09-21T08:10:00.000Z"}
 ```
 
-A tombstone MUST contain `schemaVersion`, `ref`, `tombstone: true`, and `at`. It MUST omit `fragment`. A reader distinguishes a tombstone by the explicit boolean and treats a record missing both `fragment` and `tombstone: true` as malformed.
+A tombstone MUST contain `v`, `ref`, `tombstone: true`, and `at`. It MUST omit `fragment`. A reader distinguishes a tombstone by the explicit boolean and treats a record missing both `fragment` and `tombstone: true` as malformed.
 
 `forget` therefore becomes a logical deletion. The historical text remains in the log until retention or hard-purge policy removes it. API documentation must disclose this behavior before this storage model becomes the default.
 
