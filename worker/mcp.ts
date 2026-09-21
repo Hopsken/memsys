@@ -34,8 +34,6 @@ Store durable information as small, atomic, self-contained fragments rather than
 
 Use #anchors for stable entities or concepts that should link related fragments. Fragments with similar anchors are considered as associated and will be returned when recall.
 
-When you begin using the memory store in a new context, call list_tags once to see the current anchor vocabulary. Reuse an existing tag when it fits semantically; use a new tag when none fits. Do not refresh the list every turn or before every remember call.
-
 Recall with short textual cues such as distinctive phrases, names, projects, or concepts. Try multiple cues when needed.`,
     }
   );
@@ -62,8 +60,7 @@ Recall with short textual cues such as distinctive phrases, names, projects, or 
     "list_tags",
     {
       annotations: { readOnlyHint: true },
-      description:
-        "List all unique #anchor names currently used in this memory store, in stable alphabetical order.",
+      description: "List all #anchor names currently used.",
       inputSchema: inputs.listTags,
     },
     async () => result(await memory.listTags())
