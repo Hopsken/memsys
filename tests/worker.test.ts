@@ -609,7 +609,7 @@ describe("Worker", () => {
     ).resolves.toMatchObject({ associated: [], recalled: [] });
   });
 
-  it("initializes MCP without a session and lists exactly four tools", async () => {
+  it("initializes MCP without a session and lists exactly five tools", async () => {
     const jwt = await token("mcp-init");
     const init = await request(
       "/mcp",
@@ -627,18 +627,7 @@ describe("Worker", () => {
     );
     expect(init.status).toBe(200);
     expect(init.headers.has("mcp-session-id")).toBeFalsy();
-    await expect(init.json()).resolves.toMatchObject({
-      result: {
-        instructions: `Memsys is long-term fragment memory.
 
-Store durable information as small, atomic, self-contained fragments rather than summaries, transcripts, or reasoning traces. Keep fragments concise, around 140 characters when practical, and split independent ideas into separate memories.
-
-Use #anchors for stable entities or concepts that should link related fragments. Fragments with similar anchors are considered as associated and will be returned when recall.
-
-Recall with short textual cues such as distinctive phrases, names, projects, or concepts. Try multiple cues when needed.`,
-        serverInfo: { name: "memsys" },
-      },
-    });
     const list = await request(
       "/mcp",
       { id: 2, jsonrpc: "2.0", method: "tools/list" },
@@ -647,9 +636,12 @@ Recall with short textual cues such as distinctive phrases, names, projects, or 
     const tools = await list.json<{
       result: {
         tools: {
+          annotations?: { readOnlyHint?: boolean };
           description: string;
           name: string;
-          inputSchema: { required: string[] };
+          inputSchema: {
+            required?: string[];
+          };
         }[];
       };
     }>();
@@ -660,12 +652,18 @@ Recall with short textual cues such as distinctive phrases, names, projects, or 
       descriptions: Object.fromEntries(
         tools.result.tools.map((tool) => [tool.name, tool.description])
       ),
+      listTags: {
+        annotations: toolsByName.list_tags?.annotations,
+        inputSchema: toolsByName.list_tags?.inputSchema,
+      },
       names: tools.result.tools.map((tool) => tool.name).toSorted(),
-      reviseRequired: toolsByName.revise?.inputSchema.required.toSorted(),
+      reviseRequired: toolsByName.revise?.inputSchema.required?.toSorted(),
     }).toStrictEqual({
       descriptions: {
         forget:
           "Delete a known memory that is obsolete, incorrect, duplicated, or explicitly requested to be forgotten.",
+        list_tags:
+          "List all unique #anchor names currently used in this memory store, in stable alphabetical order.",
         recall:
           "Recall memories using a short textual cue. Prefer distinctive phrases, entities, or concepts. Related fragments may also be returned through shared #anchors.",
         remember:
@@ -673,7 +671,16 @@ Recall with short textual cues such as distinctive phrases, names, projects, or 
         revise:
           "Replace a known memory when its information has changed or needs correction. Keep the replacement atomic and self-contained.",
       },
-      names: ["forget", "recall", "remember", "revise"],
+      listTags: {
+        annotations: { readOnlyHint: true },
+        inputSchema: {
+          $schema: "http://json-schema.org/draft-07/schema#",
+          additionalProperties: false,
+          properties: {},
+          type: "object",
+        },
+      },
+      names: ["forget", "list_tags", "recall", "remember", "revise"],
       reviseRequired: ["new_string", "old_string", "ref"],
     });
   });
@@ -708,6 +715,62 @@ Recall with short textual cues such as distinctive phrases, names, projects, or 
     ).resolves.toMatchObject({ result: { isError: true } });
     await expect(
       call(jwt, "remember", { fragment: " " })
+    ).resolves.toMatchObject({ result: { isError: true } });
+  });
+
+  it("lists current tags through MCP with isolation and no parameters", async () => {
+    const jwt = await token("mcp-tags");
+    const otherJwt = await token("mcp-tags-other");
+    const tags = async (assertion: string) => {
+      const response = await call(assertion, "list_tags", {});
+      return z
+        .array(z.string())
+        .parse(JSON.parse(response.result.content[0]?.text ?? ""));
+    };
+
+    const initially = await tags(jwt);
+    const first = await call(jwt, "remember", {
+      fragment: "First #Zeta #PROJECT/One #Agents",
+    });
+    const firstItem = z
+      .object({ fragment: z.string(), ref: z.string() })
+      .parse(JSON.parse(first.result.content[0]?.text ?? ""));
+    const second = await call(jwt, "remember", {
+      fragment: "Second #zeta #记忆 #agent-memory",
+    });
+    const secondItem = z
+      .object({ ref: z.string() })
+      .parse(JSON.parse(second.result.content[0]?.text ?? ""));
+    const current = await tags(jwt);
+    expect({ current, initially }).toStrictEqual({
+      current: ["agent-memory", "agents", "project/one", "zeta", "记忆"],
+      initially: [],
+    });
+
+    await call(otherJwt, "remember", { fragment: "Other user #private" });
+    await expect(
+      Promise.all([tags(jwt), tags(otherJwt)])
+    ).resolves.toStrictEqual([
+      ["agent-memory", "agents", "project/one", "zeta", "记忆"],
+      ["private"],
+    ]);
+
+    await call(jwt, "revise", {
+      new_string: "Updated #beta #PROJECT/Two",
+      old_string: firstItem.fragment,
+      ref: firstItem.ref,
+    });
+    await expect(tags(jwt)).resolves.toStrictEqual([
+      "agent-memory",
+      "beta",
+      "project/two",
+      "zeta",
+      "记忆",
+    ]);
+    await call(jwt, "forget", { ref: secondItem.ref });
+    await expect(tags(jwt)).resolves.toStrictEqual(["beta", "project/two"]);
+    await expect(
+      call(jwt, "list_tags", { unexpected: true })
     ).resolves.toMatchObject({ result: { isError: true } });
   });
 

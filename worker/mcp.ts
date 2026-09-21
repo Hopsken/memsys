@@ -5,7 +5,9 @@ import { inputs } from "./memory";
 import type { MemoryDO } from "./memory-do";
 
 const result = (
-  value: ReturnType<MemoryDO["remember" | "recall" | "revise" | "forget"]>
+  value: ReturnType<
+    MemoryDO["remember" | "recall" | "revise" | "forget" | "listTags"]
+  >
 ): CallToolResult => {
   if (value === null) {
     return {
@@ -53,6 +55,15 @@ Recall with short textual cues such as distinctive phrases, names, projects, or 
       inputSchema: inputs.recall,
     },
     async (input) => result(await memory.recall(input))
+  );
+  server.registerTool(
+    "list_tags",
+    {
+      annotations: { readOnlyHint: true },
+      description: "List all #anchor names currently used.",
+      inputSchema: inputs.listTags,
+    },
+    async () => result(await memory.listTags())
   );
   server.registerTool(
     "revise",

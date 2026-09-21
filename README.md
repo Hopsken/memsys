@@ -12,14 +12,15 @@ The app uses Vite, React, Tailwind CSS 4, and shadcn/ui in `client/`. Hono, auth
 
 ## API
 
-`/mcp` serves the four tools below through `@hono/mcp`, using stateless Streamable HTTP. Each POST creates a new MCP server and transport. There are no MCP session IDs, notification streams, or session Durable Objects. GET and DELETE return 405.
+`/mcp` serves the five tools below through `@hono/mcp`, using stateless Streamable HTTP. Each POST creates a new MCP server and transport. There are no MCP session IDs, notification streams, or session Durable Objects. GET and DELETE return 405.
 
-The JSON HTTP API exposes the same memory operations. The inputs below are for HTTP; MCP `revise` uses a text edit instead of full replacement:
+The JSON HTTP API exposes the fragment operations. The inputs below are for HTTP; MCP `revise` uses a text edit instead of full replacement, while `list_tags` is MCP-only:
 
 | MCP tool | HTTP endpoint | JSON input |
 | --- | --- | --- |
 | `remember` | `POST /api/remember` | `{ "fragment": "Durable Objects store memory. #memsys #cloudflare" }` |
 | `recall` | `POST /api/recall` | `{ "cue": "durable objects" }` |
+| `list_tags` | — | `{}` |
 | `revise` | `POST /api/revise` | `{ "ref": "7x9c2pa", "fragment": "Replacement text. #memsys" }` |
 | `forget` | `POST /api/forget` | `{ "ref": "7x9c2pa" }` |
 
@@ -54,11 +55,13 @@ REST POST requests require `Content-Type: application/json` (optional parameters
 
 Associated items contain `sharedAnchors` instead of `anchors`.
 
+MCP `list_tags` returns a JSON array containing every unique anchor name currently used by the authenticated user's fragments, lowercased and sorted. Names remain complete and are not stemmed or merged with synonyms. It returns `[]` when the memory store has no anchors. Agents should call it once when they begin using the store in a new context, then reuse a listed tag when it fits or create a new one when needed; they need not call it every turn or before each `remember`.
+
 ### List fragments
 
 `GET /api/fragments` returns `{ fragments, nextCursor }`. Each fragment contains `{ ref, fragment, createdAt, updatedAt }`. This read-only endpoint uses the same verified identity as REST and MCP and sends `Cache-Control: no-store`.
 
-Pages contain up to 50 items, ordered by `updatedAt` descending and then ref ascending. Pass the returned cursor with `URLSearchParams` as `?cursor=...` to get the next page. `nextCursor: null` marks the end. Invalid cursors or unknown query fields return 400. There is no new MCP tool or database migration.
+Pages contain up to 50 items, ordered by `updatedAt` descending and then ref ascending. Pass the returned cursor with `URLSearchParams` as `?cursor=...` to get the next page. `nextCursor: null` marks the end. Invalid cursors or unknown query fields return 400. Fragment pagination remains HTTP-only, and `list_tags` requires no database migration.
 
 Pagination is not a snapshot: new or revised fragments can move ahead of the cursor. Refresh to see current data. Deleting the cursor's fragment does not prevent loading the next page.
 
@@ -99,7 +102,7 @@ Before deployment:
 3. Enable **Managed OAuth** in the application's Advanced settings. Allow only the redirect URIs required by your MCP clients; enable localhost/loopback redirects if your CLI client needs them.
 4. Confirm the configured `ACCESS_ISSUER` (`https://hopsken.cloudflareaccess.com`) and `ACCESS_AUD` match that Access application.
 5. Run `pnpm check`, then deploy when approved with `pnpm deploy`.
-6. Connect an OAuth-capable MCP client to `https://<hostname>/mcp`. Check login and all four tools. Check that unauthenticated API calls are blocked.
+6. Connect an OAuth-capable MCP client to `https://<hostname>/mcp`. Check login and all five tools. Check that unauthenticated API calls are blocked.
 
 The default deployment returns 503 if either Access setting is empty, and 401 for missing or invalid assertions. `workers.dev` and preview URLs are disabled. This version uses human Access identities; service tokens without a user subject are not supported.
 
