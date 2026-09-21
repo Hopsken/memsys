@@ -11,6 +11,7 @@ import {
   fragmentWriteResult,
   inputs,
   listFragments,
+  listTags,
   recall,
   REF_ALPHABET,
   REF_LENGTH,
@@ -71,6 +72,10 @@ export class MemoryDO extends DurableObject<Env> {
 
   list(input: { cursor?: string }) {
     return listFragments(this.corpus.values(), input);
+  }
+
+  listTags() {
+    return listTags(this.corpus.values());
   }
 
   revise(input: z.input<typeof inputs.revise>) {

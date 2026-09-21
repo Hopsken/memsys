@@ -39,6 +39,7 @@ export const restReviseInput = z.object({ fragment, ref }).strict();
 
 export const inputs = {
   forget: z.object({ ref }).strict(),
+  listTags: z.object({}).strict(),
   recall: z.object({ cue: z.string().trim().min(1).max(256) }).strict(),
   remember: z.object({ fragment }).strict(),
   revise: z
@@ -110,6 +111,11 @@ export const extractAnchors = (text: string): string[] =>
         ),
       ].map((match) => (match.groups?.anchor ?? "").toLowerCase())
     ),
+  ].toSorted();
+
+export const listTags = (corpus: Iterable<Fragment>): string[] =>
+  [
+    ...new Set([...corpus].flatMap((item) => extractAnchors(item.fragment))),
   ].toSorted();
 
 // Keep namespaces exact; stem English words in other anchors independently.

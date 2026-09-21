@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { extractAnchors, recall } from "../worker/memory";
+import { extractAnchors, listTags, recall } from "../worker/memory";
 import type { Fragment } from "../worker/memory";
 
 const item = (ref: string, fragment: string, day = "01"): Fragment => ({
@@ -24,6 +24,16 @@ describe("Recall projections", () => {
       "project/a",
       "记忆",
     ]);
+  });
+
+  it("lists complete unique tags in stable order without stemming", () => {
+    expect(
+      listTags([
+        item("a", "First #PROJECT/B #Agents #记忆"),
+        item("b", "Second #project/b #agent #a_b"),
+      ])
+    ).toStrictEqual(["a_b", "agent", "agents", "project/b", "记忆"]);
+    expect(listTags([])).toStrictEqual([]);
   });
 
   it("uses phrase matching and one-hop associations without duplicate results", () => {
