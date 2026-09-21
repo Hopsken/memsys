@@ -228,6 +228,76 @@ memory/
 
 This remains one logical log while avoiding repeated whole-object rewrites. The manifest update must be conditional, and unreferenced segments can be collected after a grace period. This is the preferred growth path for object storage once Strategy A becomes measurably expensive.
 
+## Capacity and scaling limits
+
+The single-file model has separate storage, execution, and write-amplification limits. The smallest applicable limit determines the usable capacity.
+
+### Storage ceiling
+
+Cloudflare R2 permits an object of roughly 5 TiB. At an average serialized record size of 300 bytes to 1 KiB, one object could theoretically hold roughly 5 billion to 18 billion log records.
+
+That is a storage-format ceiling, not a useful memsys operating target. A single-part R2 upload is limited to roughly 5 GiB, multipart upload is required beyond that point, and R2 accepts at most one write per second to the same object key. Other OpenDAL services have different limits.
+
+The record size varies with fragment language and length. A short English fragment may serialize below 300 bytes. A 280-grapheme fragment dominated by three-byte UTF-8 characters can approach 1 KiB after the record envelope is added.
+
+### Worker execution ceiling
+
+Cloudflare Workers currently provide 128 MB per isolate, shared by the JavaScript heap and WebAssembly allocations. The in-memory representation is larger than the NDJSON bytes because parsing creates strings, objects, maps, sets, and recall indexes. Depending on text and indexes, a practical planning factor is roughly 3x to 6x the serialized current corpus and must be validated by profiling.
+
+Cold replay also consumes CPU. Workers Free allows 10 ms of CPU per request, while Workers Paid has a much larger configurable allowance. A growing corpus is therefore expected to require the paid runtime or incremental initialization before memory becomes the only constraint.
+
+Full-buffer loading adds another copy of the complete log. A streaming NDJSON parser avoids retaining historical bytes and can discard superseded snapshots while replaying, but the latest active corpus and its recall projections must still fit in memory.
+
+For the current full-corpus recall model, the following values are proposed as a conservative v1 operating envelope per memory space:
+
+| Measure | Target | Action threshold |
+| --- | ---: | ---: |
+| Active fragments | 10,000 | 25,000 |
+| Total log records | 50,000 | 100,000 |
+| Serialized logical log | 16 MiB | 32 MiB |
+
+The target is the expected comfortable range. Reaching any action threshold triggers measurement and migration to streaming replay, rotation, immutable segments, or a different recall index before further growth. These values are engineering guardrails rather than format limits and must be replaced with benchmark results.
+
+### History capacity
+
+History consumes records rather than active-fragment slots. Let:
+
+```text
+F = number of active fragments
+H = average number of retained fragment records per ref
+T = tombstones and other retained records
+S = average serialized bytes per record
+
+total records ~= F * H + T
+log bytes     ~= total records * S
+```
+
+Using a planning average of 400 bytes per record:
+
+| Active fragments | Average records per ref | Total records | Approximate log size |
+| ---: | ---: | ---: | ---: |
+| 1,000 | 10 | 10,000 | 4 MiB |
+| 10,000 | 3 | 30,000 | 12 MiB |
+| 10,000 | 5 | 50,000 | 20 MiB |
+| 10,000 | 10 | 100,000 | 40 MiB |
+| 50,000 | 3 | 150,000 | 60 MiB |
+
+At 1 KiB per record, multiply these byte estimates by 2.5. Under the proposed 50,000-record target, 10,000 active fragments can retain about five complete snapshots per fragment on average. The 16 MiB byte target would trigger slightly earlier at about four snapshots per fragment when records average 400 bytes. A 1,000-fragment personal corpus can retain roughly forty to fifty snapshots per fragment within the same two budgets.
+
+History-preserving rotation removes the single active object's rewrite and replay pressure while keeping sealed generations. It does not remove the in-memory limit on the materialized active corpus. Beyond roughly tens of thousands of active fragments, memsys must stop assuming that every fragment and recall index can stay resident in one Worker isolate.
+
+### Write-amplification ceiling
+
+Strategy A rewrites the entire object for each append, so its write cost is `O(log bytes)`:
+
+```text
+bytes rewritten per day ~= writes per day * current log bytes
+```
+
+A 20 MiB log updated 100 times per day rewrites about 2 GiB per day even though the new records occupy only tens of kilobytes. Latency and contention generally justify rotation or immutable segments before storage or memory limits are reached.
+
+The implementation should record log bytes, total records, active fragments, replay time, peak memory, and rewritten bytes. Physical layout transitions should be driven by those measurements while leaving the logical record format unchanged.
+
 ## Concurrency and durability
 
 Each memory space requires serialized commits or optimistic concurrency.
@@ -374,3 +444,5 @@ Approve the following architectural direction for prototyping:
 - [OpenDAL capability model](https://opendal.apache.org/docs/rust/opendal/struct.Capability.html)
 - [OpenDAL wasm32 support tracking](https://github.com/apache/opendal/issues/3803)
 - [Cloudflare R2 Workers API: ranged reads and conditional operations](https://developers.cloudflare.com/r2/api/workers/workers-api-reference/)
+- [Cloudflare R2 limits](https://developers.cloudflare.com/r2/platform/limits/)
+- [Cloudflare Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
