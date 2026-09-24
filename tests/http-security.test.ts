@@ -1,8 +1,8 @@
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
+import type { Fragment } from "../contract/memory";
 import worker from "../worker/index";
-import type { Fragment } from "../worker/memory";
 import { list, post, useAccess } from "./helpers";
 
 describe("HTTP request safety", () => {

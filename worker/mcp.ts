@@ -15,12 +15,6 @@ const result = (
       isError: true,
     };
   }
-  if ("error" in value) {
-    return {
-      content: [{ text: value.error, type: "text" }],
-      isError: true,
-    };
-  }
   return { content: [{ text: JSON.stringify(value), type: "text" }] };
 };
 
@@ -51,7 +45,7 @@ Recall with short textual cues such as distinctive phrases, names, projects, or 
     {
       annotations: { readOnlyHint: true },
       description:
-        "Recall memories using a short textual cue. Prefer distinctive phrases, entities, or concepts. Related fragments may also be returned through shared #anchors.",
+        "Recall memories using a short textual cue. Prefer distinctive phrases, entities, or concepts. Fragments matching the cue come first; fragments with `via` were associated through the listed shared #anchors.",
       inputSchema: inputs.recall,
     },
     async (input) => result(await memory.recall(input))
@@ -69,7 +63,7 @@ Recall with short textual cues such as distinctive phrases, names, projects, or 
     "revise",
     {
       description:
-        "Replace a known memory when its information has changed or needs correction. Keep the replacement atomic and self-contained.",
+        "Replace the full text of a known memory when its information has changed or needs correction. Keep the replacement atomic and self-contained.",
       inputSchema: inputs.revise,
     },
     async (input) => result(await memory.revise(input))

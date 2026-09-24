@@ -2,8 +2,8 @@ import { env } from "cloudflare:workers";
 import { generateKeyPair } from "jose";
 import { describe, expect, it } from "vitest";
 
+import type { Fragment } from "../contract/memory";
 import worker from "../worker/index";
-import type { Fragment } from "../worker/memory";
 import { call, getList, list, post, useAccess } from "./helpers";
 
 describe("Access identity", () => {
@@ -61,9 +61,9 @@ describe("Access identity", () => {
     );
     const item = await saved.json<Fragment>();
     const found = await post("/api/recall", { cue: "Private" }, bob);
-    await expect(found.json()).resolves.toMatchObject({
-      associated: [],
-      recalled: [],
+    await expect(found.json()).resolves.toStrictEqual({
+      fragments: [],
+      hasMore: false,
     });
     await expect(list(bob)).resolves.toStrictEqual({
       fragments: [],
@@ -75,11 +75,7 @@ describe("Access identity", () => {
     ]);
     expect(results.map((result) => result.status)).toStrictEqual([404, 404]);
     await expect(
-      call(bob, "revise", {
-        new_string: "stolen",
-        old_string: "Private",
-        ref: item.ref,
-      })
+      call(bob, "revise", { fragment: "stolen", ref: item.ref })
     ).resolves.toMatchObject({ isError: true });
     await expect(list(alice)).resolves.toStrictEqual({
       fragments: [item],

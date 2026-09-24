@@ -25,10 +25,10 @@ Tags are not stored. They are `#anchors` written inline in the text (`… #memsy
 
 | Tool | Does |
 | --- | --- |
-| `remember { fragment }` | insert; warns above 300 graphemes, rejects above 500 |
-| `revise { ref, fragment }` | replace text of a known fragment |
+| `remember { fragment }` | insert; length policy per instance (`size-limit` plugin) |
+| `revise { ref, fragment }` | replace the full text of a known fragment |
 | `forget { ref }` | delete |
-| `recall { cue }` | see below |
+| `recall { cue, limit?, associate?, context? }` | → `{ fragments: (Fragment & { via? })[], hasMore }`; see below |
 
 **How `recall` works**
 
@@ -97,7 +97,8 @@ Four tools. They are the minimal complete operation set of a memory: write, chan
 - The contract — tool names, input schemas, output shape, field meanings — is meant to hold for years. New fields are additive with defaults that reproduce prior behavior.
 - `recall` is split into **candidate generation** (substring → recalled; one-hop anchor spread → associated) and a **terminal** (order, filter, truncate, return). Plugins attach only at the terminal.
 - `recall` stays a pure function: `recall(corpus, input, plugins, index) → result`. Tests pass an empty plugin list or stubs.
-- The soft/hard length check on writes is already a built-in "write hook" with readable reasons. The write-hook interface below formalizes that precedent; the check itself stays in core.
+- `recall` returns one list: cue matches first, then associated fragments. An item's `via` (the shared anchors) is both its kind and the reason it was associated; there is no separate `kind` field. `limit` bounds the combined list; `hasMore` reports that candidates were omitted.
+- Length policy (soft/hard, default 300/500) lives in the `size-limit` plugin. Core keeps only an absolute ceiling, `CORE_MAX` = 1000 graphemes, so a disabled or failing plugin can never let an unbounded fragment in. Tool descriptions carry no instance-specific numbers; warnings and rejections do.
 
 RFC 4's `associate` and `limit` fields are additive core contract, not plugins. So is `context` (optional free text: what the agent is doing right now). Core accepts it and ignores it; it exists so that read-path plugins can judge relevance against the situation, not just the cue. Carrying the information is core; using it is policy.
 
@@ -106,36 +107,64 @@ RFC 4's `associate` and `limit` fields are additive core contract, not plugins. 
 ### Interface
 
 ```ts
+type Verdict = { warnings: string[]; rejections: string[] };
+
 type Plugin<C> = {
   name: string;
+  title: string; // for the config UI
+  description: string;
   config: z.ZodType<C>; // validates this plugin's slice of instance config
+  defaults: { enabled: boolean; config: C };
 
-  // Tool plugin: registers MCP tools + HTTP routes. Additive only.
-  tools?: (ctx: Ctx<C>) => ToolDef[];
+  // Tool plugin: static, so the worker can register MCP tools without a corpus. Additive only.
+  tools?: ToolDef<C>[];
 
   // Policy hook: recall terminal. Receives the parsed recall input (cue, context, …).
   afterRecall?: (
     ctx: Ctx<C>,
-    items: Item[],
+    items: RecallItem[],
     input: RecallInput
-  ) => Promise<Item[]>;
+  ) => Promise<RecallItem[]>;
 
-  // Policy hooks: write path.
-  beforeRemember?: (
+  // Policy hooks: write path. remember and revise are separate lifecycles;
+  // a plugin may share one implementation between them.
+  beforeRemember?: (ctx: Ctx<C>, text: string) => Promise<Verdict>;
+  beforeRevise?: (
     ctx: Ctx<C>,
+    prev: Fragment,
     text: string
-  ) => Promise<{ warnings: string[]; rejections: string[] }>;
+  ) => Promise<Verdict>;
   afterRemember?: (ctx: Ctx<C>, stored: Fragment) => Promise<Related[]>;
+};
+
+type ToolDef<C> = {
+  name: string;
+  description: string;
+  input: z.ZodObject; // MCP SDK takes zod and emits JSON Schema
+  annotations?: ToolAnnotations;
+  run: (ctx: Ctx<C>, input: unknown) => Promise<unknown>;
 };
 
 type Ctx<C> = {
   config: C;
   corpus: ReadonlyMap<string, Fragment>; // read-only view
-  index: { anchors(ref): string[] }; // index layer for faster searches
+  index: { anchors(ref: string): string[] }; // anything else (df, …) plugins derive themselves
   write: { remember; revise; forget }; // the core write path, hooks included
   fetch: typeof fetch; // injectable for tests
 };
 ```
+
+Hooks are implemented only when a plugin needs them. First batch: `size-limit` (`beforeRemember` + `beforeRevise`) and `list-tags` (tool).
+
+### Code layout
+
+```
+contract/   shared types (Fragment, RecallItem, Plugin, …); no local imports
+plugins/    one file per plugin + index.ts (the registry array)
+worker/     core + plugin host
+```
+
+`plugins → contract ← worker`, plus `worker → plugins/index.ts`. Plugins never import `worker/`; lint enforces it. Worker and plugins meet only at the contract.
 
 Plugins are a compile-time array in the worker. There is **no** dynamic loading, no inter-plugin dependency, no lifecycle, no event bus.
 
@@ -190,11 +219,16 @@ Plugins that call external models (Jev) fail — not die — on missing key, tim
 
 ## Per-instance configuration
 
-- One per user, stored in the user's per memory store configuration.
-- Content: an enabled flag per plugin plus that plugin's parameters, validated by its `config` schema. Unknown plugin names and schema violations are rejected with a path.
-- Default configuration = the minimal instance for a good-enough model: four core tools + `list_tags` + IDF ordering.
+- Stored in the instance's SQLite, table `plugin_config(name, enabled, config json, updated_at)`, one row per plugin. Separate from fragments.
+- A row is an explicit user choice; no row means follow the plugin's `defaults`, so improved defaults reach every untouched instance. Reset = delete the row.
+- Effective config = `safeParse(stored) ?? defaults`. A stored value that no longer parses is logged and shown as `invalid`; it never takes the instance down. Config schemas evolve additively (new fields carry `.default()`).
+- Writes carry the `updated_at` they read; a mismatch is a conflict (409).
+- Unknown plugin names and schema violations are rejected with a path.
+- Changes apply on the next request. Tool-list changes reach MCP clients on reconnect (stateless server, no `list_changed`).
+- Edited through `GET/PUT/DELETE /api/plugins[/:name]` and a schema-driven form in the web UI (`z.toJSONSchema` of each plugin's `config`). Keeping agents out of that endpoint waits for real OAuth; Access is a stopgap.
+- Default configuration = the minimal instance for a good-enough model: four core tools + `list_tags` + `size-limit` (+ IDF ordering once it lands).
 
 ## Open questions
 
-- How plugin annotations on an `Item` (`score`, later others) are typed: a single `annotations: Record<string, unknown>` first, or per-plugin declared fields. Start loose.
+- How plugin annotations on a recall item (`score`, later others) are typed. Deferred until a plugin needs one.
 - memfs `grep`: regex (faithful to Bash) or substring (consistent with `recall`). Leaning faithful; memfs is a separate entry point and `-F` exists.

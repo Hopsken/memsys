@@ -1,8 +1,8 @@
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
+import type { Fragment } from "../contract/memory";
 import worker from "../worker/index";
-import type { Fragment } from "../worker/memory";
 import { call, content, list, post, useAccess } from "./helpers";
 
 const tags = async (jwt: string) =>
@@ -68,9 +68,7 @@ describe("Stateless MCP", () => {
       nextCursor: null,
     });
     const found = await call(jwt, "recall", { cue: "MCP memory" });
-    expect(content(found)).toMatchObject({
-      recalled: [{ ...item, anchors: ["test"] }],
-    });
+    expect(content(found)).toStrictEqual({ fragments: [item], hasMore: false });
     expect(content(await call(jwt, "forget", { ref: item.ref }))).toStrictEqual(
       { ref: item.ref }
     );
@@ -100,8 +98,7 @@ describe("Stateless MCP", () => {
       ["private"],
     ]);
     await call(jwt, "revise", {
-      new_string: "Updated #beta #PROJECT/Two",
-      old_string: first.fragment,
+      fragment: "Updated #beta #PROJECT/Two",
       ref: first.ref,
     });
     await expect(tags(jwt)).resolves.toStrictEqual([
@@ -127,11 +124,7 @@ describe("Stateless MCP", () => {
       call(jwt, "forget", { ref: "2222222" })
     ).resolves.toMatchObject({ isError: true });
     await expect(
-      call(jwt, "revise", {
-        new_string: "new",
-        old_string: "old",
-        ref: "2222222",
-      })
+      call(jwt, "revise", { fragment: "new", ref: "2222222" })
     ).resolves.toMatchObject({ isError: true });
   });
 

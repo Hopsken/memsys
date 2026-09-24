@@ -5,6 +5,7 @@ import { migrate } from "drizzle-orm/durable-sqlite/migrator";
 import { customAlphabet } from "nanoid";
 import type { z } from "zod";
 
+import type { Fragment } from "../contract/memory";
 import migrations from "../migrations/migrations.js";
 import { fragments } from "./db/schema";
 import {
@@ -15,9 +16,7 @@ import {
   recall,
   REF_ALPHABET,
   REF_LENGTH,
-  restReviseInput,
 } from "./memory";
-import type { Fragment } from "./memory";
 
 const newRef = customAlphabet(REF_ALPHABET, REF_LENGTH);
 
@@ -66,8 +65,8 @@ export class MemoryDO extends DurableObject<Env> {
     return fragmentWriteResult(item);
   }
 
-  recall(input: { cue: string }) {
-    return recall(this.corpus.values(), inputs.recall.parse(input).cue);
+  recall(input: z.input<typeof inputs.recall>) {
+    return recall(this.corpus.values(), input);
   }
 
   list(input: { cursor?: string }) {
@@ -79,41 +78,7 @@ export class MemoryDO extends DurableObject<Env> {
   }
 
   revise(input: z.input<typeof inputs.revise>) {
-    const {
-      ref,
-      old_string: oldString,
-      new_string: newString,
-      replaceAll,
-    } = inputs.revise.parse(input);
-    const existing = this.corpus.get(ref);
-    if (!existing) {
-      return null;
-    }
-    const start = existing.fragment.indexOf(oldString);
-    if (start === -1) {
-      return {
-        error:
-          "old_string not found. Recall the fragment and use its exact text.",
-      };
-    }
-    if (!replaceAll && existing.fragment.includes(oldString, start + 1)) {
-      return {
-        error:
-          "old_string matches more than once. Include more context or set replaceAll to true.",
-      };
-    }
-    const fragment = existing.fragment.replaceAll(oldString, () => newString);
-    if (!restReviseInput.safeParse({ fragment, ref }).success) {
-      return {
-        error:
-          "The resulting fragment must contain non-whitespace text and be at most 500 characters (Unicode grapheme clusters).",
-      };
-    }
-    return this.replace({ fragment, ref });
-  }
-
-  replace(input: z.input<typeof restReviseInput>) {
-    const { fragment, ref } = restReviseInput.parse(input);
+    const { fragment, ref } = inputs.revise.parse(input);
     const existing = this.corpus.get(ref);
     if (!existing) {
       return null;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Fragment } from "../worker/memory";
+import type { Fragment } from "../contract/memory";
 import { call, content, list, post, useAccess } from "./helpers";
 
 type WriteResult = Fragment & { warnings?: string[] };
@@ -21,13 +21,7 @@ describe("Fragment length limits", () => {
           const result = await call(
             jwt,
             name,
-            previous
-              ? {
-                  new_string: fragment,
-                  old_string: previous.fragment,
-                  ref: previous.ref,
-                }
-              : { fragment }
+            previous ? { fragment, ref: previous.ref } : { fragment }
           );
           return result.isError ? null : content<WriteResult>(result);
         }
