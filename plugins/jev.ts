@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import type { RecallInput, RecallItem } from "../contract/memory";
 import { definePlugin } from "../contract/plugin";
-import type { Ctx } from "../contract/plugin";
+import type { Ctx, Json } from "../contract/plugin";
 
 // Relevance gate per RFC 1 Stage 2: one independent noul per candidate, so
 // "nothing is relevant" is a possible answer. Fail-open: any error, timeout,
@@ -28,6 +28,21 @@ type Config = z.infer<typeof config>;
 const answers = z.object({
   answers: z.record(z.string(), z.object({ noul: z.number().min(0).max(1) })),
 });
+// Workers AI wraps Jev's body in a gateway envelope ({ state, result, … });
+// the model docs show it bare. Accept both.
+const response = z.union([
+  answers,
+  z.object({ result: answers }).transform(({ result }) => result),
+]);
+
+const parseScores = (value: Json) => {
+  const parsed = response.safeParse(value);
+  if (!parsed.success) {
+    const keys = Object.keys(z.looseObject({}).safeParse(value).data ?? {});
+    throw new Error(`Unexpected Jev response (keys: ${keys.join(", ")})`);
+  }
+  return parsed.data.answers;
+};
 
 // Keys are refs; Jev does not show keys to the model, so they are safe ids.
 const question = (ref: string) => ({
@@ -64,7 +79,7 @@ const gate = async (
   if (judged.length === 0) {
     return [...items];
   }
-  const response = await withTimeout(
+  const output = await withTimeout(
     ai.run(JEV_MODEL, {
       questions: Object.fromEntries(
         judged.map((item) => [item.ref, question(item.ref)])
@@ -79,7 +94,7 @@ const gate = async (
     }),
     JEV_TIMEOUT_MS
   );
-  const scores = answers.parse(response).answers;
+  const scores = parseScores(output);
   // Unanswered or unjudged items stay; only a confident "no" drops one.
   return items.filter((item) => (scores[item.ref]?.noul ?? 1) >= threshold);
 };

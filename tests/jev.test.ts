@@ -88,6 +88,17 @@ describe("jev plugin", () => {
     });
   });
 
+  it("reads scores from the Workers AI gateway envelope", async () => {
+    const run = vi.fn<Run>(() =>
+      Promise.resolve({
+        gatewayMetadata: { keySource: "Unified" },
+        result: noul({ f2: 0.9, f8: 0.1, fx: 0.2 }),
+        state: "Completed",
+      })
+    );
+    await expect(gate(run).then(refs)).resolves.toStrictEqual(["f7", "f2"]);
+  });
+
   it("gates cue matches when configured, against the configured threshold", async () => {
     const run = vi.fn<Run>(() =>
       Promise.resolve(noul({ f2: 0.6, f7: 0.2, f8: 0.4, fx: 0.8 }))
@@ -114,7 +125,11 @@ describe("jev plugin", () => {
       input
     );
     expect(result).toStrictEqual(items);
-    expect(log).toHaveBeenCalledOnce();
+    expect(log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: "Error: Unexpected Jev response (keys: answers)",
+      })
+    );
   });
 
   it("gives up after its time budget", async () => {
