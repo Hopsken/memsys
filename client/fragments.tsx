@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, isExpired } from "@/lib/api";
+import { formatRelativeDate } from "@/lib/date";
 
 import type { Fragment, FragmentPage } from "../contract/memory";
 
@@ -98,11 +99,11 @@ export const FragmentsView = () => {
                 <li className="px-4 py-3 sm:px-5" key={item.ref}>
                   <div className="text-muted-foreground mb-1 flex flex-wrap items-center justify-between gap-x-4 text-xs">
                     <span className="font-mono">{item.ref}</span>
-                    <time dateTime={item.updatedAt}>
-                      {new Date(item.updatedAt).toLocaleString(undefined, {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}
+                    <time
+                      dateTime={item.updatedAt}
+                      title={new Date(item.updatedAt).toLocaleString()}
+                    >
+                      {formatRelativeDate(item.updatedAt)}
                     </time>
                   </div>
                   <p className="text-sm leading-6 [overflow-wrap:anywhere] whitespace-pre-wrap">
