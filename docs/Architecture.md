@@ -145,17 +145,17 @@ type ToolDef<C> = {
   run: (ctx: Ctx<C>, input: unknown) => Promise<unknown>;
 };
 
-// Fields are added when a plugin first needs them; today only config, corpus, index exist.
+// Fields are added when a plugin first needs them; today config, corpus, index, and ai exist.
 type Ctx<C> = {
   config: C;
   corpus: ReadonlyMap<string, Fragment>; // read-only view
   index: { anchors(ref: string): string[] }; // anything else (df, …) plugins derive themselves
   write: { remember; revise; forget }; // the core write path, hooks included
-  fetch: typeof fetch; // injectable for tests
+  ai: { run(model, input): Promise<Json> }; // Workers AI binding; injectable for tests
 };
 ```
 
-Hooks are implemented only when a plugin needs them. Implemented: `size-limit` (`beforeRemember` + `beforeRevise`), `list-tags` (tool), and `idf` (`afterRecall`).
+Hooks are implemented only when a plugin needs them. Implemented: `size-limit` (`beforeRemember` + `beforeRevise`), `list-tags` (tool), `idf` (`afterRecall`), and `jev` (`afterRecall`, off by default).
 
 ### Code layout
 
@@ -212,7 +212,9 @@ A hook can end in two ways besides success, and the plugin chooses which at the 
 
 `afterRemember` cannot abort. The fragment is already stored, and an error after a successful write would mislead the agent. A plugin that needs a veto uses `beforeRemember`.
 
-Plugins that call external models (Jev) fail — not die — on missing key, timeout (~1.5 s budget), rate limit, and malformed response, with no retry on the request path.
+Plugins that call external models (Jev) fail — not die — on binding errors (including an empty Workers AI balance), timeout (~1.5 s budget), rate limit, and malformed response, with no retry on the request path.
+
+`jev` calls `typesafe/jev` through the `AI` binding: one `noul` per candidate (associations only unless `matches` is on; at most 40), with `cue`, `context`, and the candidate texts as state. Items scoring below `threshold` (default 0.5) are dropped; unanswered and unjudged items stay; order is unchanged. The binding is always remote, so local dev bills the account; tests disable remote bindings and inject a fake `ai`.
 
 ## Invariants
 

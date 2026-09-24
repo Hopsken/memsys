@@ -93,6 +93,13 @@ describe("Plugin configuration", () => {
         status: "default",
         tools: [],
       },
+      {
+        config: { matches: false, threshold: 0.5 },
+        name: "jev",
+        properties: ["matches", "threshold"],
+        status: "default",
+        tools: [],
+      },
     ]);
   });
 

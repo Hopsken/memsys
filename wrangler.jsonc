@@ -31,6 +31,12 @@
   "dev": {
     "inspector_port": 0,
   },
+  // Workers AI; the jev plugin calls typesafe/jev through it. Always remote,
+  // so local dev bills the account too. Tests turn remote bindings off.
+  "ai": {
+    "binding": "AI",
+    "remote": true,
+  },
   "durable_objects": {
     "bindings": [
       {

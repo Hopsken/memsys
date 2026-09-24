@@ -19,6 +19,8 @@ export interface Ctx<C> {
   config: C;
   corpus: ReadonlyMap<string, Fragment>;
   index: { anchors: (ref: string) => string[] };
+  // Workers AI, narrowed to one call. Output is model JSON; plugins check its shape.
+  ai: { run: (model: string, input: JsonObject) => Promise<Json> };
 }
 
 export interface ToolDef<C> {

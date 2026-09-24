@@ -29,7 +29,7 @@ import {
   runVerdicts,
   viewPlugin,
 } from "./plugin-host";
-import type { PluginState, PluginUpdate } from "./plugin-host";
+import type { PluginEnv, PluginState, PluginUpdate } from "./plugin-host";
 
 assertRegistry(plugins);
 
@@ -62,11 +62,19 @@ export class MemoryDO extends DurableObject<Env> {
   private readonly db;
   private readonly corpus = new Map<string, Fragment>();
   private plugins: PluginState[] = [];
+  private readonly pluginEnv: PluginEnv;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
 
     this.db = drizzle(ctx.storage);
+    this.pluginEnv = {
+      ai: {
+        run: async (model, input) =>
+          z.json().parse(await env.AI.run(model, input)),
+      },
+      corpus: this.corpus,
+    };
     void ctx.blockConcurrencyWhile(async () => {
       const result = await Promise.resolve(migrate(this.db, migrations));
       if (result !== undefined) {
@@ -126,7 +134,7 @@ export class MemoryDO extends DurableObject<Env> {
     const { fragment } = inputs.remember.parse(input);
     const verdict = await runVerdicts(
       this.plugins,
-      this.corpus,
+      this.pluginEnv,
       (plugin, ctx) => plugin.beforeRemember?.(ctx, fragment)
     );
     const rejected = rejection(verdict);
@@ -158,7 +166,7 @@ export class MemoryDO extends DurableObject<Env> {
     const { candidates, input } = recallCandidates(this.corpus.values(), raw);
     const ranked = await runAfterRecall(
       this.plugins,
-      this.corpus,
+      this.pluginEnv,
       candidates,
       input
     );
@@ -181,7 +189,7 @@ export class MemoryDO extends DurableObject<Env> {
     }
     const verdict = await runVerdicts(
       this.plugins,
-      this.corpus,
+      this.pluginEnv,
       (plugin, ctx) => plugin.beforeRevise?.(ctx, existing, fragment)
     );
     const rejected = rejection(verdict);
@@ -231,7 +239,7 @@ export class MemoryDO extends DurableObject<Env> {
       throw new Error(`Tool ${name} is not enabled`);
     }
     const value = await found.tool.run(
-      createCtx(found.state.config, this.corpus),
+      createCtx(found.state.config, this.pluginEnv),
       found.tool.input.parse(input)
     );
     // Tool output is plugin-defined; JSON keeps it serializable across RPC.
