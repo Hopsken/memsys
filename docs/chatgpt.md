@@ -86,7 +86,7 @@ Use disposable data for the first test:
 
 Inspect the actual tool calls and results, not only ChatGPT's prose. Connecting memsys does not enable automatic storage of every conversation, and memsys is separate from ChatGPT's built-in Memory feature.
 
-See the [memory rules](../README.md#memory-rules) for matching behavior and limits. Memory belongs to the verified Access identity, not the ChatGPT conversation.
+See the [memory rules](../README.md#how-it-works) for matching behavior and limits. Memory belongs to the verified Access identity, not the ChatGPT conversation.
 
 ## Troubleshooting
 
