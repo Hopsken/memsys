@@ -1,8 +1,8 @@
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
+import type { Fragment } from "../contract/memory";
 import worker from "../worker/index";
-import type { Fragment } from "../worker/memory";
 import { list, useAccess } from "./helpers";
 
 const local = {
@@ -47,13 +47,13 @@ describe("Development identity", () => {
       result: { content: { text: string }[] };
     }>();
     expect(JSON.parse(body.result.content[0]?.text ?? "")).toMatchObject({
-      recalled: [{ ref }],
+      fragments: [{ ref }],
     });
     const other = await worker.fetch(
       post("/api/recall", '{"cue":"Local portal memory"}'),
       { ...local, DEV_IDENTITY: "other-local-user" }
     );
-    await expect(other.json()).resolves.toMatchObject({ recalled: [] });
+    await expect(other.json()).resolves.toMatchObject({ fragments: [] });
     // The same subject under Access must not share the development identity.
     const jwt = await token({ sub: local.DEV_IDENTITY });
     await expect(list(jwt)).resolves.toStrictEqual({

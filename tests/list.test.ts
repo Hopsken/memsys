@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import type { Fragment } from "../contract/memory";
 import { listFragments } from "../worker/memory";
-import type { Fragment } from "../worker/memory";
 
 const item = (
   ref: string,

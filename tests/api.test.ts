@@ -2,8 +2,9 @@ import { env } from "cloudflare:workers";
 import type { JSONValue } from "hono/utils/types";
 import { describe, expect, it } from "vitest";
 
+import type { Fragment } from "../contract/memory";
 import worker from "../worker/index";
-import type { Fragment, FragmentPage } from "../worker/memory";
+import type { FragmentPage } from "../worker/memory";
 import { getList, list, post, useAccess } from "./helpers";
 
 describe("Fragment HTTP API", () => {
@@ -27,13 +28,8 @@ describe("Fragment HTTP API", () => {
     });
     const found = await post("/api/recall", { cue: "changed design" }, jwt);
     await expect(found.json()).resolves.toMatchObject({
-      recalled: [
-        {
-          anchors: ["project/b"],
-          fragment: "Changed design #project/b",
-          ref: item.ref,
-        },
-      ],
+      fragments: [{ fragment: "Changed design #project/b", ref: item.ref }],
+      hasMore: false,
     });
   });
 
@@ -105,6 +101,9 @@ describe("Fragment HTTP API", () => {
     ["/api/remember", { fragment: "x", space: "another-user" }, 400],
     ["/api/revise", { fragment: "", ref: "7x9c2pa" }, 400],
     ["/api/recall", { cue: " " }, 400],
+    ["/api/recall", { cue: "x", limit: 0 }, 400],
+    ["/api/recall", { cue: "x", limit: 51 }, 400],
+    ["/api/recall", { cue: "x", limit: 1.5 }, 400],
     ["/api/forget", { ref: "invalid!" }, 400],
   ] satisfies [string, JSONValue, number][])(
     "rejects invalid request %#",

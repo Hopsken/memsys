@@ -18,17 +18,17 @@ The app uses Vite, React, Tailwind CSS 4, and shadcn/ui in `client/`. Hono, auth
 
 `/mcp` serves the five tools below through `@hono/mcp`, using stateless Streamable HTTP. Each POST creates a new MCP server and transport. There are no MCP session IDs, notification streams, or session Durable Objects. GET and DELETE return 405.
 
-The JSON HTTP API exposes the fragment operations. The inputs below are for HTTP; MCP `revise` uses a text edit instead of full replacement, while `list_tags` is MCP-only:
+The JSON HTTP API exposes the fragment operations with the same inputs as MCP; `list_tags` is MCP-only:
 
 | MCP tool | HTTP endpoint | JSON input |
 | --- | --- | --- |
 | `remember` | `POST /api/remember` | `{ "fragment": "Durable Objects store memory. #memsys #cloudflare" }` |
-| `recall` | `POST /api/recall` | `{ "cue": "durable objects" }` |
+| `recall` | `POST /api/recall` | `{ "cue": "durable objects", "limit": 20, "associate": true, "context": "…" }` |
 | `list_tags` | — | `{}` |
 | `revise` | `POST /api/revise` | `{ "ref": "7x9c2pa", "fragment": "Replacement text. #memsys" }` |
 | `forget` | `POST /api/forget` | `{ "ref": "7x9c2pa" }` |
 
-MCP `revise` accepts `{ "ref": "7x9c2pa", "old_string": "old text", "new_string": "new text", "replaceAll": false }`. The non-empty `old_string` must match exactly, including case and whitespace. By default it must match once; add context to select one occurrence, or set `replaceAll: true` to replace all non-overlapping matches. No match is an error in either mode. `new_string` is literal text and can be empty to delete matches. The resulting fragment must be non-blank and meet the character limits below. A failed edit returns an MCP tool error and leaves content and timestamps unchanged. HTTP `revise` keeps `{ ref, fragment }` and requires no old text. Each interface validates its own input schema; both share the final content validation and storage update.
+`revise` replaces the full text of a fragment. The replacement must be non-blank and meet the character limits below. A failed revise leaves content and timestamps unchanged.
 
 `remember` returns 201; other successful HTTP operations return 200. `remember` and `revise` return `{ ref, fragment, createdAt, updatedAt }`. Timestamps use UTC ISO 8601. `forget` returns `{ ref }`. Unknown refs return HTTP 404 or an MCP tool error. Invalid HTTP input returns 400; bodies over 32 KiB return 413.
 
@@ -38,26 +38,30 @@ Length uses Unicode grapheme clusters (`Intl.Segmenter`), not UTF-8 bytes or Jav
 
 REST POST requests require `Content-Type: application/json` (optional parameters such as `charset=utf-8` are allowed); other media types return 415. REST and MCP reject a supplied `Origin` unless it exactly matches the request URL's origin, returning 403. Non-browser clients may omit `Origin`.
 
-`recall` returns:
+`recall` accepts `cue` (required), `limit` (1–50, default 20), `associate` (default `true`), and `context` (optional free text describing the current task; accepted for plugins, ignored by core). It returns:
 
 ```json
 {
-  "recalled": [
+  "fragments": [
     {
       "ref": "7x9c2pa",
       "fragment": "Durable Objects store memory. #memsys #cloudflare",
       "createdAt": "2026-09-14T00:00:00.000Z",
-      "updatedAt": "2026-09-14T00:00:00.000Z",
-      "anchors": ["cloudflare", "memsys"]
+      "updatedAt": "2026-09-14T00:00:00.000Z"
+    },
+    {
+      "ref": "k3m8q2x",
+      "fragment": "D1 primary is in us-west. #cloudflare #d1",
+      "createdAt": "2026-09-10T00:00:00.000Z",
+      "updatedAt": "2026-09-10T00:00:00.000Z",
+      "via": ["cloudflare"]
     }
   ],
-  "associated": [],
-  "hasMoreRecalled": false,
-  "hasMoreAssociated": false
+  "hasMore": false
 }
 ```
 
-Associated items contain `sharedAnchors` instead of `anchors`.
+Fragments matching the cue come first. Fragments with `via` were associated through the listed anchors.
 
 MCP `list_tags` returns a JSON array containing every unique anchor name currently used by the authenticated user's fragments, lowercased and sorted. Names remain complete and are not stemmed or merged with synonyms. It returns `[]` when the memory store has no anchors. Agents should call it once when they begin using the store in a new context, then reuse a listed tag when it fits or create a new one when needed; they need not call it every turn or before each `remember`.
 
@@ -75,8 +79,8 @@ Pagination is not a snapshot: new or revised fragments can move ahead of the cur
 - Fragment length follows the grapheme limits above. Cues can have up to 256 UTF-16 code units after trimming.
 - Recall normalizes case and whitespace, then matches the complete cue as a substring. `durable objects` matches `Durable\nObjects`, but not `objects are durable`.
 - Anchors contain Unicode letters, numbers, `_`, `-`, or `/`. They start at a text boundary, so URL fragments, embedded `word#tags`, and Markdown `##headings` are not anchors. Anchors are lowercase and deduplicated. Namespace matching is exact: `#project/a` does not match `#project/ab`.
-- Association splits anchors without `/` at `-` and compares any shared word in both directions. Pure English-letter words use Porter2 stemming: `#agents`, `#agent-memory`, and `#agent-tools` link fragments; `#memory` also links to `#agent-memory`. Empty words are ignored. Words with numbers, non-English characters, or `_` require exact lowercase matches. Anchors with `/` require a complete exact lowercase match and are not split or stemmed. Stemming applies only to association, not cue matching or stored text. Returned `anchors` and `sharedAnchors` keep each fragment's complete lowercase tag spelling, not its stem.
-- Each result list is limited to 20 items, ordered by last update, newest first, then ref. Only returned recalled items seed association. All lexical matches are excluded from the associated list. Association is one hop, not recursive. Truncation flags report omitted results; use a narrower cue when needed.
+- Association splits anchors without `/` at `-` and compares any shared word in both directions. Pure English-letter words use Porter2 stemming: `#agents`, `#agent-memory`, and `#agent-tools` link fragments; `#memory` also links to `#agent-memory`. Empty words are ignored. Words with numbers, non-English characters, or `_` require exact lowercase matches. Anchors with `/` require a complete exact lowercase match and are not split or stemmed. Stemming applies only to association, not cue matching or stored text. Returned `via` anchors keep each fragment's complete lowercase tag spelling, not its stem.
+- Results hold at most `limit` items: cue matches first, then associated fragments, each group ordered by last update, newest first, then ref. Only returned matches seed association, so associations appear only when every match fits. Matches never repeat as associations. Association is one hop, not recursive. `hasMore` reports omitted results; raise `limit` or use a narrower cue when needed.
 - Recall is read-only. No embeddings, scores, tags, edges, or recall history are stored.
 
 ## Storage

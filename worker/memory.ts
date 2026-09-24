@@ -1,10 +1,13 @@
 import { stem } from "porter2";
 import { z } from "zod";
 
+import type { Fragment, RecallItem, RecallResult } from "../contract/memory";
+
 // Lowercase only; omit 0, 1, i, l, and o. 31^7 possible refs.
 export const REF_ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz";
 export const REF_LENGTH = 7;
 const RESULT_LIMIT = 20;
+const RESULT_LIMIT_MAX = 50;
 const PAGE_SIZE = 50;
 
 const FRAGMENT_SOFT_LIMIT = 300;
@@ -35,29 +38,36 @@ const cursor = z
 
 export const listInput = z.object({ cursor: cursor.optional() }).strict();
 
-export const restReviseInput = z.object({ fragment, ref }).strict();
-
 export const inputs = {
   forget: z.object({ ref }).strict(),
   listTags: z.object({}).strict(),
-  recall: z.object({ cue: z.string().trim().min(1).max(256) }).strict(),
-  remember: z.object({ fragment }).strict(),
-  revise: z
+  recall: z
     .object({
-      new_string: z.string(),
-      old_string: z.string().min(1),
-      ref,
-      replaceAll: z.boolean().optional(),
+      associate: z
+        .boolean()
+        .optional()
+        .describe(
+          "Also return fragments sharing #anchors with direct matches. Defaults to true."
+        ),
+      context: z
+        .string()
+        .max(1000)
+        .optional()
+        .describe("Optional: what you are doing right now."),
+      cue: z.string().trim().min(1).max(256),
+      limit: z
+        .int()
+        .min(1)
+        .max(RESULT_LIMIT_MAX)
+        .optional()
+        .describe(
+          `Maximum fragments to return, 1–${RESULT_LIMIT_MAX}. Defaults to ${RESULT_LIMIT}.`
+        ),
     })
     .strict(),
+  remember: z.object({ fragment }).strict(),
+  revise: z.object({ fragment, ref }).strict(),
 };
-
-export interface Fragment {
-  ref: string;
-  fragment: string;
-  createdAt: string;
-  updatedAt: string;
-}
 
 export const fragmentWriteResult = (item: Fragment) => {
   const length = fragmentLength(item.fragment);
@@ -126,37 +136,47 @@ const associationKeys = (anchor: string): string[] =>
         /^[a-z]+$/u.test(word) ? stem(word) : word
       );
 
-export const recall = (corpus: Iterable<Fragment>, cue: string) => {
+export const recall = (
+  corpus: Iterable<Fragment>,
+  input: z.input<typeof inputs.recall>
+): RecallResult => {
+  const {
+    associate = true,
+    cue,
+    limit = RESULT_LIMIT,
+  } = inputs.recall.parse(input);
   const ordered = [...corpus].toSorted(
     (a, b) =>
       b.updatedAt.localeCompare(a.updatedAt) || a.ref.localeCompare(b.ref)
   );
   const normalizedCue = normalize(cue);
-  const matches = ordered.filter((item) =>
+  const matches: RecallItem[] = ordered.filter((item) =>
     normalize(item.fragment).includes(normalizedCue)
   );
-  const recalled = matches.slice(0, RESULT_LIMIT).map((item) => ({
-    ...item,
-    anchors: extractAnchors(item.fragment),
-  }));
   const refs = new Set(matches.map((item) => item.ref));
-  const anchors = new Set(
-    recalled.flatMap((item) => item.anchors.flatMap(associationKeys))
+  // Only returned matches seed association.
+  const keys = new Set(
+    associate
+      ? matches
+          .slice(0, limit)
+          .flatMap((item) =>
+            extractAnchors(item.fragment).flatMap(associationKeys)
+          )
+      : []
   );
   const associated = ordered
-    .filter((item) => !refs.has(item.ref))
+    .filter((item) => keys.size > 0 && !refs.has(item.ref))
     .map((item) => ({
       ...item,
-      sharedAnchors: extractAnchors(item.fragment).filter((anchor) =>
-        associationKeys(anchor).some((key) => anchors.has(key))
+      via: extractAnchors(item.fragment).filter((anchor) =>
+        associationKeys(anchor).some((key) => keys.has(key))
       ),
     }))
-    .filter((item) => item.sharedAnchors.length > 0);
+    .filter((item) => item.via.length > 0);
+  const candidates = [...matches, ...associated];
 
   return {
-    associated: associated.slice(0, RESULT_LIMIT),
-    hasMoreAssociated: associated.length > RESULT_LIMIT,
-    hasMoreRecalled: matches.length > RESULT_LIMIT,
-    recalled,
+    fragments: candidates.slice(0, limit),
+    hasMore: candidates.length > limit,
   };
 };

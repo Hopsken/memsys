@@ -12,27 +12,26 @@ describe("Memory persistence", () => {
     await evictDurableObject(memory);
     await expect(
       memory.recall({ cue: " DURABLE\nobjects " })
-    ).resolves.toMatchObject({
-      associated: [{ ...neighbor, sharedAnchors: ["program"] }],
-      recalled: [{ ...seed, anchors: ["programming"] }],
+    ).resolves.toStrictEqual({
+      fragments: [seed, { ...neighbor, via: ["program"] }],
+      hasMore: false,
     });
     const revised = await memory.revise({
-      new_string: "Workers #changed",
-      old_string: neighbor.fragment,
+      fragment: "Workers #changed",
       ref: neighbor.ref,
     });
     await evictDurableObject(memory);
     await expect(
       memory.recall({ cue: "Durable objects" })
-    ).resolves.toMatchObject({ associated: [] });
+    ).resolves.toStrictEqual({ fragments: [seed], hasMore: false });
     await expect(memory.recall({ cue: "Workers" })).resolves.toMatchObject({
-      recalled: [{ ...revised, fragment: "Workers #changed" }],
+      fragments: [{ ...revised, fragment: "Workers #changed" }],
     });
     await memory.forget({ ref: seed.ref });
     await evictDurableObject(memory);
     await expect(
       memory.recall({ cue: "Durable objects" })
-    ).resolves.toMatchObject({ associated: [], recalled: [] });
+    ).resolves.toStrictEqual({ fragments: [], hasMore: false });
     await expect(memory.list({})).resolves.toStrictEqual({
       fragments: [revised],
       nextCursor: null,

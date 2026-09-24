@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { recall } from "../worker/memory";
-import type { Fragment } from "../worker/memory";
+import type { Fragment } from "../contract/memory";
+import { listTags, recall } from "../worker/memory";
 
 const item = (ref: string, fragment: string, day = "01"): Fragment => ({
   createdAt: "2026-01-01T00:00:00.000Z",
@@ -10,15 +10,18 @@ const item = (ref: string, fragment: string, day = "01"): Fragment => ({
   updatedAt: `2026-01-${day}T00:00:00.000Z`,
 });
 
+const associated = (corpus: Fragment[], cue: string) =>
+  recall(corpus, { cue }).fragments.filter((row) => row.via);
+
 describe("Recall", () => {
-  it("returns normalized anchors without treating URLs or headings as tags", () => {
+  it("extracts normalized anchors without treating URLs or headings as tags", () => {
     const corpus = [
       item(
         "a",
         "#Cloudflare #cloudflare (#project/a) #agent-memory #a_b #记忆 #123 https://x/#ignored word#ignored ##heading"
       ),
     ];
-    expect(recall(corpus, "Cloudflare").recalled[0]?.anchors).toStrictEqual([
+    expect(listTags(corpus)).toStrictEqual([
       "123",
       "a_b",
       "agent-memory",
@@ -36,15 +39,13 @@ describe("Recall", () => {
       item("d", "Not transitive #next"),
       item("e", "Objects are durable #unrelated"),
     ];
-    expect(recall(corpus, " DURABLE objects ")).toStrictEqual({
-      associated: [{ ...corpus[1], sharedAnchors: ["project/a", "shared"] }],
-      hasMoreAssociated: false,
-      hasMoreRecalled: false,
-      recalled: [{ ...corpus[0], anchors: ["project/a", "shared"] }],
+    expect(recall(corpus, { cue: " DURABLE objects " })).toStrictEqual({
+      fragments: [corpus[0], { ...corpus[1], via: ["project/a", "shared"] }],
+      hasMore: false,
     });
-    expect(recall(corpus, "absent")).toMatchObject({
-      associated: [],
-      recalled: [],
+    expect(recall(corpus, { cue: "absent" })).toStrictEqual({
+      fragments: [],
+      hasMore: false,
     });
   });
 
@@ -56,25 +57,19 @@ describe("Recall", () => {
       item("d", "Not an anchor: program relation"),
       item("e", "Different stem #programmer"),
     ];
-    expect(recall(corpus, "Seed")).toStrictEqual({
-      associated: [
-        { ...corpus[1], sharedAnchors: ["program", "programs", "relation"] },
-      ],
-      hasMoreAssociated: false,
-      hasMoreRecalled: false,
-      recalled: [{ ...corpus[0], anchors: ["programming", "relational"] }],
-    });
-    expect(recall(corpus, "Neighbor").associated).toContainEqual({
-      ...corpus[0],
-      sharedAnchors: ["programming", "relational"],
-    });
-    expect(recall(corpus, "#programming").recalled).toStrictEqual([
-      { ...corpus[0], anchors: ["programming", "relational"] },
+    expect(recall(corpus, { cue: "Seed" }).fragments).toStrictEqual([
+      corpus[0],
+      { ...corpus[1], via: ["program", "programs", "relation"] },
     ]);
-    expect(recall(corpus, "relations")).toMatchObject({
-      associated: [],
-      recalled: [],
+    expect(associated(corpus, "Neighbor")).toContainEqual({
+      ...corpus[0],
+      via: ["programming", "relational"],
     });
+    expect(recall(corpus, { cue: "#programming" }).fragments).toStrictEqual([
+      corpus[0],
+      { ...corpus[1], via: ["program", "programs", "relation"] },
+    ]);
+    expect(recall(corpus, { cue: "relations" }).fragments).toStrictEqual([]);
   });
 
   it.each([
@@ -84,11 +79,11 @@ describe("Recall", () => {
     ["记忆", "agent-记忆"],
   ])("associates #%s and #%s in both directions", (left, right) => {
     const corpus = [item("a", `Left #${left}`), item("b", `Right #${right}`)];
-    expect(recall(corpus, "Left").associated).toStrictEqual([
-      { ...corpus[1], sharedAnchors: [right] },
+    expect(associated(corpus, "Left")).toStrictEqual([
+      { ...corpus[1], via: [right] },
     ]);
-    expect(recall(corpus, "Right").associated).toStrictEqual([
-      { ...corpus[0], sharedAnchors: [left] },
+    expect(associated(corpus, "Right")).toStrictEqual([
+      { ...corpus[0], via: [left] },
     ]);
   });
 
@@ -102,10 +97,10 @@ describe("Recall", () => {
       item("f", "Not an anchor: agent memory"),
       item("g", "Namespace #project/agent-memory #agents-memories/archive"),
     ];
-    expect(recall(corpus, "Seed").associated).toStrictEqual([
-      { ...corpus[1], sharedAnchors: ["agent-memory", "agent-tools"] },
+    expect(associated(corpus, "Seed")).toStrictEqual([
+      { ...corpus[1], via: ["agent-memory", "agent-tools"] },
     ]);
-    expect(recall(corpus, "Namespace").associated).toStrictEqual([]);
+    expect(associated(corpus, "Namespace")).toStrictEqual([]);
   });
 
   it("keeps namespace, underscore, numeric, and Unicode anchors exact", () => {
@@ -124,39 +119,45 @@ describe("Recall", () => {
       ),
       item("c", `Exact ${anchors.map((anchor) => `#${anchor}`).join(" ")}`),
     ];
-    expect(recall(corpus, "Seed").associated).toStrictEqual([
-      { ...corpus[2], sharedAnchors: anchors.toSorted() },
+    expect(associated(corpus, "Seed")).toStrictEqual([
+      { ...corpus[2], via: anchors.toSorted() },
     ]);
   });
 
-  it("bounds both lists, sorts deterministically, and expands only returned seeds", () => {
-    const seeds = Array.from({ length: 21 }, (_, index) =>
-      item(
-        `match-${index.toString().padStart(2, "0")}`,
-        `cue #shared${index === 20 ? " #hidden" : ""}`
-      )
-    );
-    const neighbors = Array.from({ length: 21 }, (_, index) =>
-      item(`neighbor-${index.toString().padStart(2, "0")}`, "neighbor #shared")
-    );
-    const result = recall(
-      [
-        ...neighbors.toReversed(),
-        ...seeds.toReversed(),
-        item("hidden", "hidden neighbor #hidden"),
+  it.each([
+    [undefined, ["m-00", "m-01", "m-02", "newest", "neighbor"], false],
+    [5, ["m-00", "m-01", "m-02", "newest", "neighbor"], false],
+    [4, ["m-00", "m-01", "m-02", "newest"], true],
+    [3, ["m-00", "m-01", "m-02"], true],
+    [2, ["m-00", "m-01"], true],
+  ])(
+    "puts matches before associations and bounds the combined list to %s",
+    (limit, refs, hasMore) => {
+      const corpus = [
+        item("neighbor", "neighbor #shared"),
         item("newest", "newest neighbor #shared", "02"),
-      ],
-      "cue"
+        ...["m-02", "m-01", "m-00"].map((ref) => item(ref, "cue #shared")),
+      ];
+      const result = recall(corpus, { cue: "cue", ...(limit && { limit }) });
+      expect({
+        hasMore: result.hasMore,
+        refs: result.fragments.map((row) => row.ref),
+      }).toStrictEqual({ hasMore, refs });
+    }
+  );
+
+  it("skips association when disabled", () => {
+    const corpus = [item("a", "cue #shared"), item("b", "neighbor #shared")];
+    expect(recall(corpus, { associate: false, cue: "cue" })).toStrictEqual({
+      fragments: [corpus[0]],
+      hasMore: false,
+    });
+  });
+
+  it("returns 20 results by default", () => {
+    const corpus = Array.from({ length: 21 }, (_, index) =>
+      item(`m-${index.toString().padStart(2, "0")}`, "cue")
     );
-    expect(result.recalled.map((row) => row.ref)).toStrictEqual(
-      seeds.slice(0, 20).map((row) => row.ref)
-    );
-    expect(result.associated.map((row) => row.ref)).toStrictEqual([
-      "newest",
-      ...neighbors.slice(0, 19).map((row) => row.ref),
-    ]);
-    expect(result.hasMoreRecalled).toBeTruthy();
-    expect(result.hasMoreAssociated).toBeTruthy();
-    expect(recall(seeds.slice(0, 20), "cue").hasMoreRecalled).toBeFalsy();
+    expect(recall(corpus, { cue: "cue" }).fragments).toHaveLength(20);
   });
 });
