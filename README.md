@@ -18,7 +18,7 @@ The app uses Vite, React, Tailwind CSS 4, and shadcn/ui in `client/`. Hono, auth
 
 `/mcp` serves the five tools below through `@hono/mcp`, using stateless Streamable HTTP. Each POST creates a new MCP server and transport. There are no MCP session IDs, notification streams, or session Durable Objects. GET and DELETE return 405.
 
-The JSON HTTP API exposes the fragment operations with the same inputs as MCP; `list_tags` is MCP-only:
+The JSON HTTP API exposes the fragment operations with the same inputs as MCP; `list_tags` is an MCP-only plugin tool:
 
 | MCP tool | HTTP endpoint | JSON input |
 | --- | --- | --- |
@@ -32,7 +32,7 @@ The JSON HTTP API exposes the fragment operations with the same inputs as MCP; `
 
 `remember` returns 201; other successful HTTP operations return 200. `remember` and `revise` return `{ ref, fragment, createdAt, updatedAt }`. Timestamps use UTC ISO 8601. `forget` returns `{ ref }`. Unknown refs return HTTP 404 or an MCP tool error. Invalid HTTP input returns 400; bodies over 32 KiB return 413.
 
-Fragments have a **300-character soft limit** and a **500-character hard limit**. `remember` and `revise` accept 301–500 characters but add a `warnings` array of messages to the result, for both HTTP and MCP. More than 500 characters is rejected without writing. Warnings are not stored. Existing longer fragments remain readable; revisions must meet the new limit.
+Length policy comes from the `size-limit` plugin, configurable per instance. By default fragments have a **300-character soft limit** and a **500-character hard limit**: `remember` and `revise` accept 301–500 characters but add a `warnings` array to the result, for both HTTP and MCP. Longer text is rejected without writing (HTTP 422 or an MCP tool error, with a readable reason). Core enforces an absolute ceiling of **1000 characters** (HTTP 400) whatever the plugin says. Warnings are not stored. Existing longer fragments remain readable; revisions must meet the current limit.
 
 Length uses Unicode grapheme clusters (`Intl.Segmenter`), not UTF-8 bytes or JavaScript UTF-16 code units. A Chinese character, `👍🏽`, `👨‍👩‍👧‍👦`, and `e` with a combining acute accent each count as one character. Spaces, punctuation, and `#anchors` also count. Text is stored unchanged, and blank fragments are rejected. The separate 32 KiB request-body limit still applies.
 
@@ -69,7 +69,11 @@ MCP `list_tags` returns a JSON array containing every unique anchor name current
 
 `GET /api/fragments` returns `{ fragments, nextCursor }`. Each fragment contains `{ ref, fragment, createdAt, updatedAt }`. This read-only endpoint uses the same verified identity as REST and MCP and sends `Cache-Control: no-store`.
 
-Pages contain up to 50 items, ordered by `updatedAt` descending and then ref ascending. Pass the returned cursor with `URLSearchParams` as `?cursor=...` to get the next page. `nextCursor: null` marks the end. Invalid cursors or unknown query fields return 400. Fragment pagination remains HTTP-only, and `list_tags` requires no database migration.
+Pages contain up to 50 items, ordered by `updatedAt` descending and then ref ascending. Pass the returned cursor with `URLSearchParams` as `?cursor=...` to get the next page. `nextCursor: null` marks the end. Invalid cursors or unknown query fields return 400. Fragment pagination remains HTTP-only.
+
+### Plugins
+
+Plugins live in `plugins/` and see the worker only through `contract/`. Each instance stores its own choices in the `plugin_config` table; without a row a plugin uses its defaults. `GET /api/plugins` lists every plugin with its effective config, defaults, JSON Schema, added tools, and status (`default`, `custom`, or `invalid` when a stored config no longer parses and defaults apply). Tool changes reach MCP clients on reconnect.
 
 Pagination is not a snapshot: new or revised fragments can move ahead of the cursor. Refresh to see current data. Deleting the cursor's fragment does not prevent loading the next page.
 

@@ -145,6 +145,7 @@ type ToolDef<C> = {
   run: (ctx: Ctx<C>, input: unknown) => Promise<unknown>;
 };
 
+// Fields are added when a plugin first needs them; today only config, corpus, index exist.
 type Ctx<C> = {
   config: C;
   corpus: ReadonlyMap<string, Fragment>; // read-only view
@@ -165,6 +166,10 @@ worker/     core + plugin host
 ```
 
 `plugins → contract ← worker`, plus `worker → plugins/index.ts`. Plugins never import `worker/`; lint enforces it. Worker and plugins meet only at the contract.
+
+`definePlugin` erases each plugin's config type for the registry and re-parses the config at every hook call, so a plugin always receives its own config type.
+
+Plugin-defined values (configs, JSON Schemas, tool output) are opaque JSON at the Durable Object RPC boundary: tool calls return JSON text, and plugin-config methods return HTTP `Response`s the worker passes through.
 
 Plugins are a compile-time array in the worker. There is **no** dynamic loading, no inter-plugin dependency, no lifecycle, no event bus.
 
@@ -202,7 +207,7 @@ Rejection reasons must be readable and actionable so the agent can fix its input
 A hook can end in two ways besides success, and the plugin chooses which at the moment of failure — only it knows whether not running means _a noisier result_ or _unsafe to proceed_.
 
 - **Fail** — any ordinary exception. Logged; the hook is treated as identity (`afterRecall` returns its input, `beforeRemember` returns no warnings and no rejections, `afterRemember` returns nothing); the pipeline continues. This is the default: most failures are bugs or environment, and a broken plugin must never cost the user their memory.
-- **Die** — the plugin throws `PluginAbort(reason)`. The pipeline stops; the tool call returns `isError` naming the plugin and the reason. On the write path nothing is stored.
+- **Die** — the plugin throws `PluginAbortError(reason)`. The pipeline stops; the tool call returns `isError` naming the plugin and the reason. On the write path nothing is stored.
 
 `afterRemember` cannot abort. The fragment is already stored, and an error after a successful write would mislead the agent. A plugin that needs a veto uses `beforeRemember`.
 

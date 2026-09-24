@@ -2,13 +2,20 @@ import { evictDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
+import type { Fragment } from "../contract/memory";
+
 describe("Memory persistence", () => {
   it("preserves writes, edits, and deletion after eviction without changing memory on recall", async () => {
     const memory = env.MEMORY.getByName("persistence");
-    const seed = await memory.remember({
-      fragment: "Durable objects #Programming",
-    });
-    const neighbor = await memory.remember({ fragment: "Workers #program" });
+    const remember = async (fragment: string): Promise<Fragment> => {
+      const result = await memory.remember({ fragment });
+      if ("error" in result) {
+        throw new Error(result.error);
+      }
+      return result;
+    };
+    const seed = await remember("Durable objects #Programming");
+    const neighbor = await remember("Workers #program");
     await evictDurableObject(memory);
     await expect(
       memory.recall({ cue: " DURABLE\nobjects " })
