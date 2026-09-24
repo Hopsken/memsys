@@ -161,12 +161,12 @@ Hooks are implemented only when a plugin needs them. First batch: `size-limit` (
 
 ```
 contract/   what worker and plugins must agree on: types (Fragment, Plugin, …)
-            and shared rules (fragment length); imports nothing outside contract/
+lib/        shared runtime helpers (fragment length, relative dates)
 plugins/    one file per plugin + index.ts (the registry array)
 worker/     core + plugin host
 ```
 
-`plugins → contract ← worker`, plus `worker → plugins/index.ts`. Plugins never import `worker/`; lint enforces it. Worker and plugins meet only at the contract.
+`plugins → contract, lib ← worker`, plus `worker → plugins/index.ts`. `contract/`, `lib/`, and `plugins/` never import `worker/` or `client/`; lint enforces it. Worker and plugins meet only at the contract; `lib/` holds rules both sides must compute the same way, such as fragment length.
 
 `definePlugin` erases each plugin's config type for the registry and re-parses the config at every hook call, so a plugin always receives its own config type.
 

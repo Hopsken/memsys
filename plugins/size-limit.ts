@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-import { FRAGMENT_MAX, fragmentLength } from "../contract/fragment";
 import { definePlugin } from "../contract/plugin";
 import type { Verdict } from "../contract/plugin";
+import { FRAGMENT_MAX, fragmentLength } from "../lib/fragment";
 
 const limit = z.int().min(1).max(FRAGMENT_MAX);
 

@@ -1,13 +1,13 @@
 import { stem } from "porter2";
 import { z } from "zod";
 
-import { FRAGMENT_MAX, fragmentLength } from "../contract/fragment";
 import type {
   Fragment,
   FragmentPage,
   RecallItem,
   RecallResult,
 } from "../contract/memory";
+import { FRAGMENT_MAX, fragmentLength } from "../lib/fragment";
 
 // Lowercase only; omit 0, 1, i, l, and o. 31^7 possible refs.
 export const REF_ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz";

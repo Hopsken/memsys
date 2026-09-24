@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, isExpired } from "@/lib/api";
-import { formatRelativeDate } from "@/lib/date";
 
 import type { Fragment, FragmentPage } from "../contract/memory";
+import { formatRelativeDate } from "../lib/date";
 
 // A fragment revised between page loads can appear twice; keep its latest copy.
 const flatten = (pages: FragmentPage[]) => {
