@@ -5,7 +5,6 @@ import { ArrowDown, Layers } from "lucide-react";
 import { SessionExpired } from "@/components/session-expired";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, isExpired } from "@/lib/api";
 
@@ -70,13 +69,13 @@ export const FragmentsView = () => {
 
       <section aria-busy={query.isFetching} aria-label="Fragments">
         {query.isPending ? (
-          <div className="space-y-2.5" role="status">
+          <div className="divide-y" role="status">
             <span className="sr-only">Loading memory</span>
             {[1, 2, 3].map((key) => (
-              <Card className="gap-2 px-4 py-3.5 sm:px-5" key={key}>
+              <div className="space-y-2 py-3.5" key={key}>
                 <Skeleton className="h-3 w-24" />
                 <Skeleton className="h-4 w-2/3" />
-              </Card>
+              </div>
             ))}
           </div>
         ) : null}
@@ -92,23 +91,21 @@ export const FragmentsView = () => {
             </p>
           </div>
         ) : null}
-        <ul className="space-y-2.5">
+        <ul className="divide-y">
           {items.map((item) => (
-            <li key={item.ref}>
-              <Card className="gap-1 px-4 py-3.5 sm:px-5">
-                <div className="text-muted-foreground flex flex-wrap items-center justify-between gap-x-4 text-xs">
-                  <span className="font-mono">{item.ref}</span>
-                  <time
-                    dateTime={item.updatedAt}
-                    title={new Date(item.updatedAt).toLocaleString()}
-                  >
-                    {formatRelativeDate(item.updatedAt)}
-                  </time>
-                </div>
-                <p className="text-sm leading-6 [overflow-wrap:anywhere] whitespace-pre-wrap">
-                  {item.fragment}
-                </p>
-              </Card>
+            <li className="space-y-1 py-3.5" key={item.ref}>
+              <div className="text-muted-foreground flex flex-wrap items-center justify-between gap-x-4 text-xs">
+                <span className="font-mono">{item.ref}</span>
+                <time
+                  dateTime={item.updatedAt}
+                  title={new Date(item.updatedAt).toLocaleString()}
+                >
+                  {formatRelativeDate(item.updatedAt)}
+                </time>
+              </div>
+              <p className="text-sm leading-6 [overflow-wrap:anywhere] whitespace-pre-wrap">
+                {item.fragment}
+              </p>
             </li>
           ))}
         </ul>
