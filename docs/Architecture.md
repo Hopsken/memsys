@@ -160,7 +160,8 @@ Hooks are implemented only when a plugin needs them. First batch: `size-limit` (
 ### Code layout
 
 ```
-contract/   shared types (Fragment, RecallItem, Plugin, …); no local imports
+contract/   what worker and plugins must agree on: types (Fragment, Plugin, …)
+            and shared rules (fragment length); imports nothing outside contract/
 plugins/    one file per plugin + index.ts (the registry array)
 worker/     core + plugin host
 ```

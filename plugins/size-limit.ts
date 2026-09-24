@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { FRAGMENT_MAX, fragmentLength } from "../contract/memory";
+import { FRAGMENT_MAX, fragmentLength } from "../contract/fragment";
 import { definePlugin } from "../contract/plugin";
 import type { Verdict } from "../contract/plugin";
 
