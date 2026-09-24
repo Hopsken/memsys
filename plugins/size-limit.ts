@@ -51,8 +51,7 @@ export const sizeLimit = definePlugin({
   beforeRevise: (ctx, _prev, text) => Promise.resolve(check(ctx.config, text)),
   config,
   defaults: { config: { hard: 500, soft: 300 }, enabled: true },
-  description:
-    "Warns on long fragments and rejects oversized ones. Lengths count Unicode grapheme clusters.",
+  description: "Warns on long fragments and rejects oversized ones.",
   name: "size-limit",
   title: "Fragment size limit",
 });

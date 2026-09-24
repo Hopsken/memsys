@@ -27,6 +27,9 @@ const jsonObject = z.record(z.string(), z.json());
 
 export type FieldErrors = Record<string, string>;
 
+// Types whose control fits beside the label; anything else spans the row.
+const INLINE_TYPES = new Set(["boolean", "integer", "number", "string"]);
+
 // A plugin with an empty object schema has nothing to configure.
 export const hasFields = (schema: JsonObject) => {
   const editable = z.safeParse(objectSchema, schema);
@@ -80,7 +83,7 @@ const Control = (props: FieldProps) => {
     return (
       <select
         aria-invalid={invalid}
-        className="focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border bg-white px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
+        className="focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-40 rounded-md border bg-white px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
         id={id}
         onChange={(event) => {
           const index = options.indexOf(event.currentTarget.value);
@@ -100,7 +103,7 @@ const Control = (props: FieldProps) => {
     return (
       <Input
         aria-invalid={invalid}
-        className="max-w-40 font-mono tabular-nums"
+        className="w-24 text-right font-mono tabular-nums"
         id={id}
         inputMode={field.type === "integer" ? "numeric" : "decimal"}
         max={field.maximum}
@@ -129,6 +132,7 @@ const Control = (props: FieldProps) => {
     return (
       <Input
         aria-invalid={invalid}
+        className="w-40 sm:w-56"
         id={id}
         onChange={(event) => onChange(event.currentTarget.value)}
         value={z.safeParse(z.string(), value).data ?? ""}
@@ -171,50 +175,56 @@ export const SchemaForm = ({
   }
   const fields = Object.entries(editable.data.properties);
   return (
-    <fieldset className="space-y-5" disabled={disabled}>
+    <fieldset className="divide-y" disabled={disabled}>
       {fields.map(([key, raw]) => {
         const field = z.safeParse(fieldSchema, raw).data ?? {};
         const id = `${idPrefix}-${key}`;
         const error = errors[key];
         const modified =
           JSON.stringify(current[key]) !== JSON.stringify(fallback[key]);
+        const wide = !field.enum && !INLINE_TYPES.has(field.type ?? "");
         return (
-          <div className="space-y-2" key={key}>
-            <div className="flex items-baseline justify-between gap-3">
+          <div
+            className={cn(
+              "grid gap-x-6 gap-y-2 py-3 first:pt-0 last:pb-0",
+              wide ? "" : "grid-cols-[minmax(0,1fr)_auto] items-center"
+            )}
+            key={key}
+          >
+            <div className="min-w-0">
               <label className="text-sm font-medium" htmlFor={id}>
                 {field.title ?? key}
-                {modified ? (
-                  <span
-                    aria-label="Changed from default"
-                    className="bg-primary ml-2 inline-block size-1.5 rounded-full align-middle"
-                  />
-                ) : null}
               </label>
-              <span className="text-muted-foreground font-mono text-xs">
-                default {JSON.stringify(fallback[key])}
-              </span>
+              <p
+                className={cn(
+                  "mt-0.5 text-xs",
+                  error ? "text-destructive" : "text-muted-foreground"
+                )}
+                id={`${id}-hint`}
+              >
+                {error ?? field.description}
+                {modified && !error ? (
+                  <span className="text-primary font-medium whitespace-nowrap">
+                    {" "}
+                    · default {JSON.stringify(fallback[key])}
+                  </span>
+                ) : null}
+              </p>
             </div>
-            <Control
-              field={field}
-              id={id}
-              invalid={Boolean(error)}
-              onChange={(next) => {
-                const { [key]: _removed, ...rest } = current;
-                onChange(
-                  next === undefined ? rest : { ...current, [key]: next }
-                );
-              }}
-              value={current[key]}
-            />
-            <p
-              className={cn(
-                "text-xs",
-                error ? "text-destructive" : "text-muted-foreground"
-              )}
-              id={`${id}-hint`}
-            >
-              {error ?? field.description}
-            </p>
+            <div className={wide ? "" : "flex justify-end"}>
+              <Control
+                field={field}
+                id={id}
+                invalid={Boolean(error)}
+                onChange={(next) => {
+                  const { [key]: _removed, ...rest } = current;
+                  onChange(
+                    next === undefined ? rest : { ...current, [key]: next }
+                  );
+                }}
+                value={current[key]}
+              />
+            </div>
           </div>
         );
       })}

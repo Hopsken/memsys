@@ -24,15 +24,15 @@ interface Problem {
 
 const STATUS = {
   custom: { className: "bg-primary text-primary-foreground", label: "Custom" },
-  default: {
-    className: "bg-secondary text-muted-foreground",
-    label: "Default",
-  },
+  default: null,
   invalid: {
     className: "border border-amber-300 bg-amber-50 text-amber-900",
     label: "Invalid — using defaults",
   },
-} satisfies Record<PluginView["status"], { className: string; label: string }>;
+} satisfies Record<
+  PluginView["status"],
+  { className: string; label: string } | null
+>;
 
 const same = (a: Draft, b: Draft) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -95,7 +95,7 @@ const PluginCard = ({
       }
       setProblem({
         conflict: false,
-        text: "Could not save. Check your connection and try again.",
+        text: "Could not save.",
       });
     } finally {
       setBusy(false);
@@ -117,33 +117,20 @@ const PluginCard = ({
             <h2 className="font-medium" id={`${id}-title`}>
               {view.title}
             </h2>
-            <span
-              className={cn(
-                "rounded-full px-2 py-0.5 text-[11px] font-medium",
-                status.className
-              )}
-            >
-              {status.label}
-            </span>
+            {status ? (
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-[11px] font-medium",
+                  status.className
+                )}
+              >
+                {status.label}
+              </span>
+            ) : null}
           </div>
-          <p className="text-muted-foreground font-mono text-xs">{view.name}</p>
           <p className="text-muted-foreground text-sm leading-6">
             {view.description}
           </p>
-          {view.tools.length > 0 ? (
-            <p className="text-muted-foreground text-xs">
-              Adds{" "}
-              {view.tools.map((tool) => (
-                <code
-                  className="bg-secondary text-foreground mr-1 rounded px-1.5 py-0.5"
-                  key={tool}
-                >
-                  {tool}
-                </code>
-              ))}
-              · agents see tool changes after reconnecting
-            </p>
-          ) : null}
         </div>
         <Switch
           aria-label={`Enable ${view.title}`}
@@ -186,56 +173,51 @@ const PluginCard = ({
         </div>
       ) : null}
 
-      <footer className="bg-secondary/50 flex items-center justify-between gap-3 rounded-b-lg border-t px-5 py-3 sm:px-6">
-        {view.status === "default" ? (
-          <span className="text-muted-foreground text-xs">Using defaults</span>
-        ) : (
-          <Button
-            disabled={busy}
-            onClick={() => {
-              void submit(() =>
-                request(`/api/plugins/${view.name}`, { method: "DELETE" })
-              );
-            }}
-            size="sm"
-            variant="ghost"
-          >
-            <RotateCcw aria-hidden="true" />
-            Reset to defaults
-          </Button>
-        )}
-        <div className="flex items-center gap-3">
-          {dirty ? (
-            <span aria-live="polite" className="text-muted-foreground text-xs">
-              Unsaved changes
-            </span>
-          ) : null}
-          {dirty ? (
+      {dirty || view.status !== "default" ? (
+        <footer className="bg-secondary/50 flex items-center justify-between gap-3 rounded-b-lg border-t px-5 py-3 sm:px-6">
+          {view.status === "default" ? null : (
             <Button
               disabled={busy}
-              onClick={() => setDraft(saved)}
+              onClick={() => {
+                void submit(() =>
+                  request(`/api/plugins/${view.name}`, { method: "DELETE" })
+                );
+              }}
               size="sm"
-              variant="outline"
+              variant="ghost"
             >
-              Discard
+              <RotateCcw aria-hidden="true" />
+              Reset to defaults
             </Button>
+          )}
+          {dirty ? (
+            <div className="ml-auto flex items-center gap-3">
+              <Button
+                disabled={busy}
+                onClick={() => setDraft(saved)}
+                size="sm"
+                variant="outline"
+              >
+                Discard
+              </Button>
+              <Button
+                disabled={busy}
+                onClick={() => {
+                  void submit(() =>
+                    sendJson(`/api/plugins/${view.name}`, "PUT", {
+                      ...draft,
+                      updatedAt: view.updatedAt,
+                    })
+                  );
+                }}
+                size="sm"
+              >
+                {busy ? "Saving…" : "Save"}
+              </Button>
+            </div>
           ) : null}
-          <Button
-            disabled={busy || !dirty}
-            onClick={() => {
-              void submit(() =>
-                sendJson(`/api/plugins/${view.name}`, "PUT", {
-                  ...draft,
-                  updatedAt: view.updatedAt,
-                })
-              );
-            }}
-            size="sm"
-          >
-            {busy ? "Saving…" : "Save"}
-          </Button>
-        </div>
-      </footer>
+        </footer>
+      ) : null}
     </li>
   );
 };
@@ -268,15 +250,11 @@ export const PluginsView = () => {
   }, []);
 
   if (expired) {
-    return <SessionExpired what="plugins" />;
+    return <SessionExpired />;
   }
 
   return (
     <section aria-busy={views === null} aria-label="Plugins">
-      <p className="text-muted-foreground mb-6 text-sm leading-6">
-        Plugins tune how this memory behaves. Changes apply to the next request.
-        Agents cannot change these settings through MCP.
-      </p>
       {failed ? (
         <div
           className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-white p-4"

@@ -58,7 +58,7 @@ export const FragmentsView = () => {
       setCursor(page.nextCursor);
     } catch {
       if (!controller.signal.aborted) {
-        setError("Could not load memory. Check your connection and try again.");
+        setError("Could not load memory.");
       }
     } finally {
       if (!controller.signal.aborted) {
@@ -91,7 +91,7 @@ export const FragmentsView = () => {
         </Button>
       </div>
 
-      {expired ? <SessionExpired what="memory" /> : null}
+      {expired ? <SessionExpired /> : null}
 
       {error ? (
         <div
@@ -147,10 +147,7 @@ export const FragmentsView = () => {
             >
               <div className="text-muted-foreground mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs">
                 <span className="font-mono">{item.ref}</span>
-                <time
-                  dateTime={item.updatedAt}
-                  title={`Updated ${new Date(item.updatedAt).toLocaleString()}`}
-                >
+                <time dateTime={item.updatedAt}>
                   {new Date(item.updatedAt).toLocaleString(undefined, {
                     dateStyle: "medium",
                     timeStyle: "short",
@@ -165,12 +162,7 @@ export const FragmentsView = () => {
         </ul>
       </section>
       {items.length > 0 ? (
-        <footer className="mt-6 flex flex-col items-center gap-4">
-          <p aria-live="polite" className="text-muted-foreground text-xs">
-            {loading
-              ? "Loading memory…"
-              : `${items.length} ${items.length === 1 ? "fragment" : "fragments"} shown${cursor ? "" : " · All caught up"}`}
-          </p>
+        <footer className="mt-6 flex justify-center">
           {cursor ? (
             <Button
               disabled={loading}
