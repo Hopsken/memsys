@@ -10,7 +10,7 @@ To connect the deployed server, follow [Use memsys in ChatGPT](docs/chatgpt.md).
 
 ## Web UI
 
-Open `/` to browse your fragments and `#/plugins` to configure plugins for your memory. Fragments are created, revised, and deleted through your connected agent.
+Open `/` to browse your fragments and `/plugins` to configure plugins for your memory. Fragments are created, revised, and deleted through your connected agent.
 
 The app uses Vite, React, Tailwind CSS 4, and shadcn/ui in `client/`. Hono, authentication, MCP, and the Durable Object live in `worker/`. The Cloudflare Vite plugin serves both from one origin. Cloudflare Access protects the whole hostname; the browser sends same-origin requests without storing tokens.
 
