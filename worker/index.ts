@@ -39,7 +39,7 @@ app.all("/mcp", async (c) => {
     c.header("Allow", "POST");
     return c.json({ error: "Stateless MCP supports POST only" }, 405);
   }
-  const server = createMcpServer(c.get("memory"));
+  const server = await createMcpServer(c.get("memory"));
   const transport = new StreamableHTTPTransport({
     // Omit sessionIdGenerator to use stateless mode.
     enableJsonResponse: true,
@@ -62,12 +62,14 @@ app.get("/api/fragments", async (c) => {
   return c.json(await c.get("memory").list({ ...query }));
 });
 
-app.post("/api/remember", async (c) =>
-  c.json(
-    await c.get("memory").remember(inputs.remember.parse(await c.req.json())),
-    201
-  )
-);
+app.get("/api/plugins", (c) => c.get("memory").listPlugins());
+
+app.post("/api/remember", async (c) => {
+  const result = await c
+    .get("memory")
+    .remember(inputs.remember.parse(await c.req.json()));
+  return "error" in result ? c.json(result, 422) : c.json(result, 201);
+});
 app.post("/api/recall", async (c) =>
   c.json(await c.get("memory").recall(inputs.recall.parse(await c.req.json())))
 );
@@ -75,7 +77,10 @@ app.post("/api/revise", async (c) => {
   const result = await c
     .get("memory")
     .revise(inputs.revise.parse(await c.req.json()));
-  return result ? c.json(result) : c.json({ error: "Fragment not found" }, 404);
+  if (!result) {
+    return c.json({ error: "Fragment not found" }, 404);
+  }
+  return "error" in result ? c.json(result, 422) : c.json(result);
 });
 app.post("/api/forget", async (c) => {
   const result = await c

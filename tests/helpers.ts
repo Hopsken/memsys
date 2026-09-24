@@ -3,8 +3,8 @@ import type { JSONValue } from "hono/utils/types";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { afterAll, beforeAll, vi } from "vitest";
 
+import type { FragmentPage } from "../contract/memory";
 import worker from "../worker/index";
-import type { FragmentPage } from "../worker/memory";
 
 // Exercise real Access verification; only the remote signing-key lookup is mocked.
 export const useAccess = () => {

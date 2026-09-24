@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "../contract/memory";
-import { listTags, recall } from "../worker/memory";
+import { extractAnchors, recall } from "../worker/memory";
 
 const item = (ref: string, fragment: string, day = "01"): Fragment => ({
   createdAt: "2026-01-01T00:00:00.000Z",
@@ -15,13 +15,11 @@ const associated = (corpus: Fragment[], cue: string) =>
 
 describe("Recall", () => {
   it("extracts normalized anchors without treating URLs or headings as tags", () => {
-    const corpus = [
-      item(
-        "a",
+    expect(
+      extractAnchors(
         "#Cloudflare #cloudflare (#project/a) #agent-memory #a_b #记忆 #123 https://x/#ignored word#ignored ##heading"
-      ),
-    ];
-    expect(listTags(corpus)).toStrictEqual([
+      )
+    ).toStrictEqual([
       "123",
       "a_b",
       "agent-memory",

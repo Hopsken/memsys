@@ -4,8 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import type { Fragment } from "../contract/memory";
-import type { FragmentPage } from "../worker/memory";
+import type { Fragment, FragmentPage } from "../contract/memory";
 
 export const App = () => {
   const [items, setItems] = useState<Fragment[]>([]);

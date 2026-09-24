@@ -1,7 +1,13 @@
 import { stem } from "porter2";
 import { z } from "zod";
 
-import type { Fragment, RecallItem, RecallResult } from "../contract/memory";
+import { FRAGMENT_MAX, fragmentLength } from "../contract/memory";
+import type {
+  Fragment,
+  FragmentPage,
+  RecallItem,
+  RecallResult,
+} from "../contract/memory";
 
 // Lowercase only; omit 0, 1, i, l, and o. 31^7 possible refs.
 export const REF_ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz";
@@ -10,20 +16,15 @@ const RESULT_LIMIT = 20;
 const RESULT_LIMIT_MAX = 50;
 const PAGE_SIZE = 50;
 
-const FRAGMENT_SOFT_LIMIT = 300;
-const FRAGMENT_HARD_LIMIT = 500;
-const segmenter = new Intl.Segmenter("und", { granularity: "grapheme" });
-const fragmentLength = (value: string) => [...segmenter.segment(value)].length;
-
 const fragment = z
   .string()
   .min(1)
   .refine((value) => value.trim().length > 0)
-  .refine((value) => fragmentLength(value) <= FRAGMENT_HARD_LIMIT, {
-    message: `Fragment must contain at most ${FRAGMENT_HARD_LIMIT} characters (Unicode grapheme clusters).`,
+  .refine((value) => fragmentLength(value) <= FRAGMENT_MAX, {
+    message: `Fragment must contain at most ${FRAGMENT_MAX} characters (Unicode grapheme clusters).`,
   })
   .describe(
-    "One atomic text fragment. Prefer at most 300 characters; 301–500 returns a warning; over 500 is rejected. Count Unicode grapheme clusters, including whitespace and #anchors."
+    "One atomic text fragment. Keep it short: a few sentences at most. Long fragments may be warned about or rejected."
   );
 const ref = z
   .string()
@@ -40,7 +41,6 @@ export const listInput = z.object({ cursor: cursor.optional() }).strict();
 
 export const inputs = {
   forget: z.object({ ref }).strict(),
-  listTags: z.object({}).strict(),
   recall: z
     .object({
       associate: z
@@ -69,21 +69,10 @@ export const inputs = {
   revise: z.object({ fragment, ref }).strict(),
 };
 
-export const fragmentWriteResult = (item: Fragment) => {
-  const length = fragmentLength(item.fragment);
-  const result: Fragment & { warnings?: string[] } = { ...item };
-  if (length > FRAGMENT_SOFT_LIMIT) {
-    result.warnings = [
-      `Fragment contains ${length} characters, above the recommended ${FRAGMENT_SOFT_LIMIT}. Consider splitting it into smaller fragments.`,
-    ];
-  }
-  return result;
-};
-
 export const listFragments = (
   corpus: Iterable<Fragment>,
   input: { cursor?: string }
-) => {
+): FragmentPage => {
   const { cursor: after } = listInput.parse(input);
   const ordered = [...corpus]
     .filter(
@@ -107,12 +96,10 @@ export const listFragments = (
   };
 };
 
-export type FragmentPage = ReturnType<typeof listFragments>;
-
 const normalize = (text: string): string =>
   text.toLowerCase().replaceAll(/\s+/gu, " ").trim();
 
-const extractAnchors = (text: string): string[] =>
+export const extractAnchors = (text: string): string[] =>
   [
     ...new Set(
       [
@@ -121,11 +108,6 @@ const extractAnchors = (text: string): string[] =>
         ),
       ].map((match) => (match.groups?.anchor ?? "").toLowerCase())
     ),
-  ].toSorted();
-
-export const listTags = (corpus: Iterable<Fragment>): string[] =>
-  [
-    ...new Set([...corpus].flatMap((item) => extractAnchors(item.fragment))),
   ].toSorted();
 
 // Keep namespaces exact; stem English words in other anchors independently.

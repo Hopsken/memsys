@@ -1,24 +1,29 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
+import type { RecallResult } from "../contract/memory";
+import { plugins } from "../plugins";
 import { inputs } from "./memory";
-import type { MemoryDO } from "./memory-do";
+import type { MemoryDO, WriteResult } from "./memory-do";
+
+const error = (text: string): CallToolResult => ({
+  content: [{ text, type: "text" }],
+  isError: true,
+});
 
 const result = (
-  value: ReturnType<
-    MemoryDO["remember" | "recall" | "revise" | "forget" | "listTags"]
-  >
+  value: WriteResult | RecallResult | { ref: string } | null
 ): CallToolResult => {
   if (value === null) {
-    return {
-      content: [{ text: "Fragment not found", type: "text" }],
-      isError: true,
-    };
+    return error("Fragment not found");
+  }
+  if ("error" in value) {
+    return error(value.error);
   }
   return { content: [{ text: JSON.stringify(value), type: "text" }] };
 };
 
-export const createMcpServer = (memory: DurableObjectStub<MemoryDO>) => {
+export const createMcpServer = async (memory: DurableObjectStub<MemoryDO>) => {
   const server = new McpServer(
     { name: "memsys", version: "0.1.0" },
     {
@@ -51,15 +56,6 @@ Recall with short textual cues such as distinctive phrases, names, projects, or 
     async (input) => result(await memory.recall(input))
   );
   server.registerTool(
-    "list_tags",
-    {
-      annotations: { readOnlyHint: true },
-      description: "List all #anchor names currently used.",
-      inputSchema: inputs.listTags,
-    },
-    async () => result(await memory.listTags())
-  );
-  server.registerTool(
     "revise",
     {
       description:
@@ -78,5 +74,24 @@ Recall with short textual cues such as distinctive phrases, names, projects, or 
     },
     async (input) => result(await memory.forget(input))
   );
+  // Tool plugins enabled for this instance; core tools above are always present.
+  const enabled = new Set(await memory.enabledTools());
+  for (const tool of plugins.flatMap((plugin) => plugin.tools ?? [])) {
+    if (enabled.has(tool.name)) {
+      server.registerTool(
+        tool.name,
+        {
+          description: tool.description,
+          inputSchema: tool.input,
+          ...(tool.annotations && { annotations: tool.annotations }),
+        },
+        async (input) => ({
+          content: [
+            { text: await memory.callTool(tool.name, input), type: "text" },
+          ],
+        })
+      );
+    }
+  }
   return server;
 };

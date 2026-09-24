@@ -14,3 +14,17 @@ export interface RecallResult {
   fragments: RecallItem[];
   hasMore: boolean;
 }
+
+export interface FragmentPage {
+  fragments: Fragment[];
+  nextCursor: string | null;
+}
+
+// Absolute ceiling enforced by core; per-instance limits live in plugins.
+export const FRAGMENT_MAX = 1000;
+
+const segmenter = new Intl.Segmenter("und", { granularity: "grapheme" });
+
+// Length is measured in Unicode grapheme clusters everywhere.
+export const fragmentLength = (value: string) =>
+  [...segmenter.segment(value)].length;

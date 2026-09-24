@@ -29,6 +29,7 @@
     "client/**/*.ts",
     "client/**/*.tsx",
     "contract/**/*.ts",
+    "plugins/**/*.ts",
     "worker/**/*.ts",
     "tests/**/*.ts",
     "*.config.ts",
