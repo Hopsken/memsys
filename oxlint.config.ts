@@ -5,11 +5,16 @@ import vitest from "ultracite/oxlint/vitest";
 
 export default defineConfig({
   extends: [core, antiSlop, vitest],
-  ignorePatterns: [...(core.ignorePatterns ?? []), "worker-configuration.d.ts"],
+  ignorePatterns: [
+    ...(core.ignorePatterns ?? []),
+    "worker-configuration.d.ts",
+    // Vendored from the shadcn registry; `shadcn add --overwrite` regenerates it.
+    "client/components/ui/**",
+  ],
   overrides: [
     {
-      // Plugins and the contract meet the worker only through contract/.
-      files: ["contract/**", "plugins/**"],
+      // Plugins meet the worker only through contract/ and shared lib/.
+      files: ["contract/**", "lib/**", "plugins/**"],
       rules: {
         "no-restricted-imports": [
           "error",
@@ -17,7 +22,8 @@ export default defineConfig({
             patterns: [
               {
                 group: ["**/worker/**", "**/client/**", "cloudflare:*"],
-                message: "Plugins may import only contract/ and packages.",
+                message:
+                  "contract/, lib/, and plugins/ may import only contract/, lib/, and packages.",
               },
             ],
           },

@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "../contract/memory";
+import { corpus } from "../worker/dev/corpus";
 import worker from "../worker/index";
 import { list, useAccess } from "./helpers";
 
@@ -11,6 +12,9 @@ const local = {
   ACCESS_ISSUER: "",
   DEV_IDENTITY: "local-test",
 };
+// RFC corpus labels: f1 is the first seeded fragment.
+const label = (text: string) =>
+  `f${corpus.findIndex((item) => item.fragment === text) + 1}`;
 const post = (path: string, body: string) =>
   new Request(`https://portal.test${path}`, {
     body,
@@ -60,6 +64,48 @@ describe("Development identity", () => {
       fragments: [],
       nextCursor: null,
     });
+  });
+
+  it("seeds the dev memory with the test corpus, replacing what was there", async () => {
+    const identity = { ...local, DEV_IDENTITY: "seed-test" };
+    await worker.fetch(
+      post("/api/remember", '{"fragment":"Replaced by the seed"}'),
+      identity
+    );
+    const seeded = await worker.fetch(post("/api/dev/seed", "{}"), identity);
+    const recalled = await worker.fetch(
+      post("/api/recall", '{"cue":"US West"}'),
+      identity
+    );
+    const { fragments } = await recalled.json<{
+      fragments: (Fragment & { via?: string[] })[];
+    }>();
+    await expect(seeded.json()).resolves.toStrictEqual({ fragments: 8 });
+    // Today's order is updatedAt; RFC 5's IDF ranking would lift f7 above f4.
+    expect(
+      fragments.map(({ fragment, via }) => [label(fragment), via])
+    ).toStrictEqual([
+      ["f2", undefined],
+      ["f1", ["cloudflare", "memsys"]],
+      ["f4", ["memsys"]],
+      ["f6", ["memsys"]],
+      ["f7", ["d1", "memsys"]],
+    ]);
+  });
+
+  it("hides the seed route unless the dev identity is active", async () => {
+    const response = await worker.fetch(
+      new Request("https://portal.test/api/dev/seed", {
+        body: "{}",
+        headers: {
+          "Cf-Access-Jwt-Assertion": await token(),
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      }),
+      env
+    );
+    expect(response.status).toBe(404);
   });
 
   it("does not bypass configured Access even when a dev identity is set", async () => {

@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-import { FRAGMENT_MAX, fragmentLength } from "../contract/fragment";
 import { definePlugin } from "../contract/plugin";
 import type { Verdict } from "../contract/plugin";
+import { FRAGMENT_MAX, fragmentLength } from "../lib/fragment";
 
 const limit = z.int().min(1).max(FRAGMENT_MAX);
 
@@ -51,8 +51,7 @@ export const sizeLimit = definePlugin({
   beforeRevise: (ctx, _prev, text) => Promise.resolve(check(ctx.config, text)),
   config,
   defaults: { config: { hard: 500, soft: 300 }, enabled: true },
-  description:
-    "Warns on long fragments and rejects oversized ones. Lengths count Unicode grapheme clusters.",
+  description: "Warns on long fragments and rejects oversized ones.",
   name: "size-limit",
   title: "Fragment size limit",
 });

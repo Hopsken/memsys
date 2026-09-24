@@ -1,4 +1,3 @@
-import { StreamableHTTPTransport } from "@hono/mcp";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
@@ -6,9 +5,10 @@ import { z } from "zod";
 
 import { access } from "./auth";
 import type { AppEnv } from "./auth";
-import { createMcpServer } from "./mcp";
-import { inputs, listInput } from "./memory";
-import { pluginUpdate } from "./plugin-host";
+import { dev } from "./dev";
+import { mcp } from "./routes/mcp";
+import { memory } from "./routes/memory";
+import { plugins } from "./routes/plugins";
 
 const app = new Hono<AppEnv>();
 
@@ -38,68 +38,13 @@ app.use("/api/*", (c, next) => {
   return next();
 });
 
-app.all("/mcp", async (c) => {
-  if (c.req.method !== "POST") {
-    c.header("Allow", "POST");
-    return c.json({ error: "Stateless MCP supports POST only" }, 405);
-  }
-  const server = await createMcpServer(c.get("memory"));
-  const transport = new StreamableHTTPTransport({
-    // Omit sessionIdGenerator to use stateless mode.
-    enableJsonResponse: true,
-  });
-  try {
-    await server.connect(transport);
-    return await transport.handleRequest(c);
-  } finally {
-    await server.close();
-  }
-});
-
-app.get("/api/fragments", async (c) => {
-  c.header("Cache-Control", "no-store");
-  const query = c.req.query();
-  if (!listInput.safeParse(query).success) {
-    return c.json({ error: "Invalid list query" }, 400);
-  }
-  // Hono's query object has a null prototype; RPC requires a plain object.
-  return c.json(await c.get("memory").list({ ...query }));
-});
-
-app.get("/api/plugins", (c) => c.get("memory").listPlugins());
-app.put("/api/plugins/:name", async (c) =>
-  c
-    .get("memory")
-    .updatePlugin(c.req.param("name"), pluginUpdate.parse(await c.req.json()))
-);
-app.delete("/api/plugins/:name", (c) =>
-  c.get("memory").resetPlugin(c.req.param("name"))
-);
-
-app.post("/api/remember", async (c) => {
-  const result = await c
-    .get("memory")
-    .remember(inputs.remember.parse(await c.req.json()));
-  return "error" in result ? c.json(result, 422) : c.json(result, 201);
-});
-app.post("/api/recall", async (c) =>
-  c.json(await c.get("memory").recall(inputs.recall.parse(await c.req.json())))
-);
-app.post("/api/revise", async (c) => {
-  const result = await c
-    .get("memory")
-    .revise(inputs.revise.parse(await c.req.json()));
-  if (!result) {
-    return c.json({ error: "Fragment not found" }, 404);
-  }
-  return "error" in result ? c.json(result, 422) : c.json(result);
-});
-app.post("/api/forget", async (c) => {
-  const result = await c
-    .get("memory")
-    .forget(inputs.forget.parse(await c.req.json()));
-  return result ? c.json(result) : c.json({ error: "Fragment not found" }, 404);
-});
+app.route("/mcp", mcp);
+app.route("/api", memory);
+app.route("/api/plugins", plugins);
+// Replaced with `false` in production builds, which then drop worker/dev.
+if (import.meta.env.DEV) {
+  app.route("/api/dev", dev);
+}
 
 app.onError((cause, c) => {
   if (cause instanceof z.ZodError || cause instanceof SyntaxError) {
