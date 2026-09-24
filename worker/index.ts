@@ -8,6 +8,7 @@ import { access } from "./auth";
 import type { AppEnv } from "./auth";
 import { createMcpServer } from "./mcp";
 import { inputs, listInput } from "./memory";
+import { pluginUpdate } from "./plugin-host";
 
 const app = new Hono<AppEnv>();
 
@@ -26,7 +27,10 @@ app.use("/api/*", (c, next) => {
     ?.split(";", 1)[0]
     ?.trim()
     .toLowerCase();
-  if (c.req.method === "POST" && mediaType !== "application/json") {
+  if (
+    (c.req.method === "POST" || c.req.method === "PUT") &&
+    mediaType !== "application/json"
+  ) {
     return Promise.resolve(
       c.json({ error: "Content-Type must be application/json" }, 415)
     );
@@ -63,6 +67,14 @@ app.get("/api/fragments", async (c) => {
 });
 
 app.get("/api/plugins", (c) => c.get("memory").listPlugins());
+app.put("/api/plugins/:name", async (c) =>
+  c
+    .get("memory")
+    .updatePlugin(c.req.param("name"), pluginUpdate.parse(await c.req.json()))
+);
+app.delete("/api/plugins/:name", (c) =>
+  c.get("memory").resetPlugin(c.req.param("name"))
+);
 
 app.post("/api/remember", async (c) => {
   const result = await c

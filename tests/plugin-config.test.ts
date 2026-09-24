@@ -28,6 +28,26 @@ const getPlugins = async (jwt: string) => {
   return views(response);
 };
 
+const send = (
+  method: string,
+  name: string,
+  jwt: string,
+  body?: string,
+  headers: Record<string, string> = {}
+) =>
+  worker.fetch(
+    new Request(`https://memsys.test/api/plugins/${name}`, {
+      body: body ?? null,
+      headers: {
+        "Cf-Access-Jwt-Assertion": jwt,
+        "Content-Type": "application/json",
+        ...headers,
+      },
+      method,
+    }),
+    env
+  );
+
 const toolNames = async (jwt: string) => {
   const response = await post(
     "/mcp",
@@ -140,5 +160,37 @@ describe("Plugin configuration", () => {
       status: "invalid",
     });
     log.mockRestore();
+  });
+
+  it("updates and resets over HTTP with the same request guards as writes", async () => {
+    const jwt = await token();
+    const body = JSON.stringify({
+      config: { hard: 40, soft: 20 },
+      enabled: true,
+      updatedAt: null,
+    });
+    const statuses = await Promise.all([
+      send("PUT", "size-limit", jwt, body, { "Content-Type": "text/plain" }),
+      send("PUT", "size-limit", jwt, body, { Origin: "https://evil.test" }),
+      send("PUT", "size-limit", jwt, '{"enabled":true}'),
+      send("PUT", "missing", jwt, body),
+    ]).then((responses) => responses.map((response) => response.status));
+    const saved = await send("PUT", "size-limit", jwt, body);
+    const [custom] = await getPlugins(jwt);
+    const reset = await send("DELETE", "size-limit", jwt);
+    const [restored] = await getPlugins(jwt);
+    expect({
+      custom: custom?.status,
+      reset: reset.status,
+      restored: restored?.status,
+      saved: saved.status,
+      statuses,
+    }).toStrictEqual({
+      custom: "custom",
+      reset: 200,
+      restored: "default",
+      saved: 200,
+      statuses: [415, 403, 400, 404],
+    });
   });
 });

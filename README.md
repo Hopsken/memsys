@@ -8,90 +8,25 @@ To connect the deployed server, follow [Use memsys in ChatGPT](docs/chatgpt.md).
 
 [Project Vision](docs/VISION.md) [Architecture](docs/Architecture.md)
 
-## Memory page
+## Web UI
 
-Open `/` to view your fragments. The read-only React page shows plain text, refs, and last-update times in your browser's timezone. Use **Load more** for older fragments and **Refresh** to restart the list. Create, revise, and delete fragments through your connected agent or the API.
+Open `/` to browse your fragments and `#/plugins` to configure plugins for your memory. Fragments are created, revised, and deleted through your connected agent.
 
-The app uses Vite, React, Tailwind CSS 4, and shadcn/ui in `client/`. Hono, authentication, MCP, and the Durable Object live in `worker/`. The Cloudflare Vite plugin serves both from one origin. Cloudflare Access protects the whole hostname; the browser sends same-origin requests without storing tokens. API and MCP paths always run through the Worker rather than the HTML fallback.
+The app uses Vite, React, Tailwind CSS 4, and shadcn/ui in `client/`. Hono, authentication, MCP, and the Durable Object live in `worker/`. The Cloudflare Vite plugin serves both from one origin. Cloudflare Access protects the whole hostname; the browser sends same-origin requests without storing tokens.
 
-## API
+## How it works
 
-`/mcp` serves the five tools below through `@hono/mcp`, using stateless Streamable HTTP. Each POST creates a new MCP server and transport. There are no MCP session IDs, notification streams, or session Durable Objects. GET and DELETE return 405.
+Agents connect over MCP at `/mcp` (stateless Streamable HTTP). The core tools are `remember`, `recall`, `revise`, and `forget`; plugins may add more, such as the default `list_tags`. The web UI uses the same operations through a JSON API under `/api/`. Input schemas live in `worker/memory.ts`.
 
-The JSON HTTP API exposes the fragment operations with the same inputs as MCP; `list_tags` is an MCP-only plugin tool:
-
-| MCP tool | HTTP endpoint | JSON input |
-| --- | --- | --- |
-| `remember` | `POST /api/remember` | `{ "fragment": "Durable Objects store memory. #memsys #cloudflare" }` |
-| `recall` | `POST /api/recall` | `{ "cue": "durable objects", "limit": 20, "associate": true, "context": "…" }` |
-| `list_tags` | — | `{}` |
-| `revise` | `POST /api/revise` | `{ "ref": "7x9c2pa", "fragment": "Replacement text. #memsys" }` |
-| `forget` | `POST /api/forget` | `{ "ref": "7x9c2pa" }` |
-
-`revise` replaces the full text of a fragment. The replacement must be non-blank and meet the character limits below. A failed revise leaves content and timestamps unchanged.
-
-`remember` returns 201; other successful HTTP operations return 200. `remember` and `revise` return `{ ref, fragment, createdAt, updatedAt }`. Timestamps use UTC ISO 8601. `forget` returns `{ ref }`. Unknown refs return HTTP 404 or an MCP tool error. Invalid HTTP input returns 400; bodies over 32 KiB return 413.
-
-Length policy comes from the `size-limit` plugin, configurable per instance. By default fragments have a **300-character soft limit** and a **500-character hard limit**: `remember` and `revise` accept 301–500 characters but add a `warnings` array to the result, for both HTTP and MCP. Longer text is rejected without writing (HTTP 422 or an MCP tool error, with a readable reason). Core enforces an absolute ceiling of **1000 characters** (HTTP 400) whatever the plugin says. Warnings are not stored. Existing longer fragments remain readable; revisions must meet the current limit.
-
-Length uses Unicode grapheme clusters (`Intl.Segmenter`), not UTF-8 bytes or JavaScript UTF-16 code units. A Chinese character, `👍🏽`, `👨‍👩‍👧‍👦`, and `e` with a combining acute accent each count as one character. Spaces, punctuation, and `#anchors` also count. Text is stored unchanged, and blank fragments are rejected. The separate 32 KiB request-body limit still applies.
-
-REST POST requests require `Content-Type: application/json` (optional parameters such as `charset=utf-8` are allowed); other media types return 415. REST and MCP reject a supplied `Origin` unless it exactly matches the request URL's origin, returning 403. Non-browser clients may omit `Origin`.
-
-`recall` accepts `cue` (required), `limit` (1–50, default 20), `associate` (default `true`), and `context` (optional free text describing the current task; accepted for plugins, ignored by core). It returns:
-
-```json
-{
-  "fragments": [
-    {
-      "ref": "7x9c2pa",
-      "fragment": "Durable Objects store memory. #memsys #cloudflare",
-      "createdAt": "2026-09-14T00:00:00.000Z",
-      "updatedAt": "2026-09-14T00:00:00.000Z"
-    },
-    {
-      "ref": "k3m8q2x",
-      "fragment": "D1 primary is in us-west. #cloudflare #d1",
-      "createdAt": "2026-09-10T00:00:00.000Z",
-      "updatedAt": "2026-09-10T00:00:00.000Z",
-      "via": ["cloudflare"]
-    }
-  ],
-  "hasMore": false
-}
-```
-
-Fragments matching the cue come first. Fragments with `via` were associated through the listed anchors.
-
-MCP `list_tags` returns a JSON array containing every unique anchor name currently used by the authenticated user's fragments, lowercased and sorted. Names remain complete and are not stemmed or merged with synonyms. It returns `[]` when the memory store has no anchors. Agents should call it once when they begin using the store in a new context, then reuse a listed tag when it fits or create a new one when needed; they need not call it every turn or before each `remember`.
-
-### List fragments
-
-`GET /api/fragments` returns `{ fragments, nextCursor }`. Each fragment contains `{ ref, fragment, createdAt, updatedAt }`. This read-only endpoint uses the same verified identity as REST and MCP and sends `Cache-Control: no-store`.
-
-Pages contain up to 50 items, ordered by `updatedAt` descending and then ref ascending. Pass the returned cursor with `URLSearchParams` as `?cursor=...` to get the next page. `nextCursor: null` marks the end. Invalid cursors or unknown query fields return 400. Fragment pagination remains HTTP-only.
-
-### Plugins
-
-Plugins live in `plugins/` and see the worker only through `contract/`. Each instance stores its own choices in the `plugin_config` table; without a row a plugin uses its defaults. `GET /api/plugins` lists every plugin with its effective config, defaults, JSON Schema, added tools, and status (`default`, `custom`, or `invalid` when a stored config no longer parses and defaults apply). Tool changes reach MCP clients on reconnect.
-
-Pagination is not a snapshot: new or revised fragments can move ahead of the cursor. Refresh to see current data. Deleting the cursor's fragment does not prevent loading the next page.
-
-### Memory rules
-
-- Refs use Nano ID with 7 characters from `23456789abcdefghjkmnpqrstuvwxyz`. There are about 27.5 billion possible refs. At 10,000 records, the chance of at least one collision is about 0.18% before retries. The object retries occupied refs; it never replaces a fragment on collision. Refs are identifiers, not credentials. Shorter text does not guarantee a specific tokenizer count.
-- Fragment length follows the grapheme limits above. Cues can have up to 256 UTF-16 code units after trimming.
-- Recall normalizes case and whitespace, then matches the complete cue as a substring. `durable objects` matches `Durable\nObjects`, but not `objects are durable`.
-- Anchors contain Unicode letters, numbers, `_`, `-`, or `/`. They start at a text boundary, so URL fragments, embedded `word#tags`, and Markdown `##headings` are not anchors. Anchors are lowercase and deduplicated. Namespace matching is exact: `#project/a` does not match `#project/ab`.
-- Association splits anchors without `/` at `-` and compares any shared word in both directions. Pure English-letter words use Porter2 stemming: `#agents`, `#agent-memory`, and `#agent-tools` link fragments; `#memory` also links to `#agent-memory`. Empty words are ignored. Words with numbers, non-English characters, or `_` require exact lowercase matches. Anchors with `/` require a complete exact lowercase match and are not split or stemmed. Stemming applies only to association, not cue matching or stored text. Returned `via` anchors keep each fragment's complete lowercase tag spelling, not its stem.
-- Results hold at most `limit` items: cue matches first, then associated fragments, each group ordered by last update, newest first, then ref. Only returned matches seed association, so associations appear only when every match fits. Matches never repeat as associations. Association is one hop, not recursive. `hasMore` reports omitted results; raise `limit` or use a narrower cue when needed.
-- Recall is read-only. No embeddings, scores, tags, edges, or recall history are stored.
+- **Recall** matches the cue as a case- and whitespace-insensitive substring, then follows one hop through shared `#anchors`. Associated results list those anchors in `via`. Association splits anchors on `-` and stems English words; `/` namespaces match exactly.
+- **Length** is counted in grapheme clusters. By default the `size-limit` plugin warns above 300 and rejects above 500. Core rejects anything over 1000.
+- **Plugins** live in `plugins/` and reach the worker only through `contract/`. See [Architecture](docs/Architecture.md) for the hooks, failure rules, and per-instance configuration.
 
 ## Storage
 
 One SQLite Durable Object holds each user's memory. Its name is `JSON.stringify([verifiedIssuer, verifiedSubject])`. REST and MCP use the same object. Clients cannot select another user's memory space.
 
-`fragments` is the only domain table. Drizzle migrations run inside `blockConcurrencyWhile` before the object accepts requests. The object then loads all fragments into a map. Writes update SQLite before the map. Object eviction removes only the map; the next instance rebuilds it from SQLite. Anchor and search results are disposable projections.
+`fragments` holds the memory; `plugin_config` holds per-instance plugin settings. Drizzle migrations run inside `blockConcurrencyWhile` before the object accepts requests. The object then loads all fragments into a map. Writes update SQLite before the map. Object eviction removes only the map; the next instance rebuilds it from SQLite. Anchor and search results are disposable projections.
 
 For future schema changes:
 
@@ -114,7 +49,7 @@ Before deployment:
 3. Enable **Managed OAuth** in the application's Advanced settings. Allow only the redirect URIs required by your MCP clients; enable localhost/loopback redirects if your CLI client needs them.
 4. Confirm the configured `ACCESS_ISSUER` (`https://hopsken.cloudflareaccess.com`) and `ACCESS_AUD` match that Access application.
 5. Run `pnpm check`, then deploy when approved with `pnpm deploy`.
-6. Connect an OAuth-capable MCP client to `https://<hostname>/mcp`. Check login and all five tools. Check that unauthenticated API calls are blocked.
+6. Connect an OAuth-capable MCP client to `https://<hostname>/mcp`. Check login and every tool. Check that unauthenticated API calls are blocked.
 
 The default deployment returns 503 if either Access setting is empty, and 401 for missing or invalid assertions. `workers.dev` and preview URLs are disabled. This version uses human Access identities; service tokens without a user subject are not supported.
 
@@ -147,6 +82,6 @@ pnpm dev         # Vite frontend and local Worker; no login
 
 Tests use real JWT verification, SQLite objects, object eviction, and MCP protocol requests. Only the Access JWKS request is mocked, with temporary signing keys. No Cloudflare account is needed.
 
-Tests are grouped by behavior in `tests/`: access and HTTP safety, REST and MCP contracts, edits and length limits, persistence, recall, pagination, and development identity. `helpers.ts` contains only shared request and authentication setup. Keep assertions on returned data, rejected requests, identity isolation, and persisted results. Test matching and pagination edge cases with pure functions; test transport and storage behavior through their public interfaces. Do not lock tests to prose, generated schema formatting, cursor encoding, or SQL layout.
+Tests are grouped by behavior in `tests/`: access and HTTP safety, REST and MCP contracts, edits and length limits, persistence, recall, pagination, plugins and their configuration, and development identity. `helpers.ts` contains only shared request and authentication setup. Keep assertions on returned data, rejected requests, identity isolation, and persisted results. Test matching and pagination edge cases with pure functions; test transport and storage behavior through their public interfaces. Do not lock tests to prose, generated schema formatting, cursor encoding, or SQL layout.
 
 `worker-configuration.d.ts` is generated and ignored. Keep secrets in ignored `.dev.vars` files. `pnpm build` builds `dist/client` and `dist/memsys` locally; it does not deploy or run migrations on remote objects. `pnpm deploy` builds before deploying. A live Access OAuth login must be checked after the hostname and Access application are configured.

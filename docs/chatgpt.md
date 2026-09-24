@@ -64,7 +64,7 @@ OpenAI's current instructions use the following web interface. Labels and availa
 6. Choose **DCR** if the interface asks for a client registration method. Do not choose CIMD unless Cloudflare later advertises support for it.
 7. For DCR, leave optional static Client ID and Client Secret fields empty. ChatGPT obtains the client credentials through registration. Do not put an Access service token, audience tag, or user token in those fields.
 8. Create the connection and complete the Cloudflare Access login when prompted. Use an identity permitted by the Access policy.
-9. Check the discovered tools against the [API table](../README.md#api).
+9. Check that the discovered tools include `remember`, `recall`, `revise`, `forget`, and any enabled plugin tools such as `list_tags` (see [How it works](../README.md#how-it-works)).
 
 Use the normal login page. Never paste Access tokens into a chat message. This server uses user OAuth, not machine-to-machine service-token authentication.
 
@@ -86,7 +86,7 @@ Use disposable data for the first test:
 
 Inspect the actual tool calls and results, not only ChatGPT's prose. Connecting memsys does not enable automatic storage of every conversation, and memsys is separate from ChatGPT's built-in Memory feature.
 
-See the [memory rules](../README.md#memory-rules) for matching behavior and limits. Memory belongs to the verified Access identity, not the ChatGPT conversation.
+See [How it works](../README.md#how-it-works) for matching behavior and limits. Memory belongs to the verified Access identity, not the ChatGPT conversation.
 
 ## Troubleshooting
 
