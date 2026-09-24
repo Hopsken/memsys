@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getJson, isExpired } from "@/lib/api";
+import { api, isExpired } from "@/lib/api";
 
 import type { Fragment, FragmentPage } from "../contract/memory";
 
@@ -32,10 +32,12 @@ export const FragmentsView = () => {
     getNextPageParam: (page) => page.nextCursor,
     initialPageParam: null,
     queryFn: ({ pageParam, signal }) =>
-      getJson<FragmentPage>(
-        `/api/fragments${pageParam ? `?${new URLSearchParams({ cursor: pageParam })}` : ""}`,
-        signal
-      ),
+      api
+        .get("/api/fragments", {
+          searchParams: pageParam ? { cursor: pageParam } : {},
+          signal,
+        })
+        .json<FragmentPage>(),
     queryKey: ["fragments"],
   });
   const items = flatten(query.data?.pages ?? []);

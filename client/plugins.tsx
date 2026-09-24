@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { ApiError, getJson, isExpired, sendJson } from "@/lib/api";
+import { api, failure, isExpired } from "@/lib/api";
 
 import type { Json, PluginView } from "../contract/plugin";
 import { hasFields, SchemaForm } from "./schema-form";
@@ -54,17 +54,14 @@ const same = (a: Draft, b: Draft) => JSON.stringify(a) === JSON.stringify(b);
 
 // 422 issues attach to fields; anything else is one message for the card.
 const describe = (error: Error) => {
-  if (!(error instanceof ApiError)) {
-    return { conflict: false, fields: {}, text: "Could not save." };
-  }
-  const { issues } = error.problem;
+  const { problem, status } = failure(error);
   const fields: FieldErrors = Object.fromEntries(
-    (issues ?? []).map((issue) => [issue.path.join("."), issue.message])
+    (problem.issues ?? []).map((issue) => [issue.path.join("."), issue.message])
   );
   return {
-    conflict: error.status === 409,
+    conflict: status === 409,
     fields,
-    text: issues ? null : (error.problem.error ?? "Could not save."),
+    text: problem.issues ? null : (problem.error ?? "Could not save."),
   };
 };
 
@@ -74,12 +71,12 @@ const PluginCard = ({ index, view }: { index: number; view: PluginView }) => {
   const [draft, setDraft] = useState<Draft>(saved);
   const mutation = useMutation({
     mutationFn: (change: Change) =>
-      change.type === "reset"
-        ? sendJson<PluginView>(`/api/plugins/${view.name}`, "DELETE")
-        : sendJson<PluginView>(`/api/plugins/${view.name}`, "PUT", {
-            ...change.draft,
-            updatedAt: view.updatedAt,
-          }),
+      (change.type === "reset"
+        ? api.delete(`/api/plugins/${view.name}`)
+        : api.put(`/api/plugins/${view.name}`, {
+            json: { ...change.draft, updatedAt: view.updatedAt },
+          })
+      ).json<PluginView>(),
     mutationKey: [...PLUGINS, view.name],
     onSuccess: (next) => {
       queryClient.setQueryData<PluginView[]>(PLUGINS, (current) =>
@@ -211,7 +208,8 @@ const PluginCard = ({ index, view }: { index: number; view: PluginView }) => {
 
 export const PluginsView = () => {
   const query = useQuery({
-    queryFn: ({ signal }) => getJson<PluginView[]>("/api/plugins", signal),
+    queryFn: ({ signal }) =>
+      api.get("/api/plugins", { signal }).json<PluginView[]>(),
     queryKey: PLUGINS,
   });
   const mutationErrors = useMutationState({

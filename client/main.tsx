@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
-import { ApiError } from "@/lib/api";
+import { failure } from "@/lib/api";
 
 import { App } from "./app";
 
@@ -13,8 +13,10 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false,
       // 4xx answers, expired sessions included, will not change on retry.
-      retry: (count, error) =>
-        count < 2 && !(error instanceof ApiError && error.status < 500),
+      retry: (count, error) => {
+        const { status } = failure(error);
+        return count < 2 && (status === null || status >= 500);
+      },
     },
   },
 });
