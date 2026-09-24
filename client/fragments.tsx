@@ -69,16 +69,15 @@ export const FragmentsView = () => {
 
       <section aria-busy={query.isFetching} aria-label="Fragments">
         {query.isPending ? (
-          <div className="space-y-4" role="status">
+          <Card className="gap-0 divide-y py-0" role="status">
             <span className="sr-only">Loading memory</span>
             {[1, 2, 3].map((key) => (
-              <Card className="gap-3 p-6" key={key}>
+              <div className="space-y-2 px-4 py-3 sm:px-5" key={key}>
                 <Skeleton className="h-3 w-24" />
-                <Skeleton className="h-4 w-full" />
                 <Skeleton className="h-4 w-2/3" />
-              </Card>
+              </div>
             ))}
-          </div>
+          </Card>
         ) : null}
         {query.isSuccess && items.length === 0 ? (
           <div className="rounded-xl border border-dashed px-6 py-16 text-center">
@@ -92,29 +91,31 @@ export const FragmentsView = () => {
             </p>
           </div>
         ) : null}
-        <ul className="space-y-4">
-          {items.map((item) => (
-            <li key={item.ref}>
-              <Card className="gap-4 p-5 sm:p-6">
-                <div className="text-muted-foreground flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs">
-                  <span className="font-mono">{item.ref}</span>
-                  <time dateTime={item.updatedAt}>
-                    {new Date(item.updatedAt).toLocaleString(undefined, {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
-                  </time>
-                </div>
-                <p className="text-sm leading-7 [overflow-wrap:anywhere] whitespace-pre-wrap">
-                  {item.fragment}
-                </p>
-              </Card>
-            </li>
-          ))}
-        </ul>
+        {items.length > 0 ? (
+          <Card className="gap-0 py-0">
+            <ul className="divide-y">
+              {items.map((item) => (
+                <li className="px-4 py-3 sm:px-5" key={item.ref}>
+                  <div className="text-muted-foreground mb-1 flex flex-wrap items-center justify-between gap-x-4 text-xs">
+                    <span className="font-mono">{item.ref}</span>
+                    <time dateTime={item.updatedAt}>
+                      {new Date(item.updatedAt).toLocaleString(undefined, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}
+                    </time>
+                  </div>
+                  <p className="text-sm leading-6 [overflow-wrap:anywhere] whitespace-pre-wrap">
+                    {item.fragment}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        ) : null}
       </section>
       {query.hasNextPage ? (
-        <footer className="mt-6 flex justify-center">
+        <footer className="mt-4 flex justify-center">
           <Button
             disabled={query.isFetchingNextPage}
             onClick={() => {
