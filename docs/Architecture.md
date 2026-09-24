@@ -98,7 +98,7 @@ Four tools. They are the minimal complete operation set of a memory: write, chan
 - `recall` is split into **candidate generation** (substring → recalled; one-hop anchor spread → associated) and a **terminal** (order, filter, truncate, return). Plugins attach only at the terminal.
 - `recall` stays a pure function: `recall(corpus, input, plugins, index) → result`. Tests pass an empty plugin list or stubs.
 - `recall` returns one list: cue matches first, then associated fragments. An item's `via` (the shared anchors) is both its kind and the reason it was associated; there is no separate `kind` field. `limit` bounds the combined list; `hasMore` reports that candidates were omitted.
-- Length policy (soft/hard, default 300/500) lives in the `size-limit` plugin. Core keeps only an absolute ceiling, `CORE_MAX` = 1000 graphemes, so a disabled or failing plugin can never let an unbounded fragment in. Tool descriptions carry no instance-specific numbers; warnings and rejections do.
+- Length policy (soft/hard, default 300/500) lives in the `size-limit` plugin. Core keeps only an absolute ceiling, `FRAGMENT_MAX` = 1000 graphemes (`lib/fragment.ts`), so a disabled or failing plugin can never let an unbounded fragment in. Tool descriptions carry no instance-specific numbers; warnings and rejections do.
 
 RFC 4's `associate` and `limit` fields are additive core contract, not plugins. So is `context` (optional free text: what the agent is doing right now). Core accepts it and ignores it; it exists so that read-path plugins can judge relevance against the situation, not just the cue. Carrying the information is core; using it is policy.
 
@@ -122,7 +122,7 @@ type Plugin<C> = {
   // Policy hook: recall terminal. Receives the parsed recall input (cue, context, …).
   afterRecall?: (
     ctx: Ctx<C>,
-    items: RecallItem[],
+    items: readonly RecallItem[],
     input: RecallInput
   ) => Promise<RecallItem[]>;
 
@@ -155,7 +155,7 @@ type Ctx<C> = {
 };
 ```
 
-Hooks are implemented only when a plugin needs them. First batch: `size-limit` (`beforeRemember` + `beforeRevise`) and `list-tags` (tool).
+Hooks are implemented only when a plugin needs them. Implemented: `size-limit` (`beforeRemember` + `beforeRevise`), `list-tags` (tool), and `idf` (`afterRecall`).
 
 ### Code layout
 
@@ -191,7 +191,7 @@ Recall terminal, fixed order, not configurable:
 candidate generation → afterRecall hooks, in registry order → truncate to limit → return
 ```
 
-Each hook receives the previous hook's output; a hook may reorder, drop, or annotate in one pass. Hooks run before truncation, so they may see more candidates than `limit`. `hasMoreRecalled` / `hasMoreAssociated` describe candidate generation and are never rewritten by plugins.
+Each hook receives the previous hook's output and may reorder or drop items. The host keeps only refs from its input, deduplicated, and returns the host's own copies, so a hook cannot add, duplicate, or rewrite items; annotations wait on the open question below. Hooks run before truncation, so they may see more candidates than `limit`. `hasMore` describes candidate generation and is never rewritten by plugins. `idf` sorts associated items by the summed IDF of their `via` anchors; cue matches keep their place, and ties keep recency.
 
 Write path:
 
@@ -232,7 +232,7 @@ Plugins that call external models (Jev) fail — not die — on missing key, tim
 - Unknown plugin names and schema violations are rejected with a path.
 - Changes apply on the next request. Tool-list changes reach MCP clients on reconnect (stateless server, no `list_changed`).
 - Edited through `GET/PUT/DELETE /api/plugins[/:name]` and a schema-driven form in the web UI (`z.toJSONSchema` of each plugin's `config`). Keeping agents out of that endpoint waits for real OAuth; Access is a stopgap.
-- Default configuration = the minimal instance for a good-enough model: four core tools + `list_tags` + `size-limit` (+ IDF ordering once it lands).
+- Default configuration = the minimal instance for a good-enough model: four core tools + `list_tags` + `size-limit` + `idf`.
 
 ## Open questions
 

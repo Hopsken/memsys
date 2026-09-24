@@ -86,6 +86,13 @@ describe("Plugin configuration", () => {
         status: "default",
         tools: ["list_tags"],
       },
+      {
+        config: {},
+        name: "idf",
+        properties: [],
+        status: "default",
+        tools: [],
+      },
     ]);
   });
 

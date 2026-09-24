@@ -18,7 +18,7 @@ The app uses Vite, React, Tailwind CSS 4, and shadcn/ui in `client/`. Hono, auth
 
 Agents connect over MCP at `/mcp` (stateless Streamable HTTP). The core tools are `remember`, `recall`, `revise`, and `forget`; plugins may add more, such as the default `list_tags`. The web UI uses the same operations through a JSON API under `/api/`. Input schemas live in `worker/memory.ts`.
 
-- **Recall** matches the cue as a case- and whitespace-insensitive substring, then follows one hop through shared `#anchors`. Associated results list those anchors in `via`. Association splits anchors on `-` and stems English words; `/` namespaces match exactly.
+- **Recall** matches the cue as a case- and whitespace-insensitive substring, then follows one hop through shared `#anchors`. Associated results list those anchors in `via`. By default the `idf` plugin ranks associated results by how rare their shared anchors are, so hub anchors sink. Association splits anchors on `-` and stems English words; `/` namespaces match exactly.
 - **Length** is counted in grapheme clusters. By default the `size-limit` plugin warns above 300 and rejects above 500. Core rejects anything over 1000.
 - **Plugins** live in `plugins/` and reach the worker only through `contract/`. See [Architecture](docs/Architecture.md) for the hooks, failure rules, and per-instance configuration.
 

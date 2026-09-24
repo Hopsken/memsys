@@ -1,6 +1,6 @@
 import type { z } from "zod";
 
-import type { Fragment } from "./memory";
+import type { Fragment, RecallInput, RecallItem } from "./memory";
 
 // Values that cross the Durable Object RPC and HTTP boundaries.
 // Interfaces keep the recursion lazy for RPC type mapping.
@@ -37,6 +37,13 @@ export interface Plugin<C> {
   config: z.ZodType<C>;
   defaults: { enabled: boolean; config: C };
   tools?: ToolDef<C>[];
+  // Runs in registry order on the previous hook's output. It may reorder or
+  // drop items; anything else it returns is ignored.
+  afterRecall?: (
+    ctx: Ctx<C>,
+    items: readonly RecallItem[],
+    input: RecallInput
+  ) => Promise<RecallItem[]>;
   beforeRemember?: (ctx: Ctx<C>, text: string) => Promise<Verdict>;
   beforeRevise?: (
     ctx: Ctx<C>,
@@ -75,13 +82,17 @@ export class PluginAbortError extends Error {
 export const definePlugin = <C extends Json>(
   plugin: Plugin<C>
 ): Plugin<Json> => {
-  const { beforeRemember, beforeRevise, tools, ...rest } = plugin;
+  const { afterRecall, beforeRemember, beforeRevise, tools, ...rest } = plugin;
   const narrow = (ctx: Ctx<Json>): Ctx<C> => ({
     ...ctx,
     config: plugin.config.parse(ctx.config),
   });
   return {
     ...rest,
+    ...(afterRecall && {
+      afterRecall: (ctx, items, input) =>
+        afterRecall(narrow(ctx), items, input),
+    }),
     ...(beforeRemember && {
       beforeRemember: (ctx, text) => beforeRemember(narrow(ctx), text),
     }),

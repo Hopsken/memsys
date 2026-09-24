@@ -1,16 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import type { Fragment } from "../contract/memory";
+import type { Fragment, RecallItem } from "../contract/memory";
 import { definePlugin, PluginAbortError } from "../contract/plugin";
 import type { Json, Plugin, Verdict } from "../contract/plugin";
 import { plugins } from "../plugins";
+import { idf } from "../plugins/idf";
 import { listTags } from "../plugins/list-tags";
 import { sizeLimit } from "../plugins/size-limit";
 import {
   assertRegistry,
   createCtx,
   resolvePlugins,
+  runAfterRecall,
   runVerdicts,
 } from "../worker/plugin-host";
 import type { PluginState, StoredConfig } from "../worker/plugin-host";
@@ -34,6 +36,31 @@ const stub = (name: string, hook: () => Promise<Verdict>) =>
     name,
     title: name,
   });
+
+const reorder = (
+  name: string,
+  hook: (items: readonly RecallItem[]) => Promise<RecallItem[]>
+) =>
+  definePlugin({
+    afterRecall: (_ctx, items) => hook(items),
+    config: z.object({}),
+    defaults: { config: {}, enabled: true },
+    description: "",
+    name,
+    title: name,
+  });
+
+const recallRow = (ref: string, fragment: string, via?: string[]) => ({
+  createdAt: "",
+  fragment,
+  ref,
+  updatedAt: "",
+  ...(via && { via }),
+});
+
+const recallInput = { associate: true, context: null, cue: "x", limit: 20 };
+const refs = (result: RecallItem[] | { error: string }) =>
+  "error" in result ? result : result.map((item) => item.ref);
 
 const state = (plugin: Plugin<Json>, enabled = true): PluginState => ({
   config: plugin.defaults.config,
@@ -87,6 +114,28 @@ describe("size-limit plugin", () => {
   });
 });
 
+describe("idf plugin", () => {
+  it("ranks associations by summed anchor rarity and keeps matches first", async () => {
+    const rows = [
+      recallRow("m", "Match #hub #rare"),
+      recallRow("h1", "Hub only #hub", ["hub"]),
+      recallRow("h2", "Hub only #hub", ["hub"]),
+      recallRow("r", "Rare link #hub #rare", ["hub", "rare"]),
+    ];
+    const ranked = await idf.afterRecall?.(
+      createCtx({}, new Map(rows.map((item) => [item.ref, item]))),
+      rows,
+      recallInput
+    );
+    expect(ranked?.map((item) => item.ref)).toStrictEqual([
+      "m",
+      "r",
+      "h1",
+      "h2",
+    ]);
+  });
+});
+
 describe("list-tags plugin", () => {
   it("lists unique lowercase anchors", async () => {
     const [tool] = listTags.tools ?? [];
@@ -134,6 +183,50 @@ describe("Plugin host", () => {
       rejections: ["guard: unsafe input"],
       warnings: ["fine"],
     });
+    expect(log).toHaveBeenCalledOnce();
+    log.mockRestore();
+  });
+
+  it("chains afterRecall hooks in registry order and ignores foreign items", async () => {
+    const items = [...corpus.values()];
+    const result = await runAfterRecall(
+      [
+        state(reorder("reverse", (rows) => Promise.resolve(rows.toReversed()))),
+        state(
+          reorder("invent", (rows) =>
+            Promise.resolve([
+              ...rows.map((row) => ({ ...row, fragment: "rewritten" })),
+              { createdAt: "", fragment: "fake", ref: "zz", updatedAt: "" },
+            ])
+          )
+        ),
+        state(
+          reorder("off", () => Promise.resolve([])),
+          false
+        ),
+      ],
+      corpus,
+      items,
+      recallInput
+    );
+    expect(result).toStrictEqual(items.toReversed());
+  });
+
+  it("passes input through failing afterRecall hooks and stops on abort", async () => {
+    const log = vi.spyOn(console, "error").mockReturnValue();
+    const items = [...corpus.values()];
+    const broken = state(
+      reorder("broken", () => Promise.reject(new Error("bug")))
+    );
+    const guard = state(
+      reorder("guard", () => Promise.reject(new PluginAbortError("unsafe cue")))
+    );
+    await expect(
+      runAfterRecall([broken], corpus, items, recallInput).then(refs)
+    ).resolves.toStrictEqual(["a", "b"]);
+    await expect(
+      runAfterRecall([guard, broken], corpus, items, recallInput)
+    ).resolves.toStrictEqual({ error: "guard: unsafe cue" });
     expect(log).toHaveBeenCalledOnce();
     log.mockRestore();
   });
