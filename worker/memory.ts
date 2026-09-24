@@ -1,7 +1,7 @@
 import { stem } from "porter2";
 import { z } from "zod";
 
-import { FRAGMENT_MAX, fragmentLength } from "../contract/memory";
+import { FRAGMENT_MAX, fragmentLength } from "../contract/fragment";
 import type {
   Fragment,
   FragmentPage,
