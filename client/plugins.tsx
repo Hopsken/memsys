@@ -65,7 +65,7 @@ const describe = (error: Error) => {
   };
 };
 
-const PluginCard = ({ index, view }: { index: number; view: PluginView }) => {
+const PluginCard = ({ view }: { view: PluginView }) => {
   const queryClient = useQueryClient();
   const saved = { config: view.config, enabled: view.enabled };
   const [draft, setDraft] = useState<Draft>(saved);
@@ -98,11 +98,7 @@ const PluginCard = ({ index, view }: { index: number; view: PluginView }) => {
   const id = `plugin-${view.name}`;
 
   return (
-    <li
-      aria-labelledby={`${id}-title`}
-      className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:fill-mode-both motion-safe:duration-500"
-      style={{ animationDelay: `${index * 90}ms` }}
-    >
+    <li aria-labelledby={`${id}-title`}>
       <Card className="gap-0 py-0">
         <CardHeader className="py-5">
           <CardTitle
@@ -261,8 +257,8 @@ export const PluginsView = () => {
         </div>
       ) : null}
       <ul className="space-y-4">
-        {query.data?.map((view, index) => (
-          <PluginCard index={index} key={view.name} view={view} />
+        {query.data?.map((view) => (
+          <PluginCard key={view.name} view={view} />
         ))}
       </ul>
     </section>
