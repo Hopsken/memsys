@@ -70,15 +70,15 @@ export const FragmentsView = () => {
 
       <section aria-busy={query.isFetching} aria-label="Fragments">
         {query.isPending ? (
-          <Card className="gap-0 divide-y py-0" role="status">
+          <div className="space-y-2.5" role="status">
             <span className="sr-only">Loading memory</span>
             {[1, 2, 3].map((key) => (
-              <div className="space-y-2 px-4 py-3 sm:px-5" key={key}>
+              <Card className="gap-2 px-4 py-3.5 sm:px-5" key={key}>
                 <Skeleton className="h-3 w-24" />
                 <Skeleton className="h-4 w-2/3" />
-              </div>
+              </Card>
             ))}
-          </Card>
+          </div>
         ) : null}
         {query.isSuccess && items.length === 0 ? (
           <div className="rounded-xl border border-dashed px-6 py-16 text-center">
@@ -92,28 +92,26 @@ export const FragmentsView = () => {
             </p>
           </div>
         ) : null}
-        {items.length > 0 ? (
-          <Card className="gap-0 py-0">
-            <ul className="divide-y">
-              {items.map((item) => (
-                <li className="px-4 py-3 sm:px-5" key={item.ref}>
-                  <div className="text-muted-foreground mb-1 flex flex-wrap items-center justify-between gap-x-4 text-xs">
-                    <span className="font-mono">{item.ref}</span>
-                    <time
-                      dateTime={item.updatedAt}
-                      title={new Date(item.updatedAt).toLocaleString()}
-                    >
-                      {formatRelativeDate(item.updatedAt)}
-                    </time>
-                  </div>
-                  <p className="text-sm leading-6 [overflow-wrap:anywhere] whitespace-pre-wrap">
-                    {item.fragment}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        ) : null}
+        <ul className="space-y-2.5">
+          {items.map((item) => (
+            <li key={item.ref}>
+              <Card className="gap-1 px-4 py-3.5 sm:px-5">
+                <div className="text-muted-foreground flex flex-wrap items-center justify-between gap-x-4 text-xs">
+                  <span className="font-mono">{item.ref}</span>
+                  <time
+                    dateTime={item.updatedAt}
+                    title={new Date(item.updatedAt).toLocaleString()}
+                  >
+                    {formatRelativeDate(item.updatedAt)}
+                  </time>
+                </div>
+                <p className="text-sm leading-6 [overflow-wrap:anywhere] whitespace-pre-wrap">
+                  {item.fragment}
+                </p>
+              </Card>
+            </li>
+          ))}
+        </ul>
       </section>
       {query.hasNextPage ? (
         <footer className="mt-4 flex justify-center">
