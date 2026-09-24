@@ -1,9 +1,18 @@
+import { cn } from "cn";
 import { useState } from "react";
 import * as z from "zod/mini";
 
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { cn } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
 
 import type { Json, JsonObject } from "../contract/plugin";
 
@@ -58,9 +67,9 @@ const JsonField = ({ id, invalid, onChange, value }: FieldProps) => {
   );
   const [parseError, setParseError] = useState(false);
   return (
-    <textarea
+    <Textarea
       aria-invalid={invalid || parseError}
-      className="focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive min-h-24 w-full rounded-md border bg-white px-3 py-2 font-mono text-xs shadow-xs outline-none focus-visible:ring-[3px]"
+      className="min-h-24 font-mono text-xs"
       id={id}
       onChange={(event) => {
         setText(event.currentTarget.value);
@@ -81,22 +90,24 @@ const Control = (props: FieldProps) => {
   if (field.enum) {
     const options = field.enum.map((option) => JSON.stringify(option));
     return (
-      <select
-        aria-invalid={invalid}
-        className="focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-40 rounded-md border bg-white px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
-        id={id}
-        onChange={(event) => {
-          const index = options.indexOf(event.currentTarget.value);
-          onChange(field.enum?.[index]);
+      <Select
+        items={options.map((option) => ({ label: option, value: option }))}
+        onValueChange={(next) => {
+          onChange(field.enum?.[options.indexOf(next ?? "")]);
         }}
-        value={JSON.stringify(value)}
+        value={value === undefined ? null : JSON.stringify(value)}
       >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger aria-invalid={invalid} className="w-40" id={id}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option} value={option}>
+              {option}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     );
   }
   if (field.type === "integer" || field.type === "number") {
@@ -192,9 +203,7 @@ export const SchemaForm = ({
             key={key}
           >
             <div className="min-w-0">
-              <label className="text-sm font-medium" htmlFor={id}>
-                {field.title ?? key}
-              </label>
+              <Label htmlFor={id}>{field.title ?? key}</Label>
               <p
                 className={cn(
                   "mt-0.5 text-xs",

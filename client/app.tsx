@@ -1,7 +1,6 @@
+import { cn } from "cn";
 import { Layers } from "lucide-react";
 import { useEffect, useState } from "react";
-
-import { cn } from "@/lib/utils";
 
 import { FragmentsView } from "./fragments";
 import { PluginsView } from "./plugins";
@@ -40,7 +39,7 @@ export const App = () => {
               className={cn(
                 "focus-visible:ring-ring/50 rounded-md px-3 py-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-[3px]",
                 route === hash
-                  ? "text-foreground bg-white shadow-xs"
+                  ? "text-foreground bg-card shadow-xs"
                   : "text-muted-foreground hover:text-foreground"
               )}
               href={hash}

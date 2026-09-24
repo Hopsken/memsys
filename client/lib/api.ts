@@ -1,14 +1,33 @@
+import * as z from "zod/mini";
+
 import type { Json } from "../../contract/plugin";
 
-// Access answers an expired session with a redirect or 401/403.
-export class SessionExpiredError extends Error {
-  constructor() {
-    super("Session expired");
-    this.name = "SessionExpiredError";
+// Error bodies from the worker: `issues` for 422, a message otherwise.
+const problemSchema = z.object({
+  error: z.optional(z.string()),
+  issues: z.optional(
+    z.array(z.object({ message: z.string(), path: z.array(z.string()) }))
+  ),
+});
+export type Problem = z.infer<typeof problemSchema>;
+
+// Access answers an expired session with a redirect or 401/403; all become 401.
+export class ApiError extends Error {
+  readonly status: number;
+  readonly problem: Problem;
+
+  constructor(status: number, problem: Problem = {}) {
+    super(problem.error ?? `Request failed with ${status}`);
+    this.name = "ApiError";
+    this.status = status;
+    this.problem = problem;
   }
 }
 
-export const request = async (path: string, init: RequestInit = {}) => {
+export const isExpired = (error: Error | null) =>
+  error instanceof ApiError && error.status === 401;
+
+const request = async (path: string, init: RequestInit) => {
   const response = await fetch(path, {
     cache: "no-store",
     redirect: "manual",
@@ -19,14 +38,34 @@ export const request = async (path: string, init: RequestInit = {}) => {
     response.status === 401 ||
     response.status === 403
   ) {
-    throw new SessionExpiredError();
+    throw new ApiError(401);
+  }
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new ApiError(
+      response.status,
+      z.safeParse(problemSchema, body).data ?? {}
+    );
   }
   return response;
 };
 
-export const sendJson = (path: string, method: string, body: Json) =>
-  request(path, {
-    body: JSON.stringify(body),
-    headers: { "Content-Type": "application/json" },
+export const getJson = async <T>(path: string, signal?: AbortSignal) => {
+  const response = await request(path, { signal: signal ?? null });
+  return response.json<T>();
+};
+
+export const sendJson = async <T>(
+  path: string,
+  method: string,
+  body?: Json
+) => {
+  const response = await request(path, {
     method,
+    ...(body !== undefined && {
+      body: JSON.stringify(body),
+      headers: { "Content-Type": "application/json" },
+    }),
   });
+  return response.json<T>();
+};

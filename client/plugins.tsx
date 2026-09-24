@@ -1,12 +1,29 @@
+import {
+  useMutation,
+  useMutationState,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { cn } from "cn";
 import { Puzzle, RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { SessionExpired } from "@/components/session-expired";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { request, SessionExpiredError, sendJson } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { ApiError, getJson, isExpired, sendJson } from "@/lib/api";
 
 import type { Json, PluginView } from "../contract/plugin";
 import { hasFields, SchemaForm } from "./schema-form";
@@ -17,16 +34,15 @@ interface Draft {
   config: Json;
 }
 
-interface Problem {
-  error: string;
-  issues?: { path: string[]; message: string }[];
-}
+type Change = { type: "reset" } | { type: "save"; draft: Draft };
+
+const PLUGINS = ["plugins"];
 
 const STATUS = {
-  custom: { className: "bg-primary text-primary-foreground", label: "Custom" },
+  custom: { className: "", label: "Custom" },
   default: null,
   invalid: {
-    className: "border border-amber-300 bg-amber-50 text-amber-900",
+    className: "bg-amber-50 text-amber-900 ring-1 ring-amber-300",
     label: "Invalid — using defaults",
   },
 } satisfies Record<
@@ -36,256 +52,209 @@ const STATUS = {
 
 const same = (a: Draft, b: Draft) => JSON.stringify(a) === JSON.stringify(b);
 
-const PluginCard = ({
-  index,
-  onExpired,
-  onReload,
-  onSaved,
-  view,
-}: {
-  index: number;
-  onExpired: () => void;
-  onReload: () => void;
-  onSaved: (view: PluginView) => void;
-  view: PluginView;
-}) => {
+// 422 issues attach to fields; anything else is one message for the card.
+const describe = (error: Error) => {
+  if (!(error instanceof ApiError)) {
+    return { conflict: false, fields: {}, text: "Could not save." };
+  }
+  const { issues } = error.problem;
+  const fields: FieldErrors = Object.fromEntries(
+    (issues ?? []).map((issue) => [issue.path.join("."), issue.message])
+  );
+  return {
+    conflict: error.status === 409,
+    fields,
+    text: issues ? null : (error.problem.error ?? "Could not save."),
+  };
+};
+
+const PluginCard = ({ index, view }: { index: number; view: PluginView }) => {
+  const queryClient = useQueryClient();
   const saved = { config: view.config, enabled: view.enabled };
   const [draft, setDraft] = useState<Draft>(saved);
-  const [errors, setErrors] = useState<FieldErrors>({});
-  const [problem, setProblem] = useState<{
-    text: string;
-    conflict: boolean;
-  } | null>(null);
-  const [busy, setBusy] = useState(false);
+  const mutation = useMutation({
+    mutationFn: (change: Change) =>
+      change.type === "reset"
+        ? sendJson<PluginView>(`/api/plugins/${view.name}`, "DELETE")
+        : sendJson<PluginView>(`/api/plugins/${view.name}`, "PUT", {
+            ...change.draft,
+            updatedAt: view.updatedAt,
+          }),
+    mutationKey: [...PLUGINS, view.name],
+    onSuccess: (next) => {
+      queryClient.setQueryData<PluginView[]>(PLUGINS, (current) =>
+        current?.map((item) => (item.name === next.name ? next : item))
+      );
+    },
+  });
+  const { reset } = mutation;
 
   useEffect(() => {
     setDraft({ config: view.config, enabled: view.enabled });
-    setErrors({});
-    setProblem(null);
-  }, [view]);
+    reset();
+  }, [view, reset]);
 
   const dirty = !same(draft, saved);
-
-  const submit = async (send: () => Promise<Response>) => {
-    setBusy(true);
-    setProblem(null);
-    try {
-      const response = await send();
-      if (response.ok) {
-        const next: PluginView = await response.json();
-        onSaved(next);
-        return;
-      }
-      const body: Problem = await response.json();
-      setErrors(
-        Object.fromEntries(
-          (body.issues ?? []).map((issue) => [
-            issue.path.join("."),
-            issue.message,
-          ])
-        )
-      );
-      if (!body.issues) {
-        setProblem({ conflict: response.status === 409, text: body.error });
-      }
-    } catch (error) {
-      if (error instanceof SessionExpiredError) {
-        onExpired();
-        return;
-      }
-      setProblem({
-        conflict: false,
-        text: "Could not save.",
-      });
-    } finally {
-      setBusy(false);
-    }
-  };
-
+  const busy = mutation.isPending;
+  const problem = mutation.error ? describe(mutation.error) : null;
   const status = STATUS[view.status];
   const id = `plugin-${view.name}`;
 
   return (
     <li
       aria-labelledby={`${id}-title`}
-      className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:fill-mode-both rounded-lg border bg-white motion-safe:duration-500"
+      className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:fill-mode-both motion-safe:duration-500"
       style={{ animationDelay: `${index * 90}ms` }}
     >
-      <header className="flex items-start justify-between gap-4 p-5 sm:p-6">
-        <div className="min-w-0 space-y-1.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="font-medium" id={`${id}-title`}>
-              {view.title}
-            </h2>
+      <Card className="gap-0 py-0">
+        <CardHeader className="py-5">
+          <CardTitle
+            className="flex flex-wrap items-center gap-2"
+            id={`${id}-title`}
+          >
+            {view.title}
             {status ? (
-              <span
-                className={cn(
-                  "rounded-full px-2 py-0.5 text-[11px] font-medium",
-                  status.className
-                )}
-              >
+              <Badge className={status.className} variant="secondary">
                 {status.label}
-              </span>
+              </Badge>
             ) : null}
-          </div>
-          <p className="text-muted-foreground text-sm leading-6">
-            {view.description}
-          </p>
-        </div>
-        <Switch
-          aria-label={`Enable ${view.title}`}
-          checked={draft.enabled}
-          disabled={busy}
-          onCheckedChange={(enabled) => setDraft({ ...draft, enabled })}
-        />
-      </header>
-
-      {hasFields(view.schema) ? (
-        <div
-          className={cn(
-            "border-t px-5 py-5 transition-opacity sm:px-6",
-            draft.enabled ? "" : "opacity-55"
-          )}
-        >
-          <SchemaForm
-            defaults={view.defaults.config}
-            disabled={busy}
-            errors={errors}
-            idPrefix={id}
-            onChange={(config) => setDraft({ ...draft, config })}
-            schema={view.schema}
-            value={draft.config}
-          />
-        </div>
-      ) : null}
-
-      {problem ? (
-        <div
-          className="mx-5 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 sm:mx-6"
-          role="alert"
-        >
-          <span>{problem.text}</span>
-          {problem.conflict ? (
-            <Button onClick={onReload} size="sm" variant="outline">
-              Reload
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
-
-      {dirty || view.status !== "default" ? (
-        <footer className="bg-secondary/50 flex items-center justify-between gap-3 rounded-b-lg border-t px-5 py-3 sm:px-6">
-          {view.status === "default" ? null : (
-            <Button
+          </CardTitle>
+          <CardDescription>{view.description}</CardDescription>
+          <CardAction>
+            <Switch
+              aria-label={`Enable ${view.title}`}
+              checked={draft.enabled}
               disabled={busy}
-              onClick={() => {
-                void submit(() =>
-                  request(`/api/plugins/${view.name}`, { method: "DELETE" })
-                );
-              }}
-              size="sm"
-              variant="ghost"
-            >
-              <RotateCcw aria-hidden="true" />
-              Reset to defaults
-            </Button>
-          )}
-          {dirty ? (
-            <div className="ml-auto flex items-center gap-3">
+              onCheckedChange={(enabled) => setDraft({ ...draft, enabled })}
+            />
+          </CardAction>
+        </CardHeader>
+
+        {hasFields(view.schema) ? (
+          <CardContent
+            className={cn(
+              "border-t py-4 transition-opacity",
+              draft.enabled ? "" : "opacity-55"
+            )}
+          >
+            <SchemaForm
+              defaults={view.defaults.config}
+              disabled={busy}
+              errors={problem?.fields ?? {}}
+              idPrefix={id}
+              onChange={(config) => setDraft({ ...draft, config })}
+              schema={view.schema}
+              value={draft.config}
+            />
+          </CardContent>
+        ) : null}
+
+        {problem?.text ? (
+          <CardContent className="pb-4">
+            <Alert className="flex flex-wrap items-center justify-between gap-3 bg-amber-50 text-amber-950 ring-amber-300">
+              <AlertDescription className="text-amber-950">
+                {problem.text}
+              </AlertDescription>
+              {problem.conflict ? (
+                <Button
+                  onClick={() => {
+                    void queryClient.invalidateQueries({ queryKey: PLUGINS });
+                  }}
+                  size="sm"
+                  variant="outline"
+                >
+                  Reload
+                </Button>
+              ) : null}
+            </Alert>
+          </CardContent>
+        ) : null}
+
+        {dirty || view.status !== "default" ? (
+          <CardFooter className="bg-muted/50 justify-between gap-3 border-t py-3">
+            {view.status === "default" ? null : (
               <Button
                 disabled={busy}
-                onClick={() => setDraft(saved)}
+                onClick={() => mutation.mutate({ type: "reset" })}
                 size="sm"
-                variant="outline"
+                variant="ghost"
               >
-                Discard
+                <RotateCcw aria-hidden="true" />
+                Reset to defaults
               </Button>
-              <Button
-                disabled={busy}
-                onClick={() => {
-                  void submit(() =>
-                    sendJson(`/api/plugins/${view.name}`, "PUT", {
-                      ...draft,
-                      updatedAt: view.updatedAt,
-                    })
-                  );
-                }}
-                size="sm"
-              >
-                {busy ? "Saving…" : "Save"}
-              </Button>
-            </div>
-          ) : null}
-        </footer>
-      ) : null}
+            )}
+            {dirty ? (
+              <div className="ml-auto flex items-center gap-2">
+                <Button
+                  disabled={busy}
+                  onClick={() => setDraft(saved)}
+                  size="sm"
+                  variant="outline"
+                >
+                  Discard
+                </Button>
+                <Button
+                  disabled={busy}
+                  onClick={() => mutation.mutate({ draft, type: "save" })}
+                  size="sm"
+                >
+                  {busy ? "Saving…" : "Save"}
+                </Button>
+              </div>
+            ) : null}
+          </CardFooter>
+        ) : null}
+      </Card>
     </li>
   );
 };
 
 export const PluginsView = () => {
-  const [views, setViews] = useState<PluginView[] | null>(null);
-  const [failed, setFailed] = useState(false);
-  const [expired, setExpired] = useState(false);
+  const query = useQuery({
+    queryFn: ({ signal }) => getJson<PluginView[]>("/api/plugins", signal),
+    queryKey: PLUGINS,
+  });
+  const mutationErrors = useMutationState({
+    filters: { mutationKey: PLUGINS, status: "error" },
+    select: (mutation) => mutation.state.error,
+  });
 
-  const load = async () => {
-    setFailed(false);
-    try {
-      const response = await request("/api/plugins");
-      if (!response.ok) {
-        throw new Error(String(response.status));
-      }
-      const next: PluginView[] = await response.json();
-      setViews(next);
-    } catch (error) {
-      if (error instanceof SessionExpiredError) {
-        setExpired(true);
-      } else {
-        setFailed(true);
-      }
-    }
-  };
-
-  useEffect(() => {
-    void load();
-  }, []);
-
-  if (expired) {
+  if ([query.error, ...mutationErrors].some(isExpired)) {
     return <SessionExpired />;
   }
 
   return (
-    <section aria-busy={views === null} aria-label="Plugins">
-      {failed ? (
-        <div
-          className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-white p-4"
-          role="alert"
-        >
-          <p className="text-sm">Could not load plugins.</p>
+    <section aria-busy={query.isFetching} aria-label="Plugins">
+      {query.isError ? (
+        <Alert className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <AlertDescription className="text-foreground">
+            Could not load plugins.
+          </AlertDescription>
           <Button
             onClick={() => {
-              void load();
+              void query.refetch();
             }}
             size="sm"
             variant="outline"
           >
             Try again
           </Button>
-        </div>
+        </Alert>
       ) : null}
-      {views === null && !failed ? (
+      {query.isPending ? (
         <div className="space-y-4" role="status">
           <span className="sr-only">Loading plugins</span>
           {[1, 2].map((key) => (
-            <div className="space-y-3 rounded-lg border bg-white p-6" key={key}>
+            <Card className="gap-3 p-6" key={key}>
               <Skeleton className="h-4 w-40" />
               <Skeleton className="h-3 w-full" />
-              <Skeleton className="h-9 w-40" />
-            </div>
+              <Skeleton className="h-8 w-40" />
+            </Card>
           ))}
         </div>
       ) : null}
-      {views?.length === 0 ? (
-        <div className="rounded-lg border border-dashed px-6 py-16 text-center">
+      {query.data?.length === 0 ? (
+        <div className="rounded-xl border border-dashed px-6 py-16 text-center">
           <Puzzle
             aria-hidden="true"
             className="text-muted-foreground mx-auto mb-4 size-6"
@@ -294,23 +263,8 @@ export const PluginsView = () => {
         </div>
       ) : null}
       <ul className="space-y-4">
-        {views?.map((view, index) => (
-          <PluginCard
-            index={index}
-            key={view.name}
-            onExpired={() => setExpired(true)}
-            onReload={() => {
-              void load();
-            }}
-            onSaved={(next) =>
-              setViews((current) =>
-                (current ?? []).map((item) =>
-                  item.name === next.name ? next : item
-                )
-              )
-            }
-            view={view}
-          />
+        {query.data?.map((view, index) => (
+          <PluginCard index={index} key={view.name} view={view} />
         ))}
       </ul>
     </section>
