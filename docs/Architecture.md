@@ -97,7 +97,7 @@ Four tools. They are the minimal complete operation set of a memory: write, chan
 - The contract — tool names, input schemas, output shape, field meanings — is meant to hold for years. New fields are additive with defaults that reproduce prior behavior.
 - `recall` is split into **candidate generation** (substring → recalled; one-hop anchor spread → associated) and a **terminal** (order, filter, truncate, return). Plugins attach only at the terminal.
 - `recall` stays a pure function: `recall(corpus, input, plugins, index) → result`. Tests pass an empty plugin list or stubs.
-- `recall` returns one list: cue matches first, then associated fragments. An item's `via` (the shared anchors) is both its kind and the reason it was associated; there is no separate `kind` field. `limit` bounds the combined list; `hasMore` reports that candidates were omitted.
+- `recall` returns one list: cue matches first, then associated fragments. An item's `via` (the shared anchors) is both its kind and the reason it was associated; there is no separate `kind` field. `limit` (at most 40, `RECALL_LIMIT_MAX` in `lib/recall.ts`) bounds the combined list; `hasMore` reports that a higher `limit` would return more.
 - Length policy (soft/hard, default 300/500) lives in the `size-limit` plugin. Core keeps only an absolute ceiling, `FRAGMENT_MAX` = 1000 graphemes (`lib/fragment.ts`), so a disabled or failing plugin can never let an unbounded fragment in. Tool descriptions carry no instance-specific numbers; warnings and rejections do.
 
 RFC 4's `associate` and `limit` fields are additive core contract, not plugins. So is `context` (optional free text: what the agent is doing right now). Core accepts it and ignores it; it exists so that read-path plugins can judge relevance against the situation, not just the cue. Carrying the information is core; using it is policy.
@@ -191,7 +191,7 @@ Recall terminal, fixed order, not configurable:
 candidate generation → afterRecall hooks, in registry order → truncate to limit → return
 ```
 
-Each hook receives the previous hook's output and may reorder or drop items. The host keeps only refs from its input, deduplicated, and returns the host's own copies, so a hook cannot add, duplicate, or rewrite items; annotations wait on the open question below. Hooks run before truncation, so they may see more candidates than `limit`. `hasMore` describes candidate generation and is never rewritten by plugins. `idf` sorts associated items by the summed IDF of their `via` anchors; cue matches keep their place, and ties keep recency.
+Each hook receives the previous hook's output and may reorder or drop items. The host keeps only refs from its input, deduplicated, and returns the host's own copies, so a hook cannot add, duplicate, or rewrite items; annotations wait on the open question below. Hooks run before truncation, so they may see more candidates than `limit`. The host computes `hasMore` from the chain's output, so it counts what survived the plugins; plugins cannot set it. `idf` sorts associated items by the summed IDF of their `via` anchors; cue matches keep their place, and ties keep recency.
 
 Write path:
 
@@ -214,7 +214,7 @@ A hook can end in two ways besides success, and the plugin chooses which at the 
 
 Plugins that call external models (Jev) fail — not die — on binding errors (including an empty Workers AI balance), timeout (~1.5 s budget), rate limit, and malformed response, with no retry on the request path.
 
-`jev` calls `typesafe/jev` through the `AI` binding: one `noul` per candidate (associations only unless `matches` is on; at most 40), with `cue`, `context`, and the candidate texts as state. Items scoring below `threshold` (default 0.5) are dropped; unanswered and unjudged items stay; order is unchanged. The binding is always remote, so local dev bills the account; tests disable remote bindings and inject a fake `ai`.
+`jev` calls `typesafe/jev` through the `AI` binding: one `noul` per candidate (associations only unless `matches` is on; at most `RECALL_LIMIT_MAX`, and gated items past that cap are dropped rather than passed through unjudged), with `cue`, `context`, and the candidate texts as state. Items scoring below the `strictness` level (`low` 0.1, `medium` 0.3 by default, `high` 0.5, `max` 0.7) are dropped; unanswered and unjudged items stay; order is unchanged. The binding is always remote, so local dev bills the account; tests disable remote bindings and inject a fake `ai`.
 
 ## Invariants
 

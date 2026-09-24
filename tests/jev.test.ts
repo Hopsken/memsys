@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Fragment, RecallItem } from "../contract/memory";
 import type { Ctx, Json } from "../contract/plugin";
+import { RECALL_LIMIT_MAX } from "../lib/recall";
 import { JEV_MODEL, JEV_TIMEOUT_MS, jev } from "../plugins/jev";
 import { createCtx, runAfterRecall } from "../worker/plugin-host";
 
@@ -99,13 +100,47 @@ describe("jev plugin", () => {
     await expect(gate(run).then(refs)).resolves.toStrictEqual(["f7", "f2"]);
   });
 
-  it("gates cue matches when configured, against the configured threshold", async () => {
+  it("gates cue matches when configured", async () => {
     const run = vi.fn<Run>(() =>
       Promise.resolve(noul({ f2: 0.6, f7: 0.2, f8: 0.4, fx: 0.8 }))
     );
     await expect(
-      gate(run, { matches: true, threshold: 0.3 }).then(refs)
+      gate(run, { matches: true, strictness: "medium" }).then(refs)
     ).resolves.toStrictEqual(["f2", "f8", "fx"]);
+  });
+
+  it.each([
+    ["low", ["f7", "f2", "f8", "fx"]],
+    ["medium", ["f7", "f2", "f8"]],
+    ["high", ["f7", "f2"]],
+    ["max", ["f7"]],
+  ] as const)(
+    "drops more as strictness rises: %s",
+    async (strictness, kept) => {
+      const run = vi.fn<Run>(() =>
+        Promise.resolve(noul({ f2: 0.6, f8: 0.35, fx: 0.15 }))
+      );
+      await expect(
+        gate(run, { matches: false, strictness }).then(refs)
+      ).resolves.toStrictEqual(kept);
+    }
+  );
+
+  it("still parses configs saved with the numeric threshold", () => {
+    expect(jev.config.parse({ matches: true, threshold: 0.5 })).toStrictEqual({
+      matches: true,
+      strictness: "medium",
+    });
+  });
+
+  it("drops associations past its cap instead of passing them unjudged", async () => {
+    const many = Array.from({ length: RECALL_LIMIT_MAX + 5 }, (_, index) =>
+      item(`a${index}`, `Association ${index}`, ["d1"])
+    );
+    const run = vi.fn<Run>(() => Promise.resolve(noul({})));
+    await expect(
+      hook(run, [item("m", "Cue match"), ...many]).then((rows) => rows.length)
+    ).resolves.toBe(RECALL_LIMIT_MAX + 1);
   });
 
   it("rejects malformed responses so the host passes recall through", async () => {

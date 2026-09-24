@@ -170,9 +170,7 @@ export class MemoryDO extends DurableObject<Env> {
       candidates,
       input
     );
-    return "error" in ranked
-      ? ranked
-      : truncate(candidates, ranked, input.limit);
+    return "error" in ranked ? ranked : truncate(ranked, input.limit);
   }
 
   list(input: { cursor?: string }) {

@@ -3,23 +3,29 @@ import { z } from "zod";
 import type { RecallInput, RecallItem } from "../contract/memory";
 import { definePlugin } from "../contract/plugin";
 import type { Ctx, Json } from "../contract/plugin";
+import { RECALL_LIMIT_MAX } from "../lib/recall";
 
 // Relevance gate per RFC 1 Stage 2: one independent noul per candidate, so
 // "nothing is relevant" is a possible answer. Fail-open: any error, timeout,
 // or malformed response leaves the input unchanged via the plugin host.
 export const JEV_MODEL = "typesafe/jev";
 export const JEV_TIMEOUT_MS = 1500;
-export const JEV_MAX_CANDIDATES = 40;
+
+// Named levels instead of a raw probability: 0.45 vs 0.48 means nothing to a
+// user. Measured on real recalls, misses score ≲0.15 and hits ≳0.9.
+export const STRICTNESS = { high: 0.5, low: 0.1, max: 0.7, medium: 0.3 };
 
 const config = z.object({
   matches: z.boolean().meta({
     description:
-      "Also judge fragments that contain the cue. Off judges associations only.",
-    title: "Gate cue matches",
+      "Also check memories that contain the search words. Off checks only related memories.",
+    title: "Check direct matches",
   }),
-  threshold: z.number().min(0).max(1).meta({
-    description: "Fragments judged less likely than this to help are dropped.",
-    title: "Threshold",
+  // Defaulted so rows saved with the earlier numeric `threshold` still parse.
+  strictness: z.enum(["low", "medium", "high", "max"]).default("medium").meta({
+    description:
+      "How much to hide. Low hides only clear misses; Max keeps only strong matches.",
+    title: "Strictness",
   }),
 });
 
@@ -69,13 +75,15 @@ const withTimeout = async <T>(promise: Promise<T>, ms: number) => {
 };
 
 const gate = async (
-  { ai, config: { matches, threshold } }: Ctx<Config>,
+  { ai, config: { matches, strictness } }: Ctx<Config>,
   items: readonly RecallItem[],
   { context, cue }: RecallInput
 ) => {
-  const judged = items
-    .filter((item) => matches || item.via)
-    .slice(0, JEV_MAX_CANDIDATES);
+  const gated = (item: RecallItem) => matches || Boolean(item.via);
+  // The cap equals recall's max `limit`: past it, items are dropped rather
+  // than passed through unjudged to fill the page.
+  const judged = items.filter(gated).slice(0, RECALL_LIMIT_MAX);
+  const refs = new Set(judged.map((item) => item.ref));
   if (judged.length === 0) {
     return [...items];
   }
@@ -95,16 +103,24 @@ const gate = async (
     JEV_TIMEOUT_MS
   );
   const scores = parseScores(output);
-  // Unanswered or unjudged items stay; only a confident "no" drops one.
-  return items.filter((item) => (scores[item.ref]?.noul ?? 1) >= threshold);
+  const threshold = STRICTNESS[strictness];
+  // Ungated items stay; judged items the model left unanswered stay too.
+  return items.filter(
+    (item) =>
+      !gated(item) ||
+      (refs.has(item.ref) && (scores[item.ref]?.noul ?? 1) >= threshold)
+  );
 };
 
 export const jev = definePlugin({
   afterRecall: gate,
   config,
-  defaults: { config: { matches: false, threshold: 0.5 }, enabled: false },
+  defaults: {
+    config: { matches: false, strictness: "medium" },
+    enabled: false,
+  },
   description:
-    "Asks Jev whether each recalled fragment helps with the cue and context, and drops the ones it rules out.",
+    "Uses a small AI model (Jev) to check each related memory against what your AI is looking for, and hides the ones that don't help. Adds up to a second per recall and uses Workers AI credits.",
   name: "jev",
-  title: "Relevance gate (Jev)",
+  title: "Relevance filter (Jev)",
 });

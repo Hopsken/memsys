@@ -94,9 +94,9 @@ describe("Plugin configuration", () => {
         tools: [],
       },
       {
-        config: { matches: false, threshold: 0.5 },
+        config: { matches: false, strictness: "medium" },
         name: "jev",
-        properties: ["matches", "threshold"],
+        properties: ["matches", "strictness"],
         status: "default",
         tools: [],
       },

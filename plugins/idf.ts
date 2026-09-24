@@ -38,7 +38,7 @@ export const idf = definePlugin({
   config: z.object({}),
   defaults: { config: {}, enabled: true },
   description:
-    "Ranks associated fragments by how rare their shared #anchors are, so hub anchors don't crowd out specific links.",
+    "When recalling, related memories that share a rare #tag come first; ones linked only by a common tag like #work sink.",
   name: "idf",
-  title: "Rank associations by rarity",
+  title: "Prioritize specific links",
 });
