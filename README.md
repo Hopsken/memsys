@@ -6,6 +6,8 @@ Store one durable idea per fragment. Recall starts from a textual cue and follow
 
 To connect the deployed server, follow [Use memsys in ChatGPT](docs/chatgpt.md).
 
+[Project Vision](docs/VISION.md) [Architecture](docs/Architecture.md)
+
 ## Memory page
 
 Open `/` to view your fragments. The read-only React page shows plain text, refs, and last-update times in your browser's timezone. Use **Load more** for older fragments and **Refresh** to restart the list. Create, revise, and delete fragments through your connected agent or the API.
