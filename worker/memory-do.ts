@@ -10,6 +10,7 @@ import type { PluginView, Verdict } from "../contract/plugin";
 import migrations from "../migrations/migrations.js";
 import { plugins } from "../plugins";
 import { fragments, pluginConfig } from "./db/schema";
+import type { SeedFragment } from "./dev/corpus";
 import {
   inputs,
   listFragments,
@@ -69,16 +70,47 @@ export class MemoryDO extends DurableObject<Env> {
       if (result !== undefined) {
         throw new Error(`[DB] migrations failed with code: ${result.exitCode}`);
       }
-      for (const row of this.db.select().from(fragments).all()) {
-        this.corpus.set(row.id, {
-          createdAt: new Date(row.createdAt).toISOString(),
-          fragment: row.content,
-          ref: row.id,
-          updatedAt: new Date(row.updatedAt).toISOString(),
-        });
-      }
-      this.loadPlugins();
+      this.load();
     });
+  }
+
+  private load() {
+    this.corpus.clear();
+    for (const row of this.db.select().from(fragments).all()) {
+      this.corpus.set(row.id, {
+        createdAt: new Date(row.createdAt).toISOString(),
+        fragment: row.content,
+        ref: row.id,
+        updatedAt: new Date(row.updatedAt).toISOString(),
+      });
+    }
+    this.loadPlugins();
+  }
+
+  // Development only: replaces every fragment and plugin setting with the
+  // given corpus. Production bundles keep only the throw.
+  seed(items: SeedFragment[]) {
+    if (!import.meta.env.DEV) {
+      throw new Error("Seeding is available only in development builds");
+    }
+    this.ctx.storage.transactionSync(() => {
+      this.db.delete(fragments).run();
+      this.db.delete(pluginConfig).run();
+      for (const { date, fragment } of items) {
+        const at = Date.parse(`${date}T12:00:00Z`);
+        this.db
+          .insert(fragments)
+          .values({
+            content: fragment,
+            createdAt: at,
+            id: newRef(),
+            updatedAt: at,
+          })
+          .run();
+      }
+    });
+    this.load();
+    return { fragments: items.length };
   }
 
   private loadPlugins() {

@@ -9,13 +9,17 @@ export interface AppEnv {
   Variables: { memory: DurableObjectStub<MemoryDO> };
 }
 
+// Configured Access always takes precedence over the development identity.
+export const isDevIdentity = (env: AppEnv["Bindings"]) =>
+  Boolean(env.DEV_IDENTITY) && !env.ACCESS_ISSUER && !env.ACCESS_AUD;
+
 const keySets = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
 export const access = createMiddleware<AppEnv>(async (c, next) => {
   const issuer = c.env.ACCESS_ISSUER;
   const audience = c.env.ACCESS_AUD;
-  // Configured Access always takes precedence over the development identity.
-  if (c.env.DEV_IDENTITY && !issuer && !audience) {
+  // Dev builds only: production bundles compile this branch away.
+  if (import.meta.env.DEV && c.env.DEV_IDENTITY && isDevIdentity(c.env)) {
     c.set(
       "memory",
       c.env.MEMORY.getByName(JSON.stringify(["local-dev", c.env.DEV_IDENTITY]))

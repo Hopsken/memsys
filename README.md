@@ -78,6 +78,10 @@ pnpm dev         # Vite frontend and local Worker; no login
 
 `pnpm dev` uses local SQLite storage. The ignored `.dev.vars` file sets `DEV_IDENTITY=local-user` and clears both Access settings. The page, REST, and MCP share a test memory object named from `["local-dev", DEV_IDENTITY]`. Anyone with access to the dev server can change its test memory; do not store sensitive data there. Open `/` on the development server to view the memory page.
 
+With the dev server running, `pnpm db:seed` replaces the test memory with a fixed eight-fragment corpus (`worker/dev/corpus.ts`) so the UI and recall have something to show. Set `SEED_URL` if the server is not on `http://localhost:5173`.
+
+The development identity and everything under `worker/dev/` exist only in dev builds: they sit behind `import.meta.env.DEV`, which `vite build` replaces with `false`, so the deployed bundle contains neither the identity bypass nor the seed route.
+
 `.dev.vars` is not deployed. Production still verifies Access, and either configured Access setting prevents the development bypass. To test Access locally, temporarily move `.dev.vars` aside and restart `pnpm dev` with a valid Access assertion. Test the full OAuth login flow on the deployed domain.
 
 Tests use real JWT verification, SQLite objects, object eviction, and MCP protocol requests. Only the Access JWKS request is mocked, with temporary signing keys. No Cloudflare account is needed.
