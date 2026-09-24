@@ -9,12 +9,12 @@ const limit = z.int().min(1).max(FRAGMENT_MAX);
 const config = z
   .object({
     hard: limit.meta({
-      description: "Longer fragments are rejected.",
-      title: "Hard limit",
+      description: "Longer memories are refused. Counted in characters.",
+      title: "Refuse above",
     }),
     soft: limit.meta({
-      description: "Longer fragments are stored with a warning.",
-      title: "Soft limit",
+      description: "Longer memories are saved, with a nudge to split them.",
+      title: "Warn above",
     }),
   })
   .refine((value) => value.soft <= value.hard, {
@@ -51,7 +51,8 @@ export const sizeLimit = definePlugin({
   beforeRevise: (ctx, _prev, text) => Promise.resolve(check(ctx.config, text)),
   config,
   defaults: { config: { hard: 500, soft: 300 }, enabled: true },
-  description: "Warns on long fragments and rejects oversized ones.",
+  description:
+    "Keeps each memory to one short idea. Long ones get a warning; very long ones are refused.",
   name: "size-limit",
-  title: "Fragment size limit",
+  title: "Short memories",
 });

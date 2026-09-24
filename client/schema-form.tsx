@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 import type { Json, JsonObject } from "../contract/plugin";
 
@@ -36,13 +37,64 @@ const jsonObject = z.record(z.string(), z.json());
 
 export type FieldErrors = Record<string, string>;
 
+// Enums with at most this many options render as a segmented control.
+const SEGMENTED_MAX = 4;
+
+// Strings show bare; other JSON values show as JSON.
+const display = (value: Json | undefined) =>
+  z.safeParse(z.string(), value).data ?? JSON.stringify(value);
+
 // Types whose control fits beside the label; anything else spans the row.
 const INLINE_TYPES = new Set(["boolean", "integer", "number", "string"]);
+
+// Enums sit beside the label from `sm` up; below that, a segmented control
+// would squeeze the description, so they stack.
+const rowLayout = (field: FieldSchema) => {
+  if (field.enum) {
+    return "enum";
+  }
+  return INLINE_TYPES.has(field.type ?? "") ? "inline" : "wide";
+};
+const LAYOUT = {
+  enum: "sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center",
+  inline: "grid-cols-[minmax(0,1fr)_auto] items-center",
+  wide: "",
+};
+const CONTROL = {
+  enum: "flex sm:justify-end",
+  inline: "flex justify-end",
+  wide: "",
+};
 
 // A plugin with an empty object schema has nothing to configure.
 export const hasFields = (schema: JsonObject) => {
   const editable = z.safeParse(objectSchema, schema);
   return !editable.success || Object.keys(editable.data.properties).length > 0;
+};
+
+// Booleans read as On/Off; other values as in `display`.
+const displayValue = (value: Json | undefined) => {
+  const flag = z.safeParse(z.boolean(), value);
+  if (flag.success) {
+    return flag.data ? "On" : "Off";
+  }
+  return display(value);
+};
+
+// One line of current values, e.g. "Strictness: Medium · Check direct matches: Off".
+export const summarize = (schema: JsonObject, value: Json) => {
+  const editable = z.safeParse(objectSchema, schema);
+  const current = z.safeParse(jsonObject, value).data ?? {};
+  if (!editable.success) {
+    return "Custom JSON";
+  }
+  return Object.entries(editable.data.properties)
+    .map(([key, raw]) => {
+      const field = z.safeParse(fieldSchema, raw).data ?? {};
+      const shown = displayValue(current[key]);
+      return `${field.title ?? key}: ${shown.charAt(0).toUpperCase()}${shown.slice(1)}`;
+    })
+    .join(" · ");
 };
 
 const parseJson = (text: string) => {
@@ -89,21 +141,53 @@ const Control = (props: FieldProps) => {
   const { field, id, invalid, onChange, value } = props;
   if (field.enum) {
     const options = field.enum.map((option) => JSON.stringify(option));
+    const selected = value === undefined ? null : JSON.stringify(value);
+    const pick = (next: string | null | undefined) => {
+      const index = options.indexOf(next ?? "");
+      if (index !== -1) {
+        onChange(field.enum?.[index]);
+      }
+    };
+    // A few ordered levels read as a dial; longer lists use a menu.
+    if (options.length <= SEGMENTED_MAX) {
+      return (
+        <ToggleGroup
+          aria-invalid={invalid}
+          id={id}
+          onValueChange={(next) => pick(next[0])}
+          size="sm"
+          spacing={0}
+          value={selected === null ? [] : [selected]}
+          variant="outline"
+        >
+          {options.map((option, index) => (
+            <ToggleGroupItem
+              className="aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground capitalize"
+              key={option}
+              value={option}
+            >
+              {display(field.enum?.[index])}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      );
+    }
     return (
       <Select
-        items={options.map((option) => ({ label: option, value: option }))}
-        onValueChange={(next) => {
-          onChange(field.enum?.[options.indexOf(next ?? "")]);
-        }}
-        value={value === undefined ? null : JSON.stringify(value)}
+        items={options.map((option, index) => ({
+          label: display(field.enum?.[index]),
+          value: option,
+        }))}
+        onValueChange={pick}
+        value={selected}
       >
         <SelectTrigger aria-invalid={invalid} className="w-40" id={id}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {options.map((option) => (
+          {options.map((option, index) => (
             <SelectItem key={option} value={option}>
-              {option}
+              {display(field.enum?.[index])}
             </SelectItem>
           ))}
         </SelectContent>
@@ -193,12 +277,12 @@ export const SchemaForm = ({
         const error = errors[key];
         const modified =
           JSON.stringify(current[key]) !== JSON.stringify(fallback[key]);
-        const wide = !field.enum && !INLINE_TYPES.has(field.type ?? "");
+        const layout = rowLayout(field);
         return (
           <div
             className={cn(
               "grid gap-x-6 gap-y-2 py-3 first:pt-0 last:pb-0",
-              wide ? "" : "grid-cols-[minmax(0,1fr)_auto] items-center"
+              LAYOUT[layout]
             )}
             key={key}
           >
@@ -215,12 +299,12 @@ export const SchemaForm = ({
                 {modified && !error ? (
                   <span className="text-primary font-medium whitespace-nowrap">
                     {" "}
-                    · default {JSON.stringify(fallback[key])}
+                    · default {display(fallback[key])}
                   </span>
                 ) : null}
               </p>
             </div>
-            <div className={wide ? "" : "flex justify-end"}>
+            <div className={CONTROL[layout]}>
               <Control
                 field={field}
                 id={id}

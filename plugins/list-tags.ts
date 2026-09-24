@@ -5,9 +5,10 @@ import { definePlugin } from "../contract/plugin";
 export const listTags = definePlugin({
   config: z.object({}),
   defaults: { config: {}, enabled: true },
-  description: "Adds the list_tags tool so agents can reuse existing #anchors.",
+  description:
+    "Lets your AI see the #tags you already use, so it reuses them instead of inventing near-duplicates.",
   name: "list-tags",
-  title: "List tags",
+  title: "Tag list",
   tools: [
     {
       annotations: { readOnlyHint: true },

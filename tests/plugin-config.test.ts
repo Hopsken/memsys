@@ -93,6 +93,13 @@ describe("Plugin configuration", () => {
         status: "default",
         tools: [],
       },
+      {
+        config: { matches: false, strictness: "medium" },
+        name: "jev",
+        properties: ["matches", "strictness"],
+        status: "default",
+        tools: [],
+      },
     ]);
   });
 

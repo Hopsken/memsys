@@ -9,12 +9,12 @@ import type {
   RecallResult,
 } from "../contract/memory";
 import { FRAGMENT_MAX, fragmentLength } from "../lib/fragment";
+import { RECALL_LIMIT_MAX } from "../lib/recall";
 
 // Lowercase only; omit 0, 1, i, l, and o. 31^7 possible refs.
 export const REF_ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz";
 export const REF_LENGTH = 7;
-const RESULT_LIMIT = 20;
-const RESULT_LIMIT_MAX = 50;
+const RESULT_LIMIT = 10;
 const PAGE_SIZE = 50;
 
 const fragment = z
@@ -59,10 +59,10 @@ export const inputs = {
       limit: z
         .int()
         .min(1)
-        .max(RESULT_LIMIT_MAX)
+        .max(RECALL_LIMIT_MAX)
         .optional()
         .describe(
-          `Maximum fragments to return, 1–${RESULT_LIMIT_MAX}. Defaults to ${RESULT_LIMIT}.`
+          `Maximum fragments to return, 1–${RECALL_LIMIT_MAX}. Defaults to ${RESULT_LIMIT}.`
         ),
     })
     .strict(),
@@ -163,14 +163,14 @@ export const recallCandidates = (
   return { candidates, input };
 };
 
-// Terminal truncation. `hasMore` describes candidate generation, not plugin output.
+// Terminal truncation. Plugins saw every candidate, so `hasMore` counts what
+// survived them: a higher `limit` would return more.
 export const truncate = (
-  candidates: readonly RecallItem[],
   ranked: readonly RecallItem[],
   limit: number
 ): RecallResult => ({
   fragments: ranked.slice(0, limit),
-  hasMore: candidates.length > limit,
+  hasMore: ranked.length > limit,
 });
 
 // Core recall without plugins.
@@ -179,5 +179,5 @@ export const recall = (
   raw: z.input<typeof inputs.recall>
 ): RecallResult => {
   const { candidates, input } = recallCandidates(corpus, raw);
-  return truncate(candidates, candidates, input.limit);
+  return truncate(candidates, input.limit);
 };

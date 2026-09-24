@@ -12,6 +12,9 @@ export default defineConfig({
           DEV_IDENTITY: "",
         },
       },
+      // Tests never reach Workers AI; plugins get a fake `ai`. Without this, the
+      // AI binding opens a remote session that needs Cloudflare credentials.
+      remoteBindings: false,
       wrangler: { configPath: "./wrangler.jsonc" },
     }),
   ],

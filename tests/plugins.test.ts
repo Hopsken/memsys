@@ -27,6 +27,9 @@ const corpus = new Map<string, Fragment>(
   ])
 );
 
+const offline = { run: () => Promise.reject(new Error("offline")) };
+const env = { ai: offline, corpus };
+
 const stub = (name: string, hook: () => Promise<Verdict>) =>
   definePlugin({
     beforeRemember: hook,
@@ -88,7 +91,7 @@ describe("size-limit plugin", () => {
     const unit = "中a👍🏽👨‍👩‍👧‍👦é🇨🇳";
     const text = (length: number) =>
       unit.repeat(Math.floor(length / 6)) + "文".repeat(length % 6);
-    const ctx = createCtx(sizeLimit.defaults.config, corpus);
+    const ctx = createCtx(sizeLimit.defaults.config, env);
     const results = await Promise.all(
       [300, 301, 500, 501].map(async (length) => {
         const result = await sizeLimit.beforeRemember?.(ctx, text(length));
@@ -123,7 +126,13 @@ describe("idf plugin", () => {
       recallRow("r", "Rare link #hub #rare", ["hub", "rare"]),
     ];
     const ranked = await idf.afterRecall?.(
-      createCtx({}, new Map(rows.map((item) => [item.ref, item]))),
+      createCtx(
+        {},
+        {
+          ai: offline,
+          corpus: new Map(rows.map((item) => [item.ref, item])),
+        }
+      ),
       rows,
       recallInput
     );
@@ -139,7 +148,7 @@ describe("idf plugin", () => {
 describe("list-tags plugin", () => {
   it("lists unique lowercase anchors", async () => {
     const [tool] = listTags.tools ?? [];
-    await expect(tool?.run(createCtx({}, corpus), {})).resolves.toStrictEqual([
+    await expect(tool?.run(createCtx({}, env), {})).resolves.toStrictEqual([
       "project/one",
       "zeta",
       "记忆",
@@ -155,7 +164,7 @@ describe("Plugin host", () => {
         state(stub("b", verdict(["wb"], ["rb"]))),
         state(stub("off", verdict(["woff"], ["roff"])), false),
       ],
-      corpus,
+      env,
       (plugin, ctx) => plugin.beforeRemember?.(ctx, "text")
     );
     expect(result).toStrictEqual({
@@ -176,7 +185,7 @@ describe("Plugin host", () => {
         ),
         state(stub("ok", verdict(["fine"]))),
       ],
-      corpus,
+      env,
       (plugin, ctx) => plugin.beforeRemember?.(ctx, "text")
     );
     expect(result).toStrictEqual({
@@ -205,7 +214,7 @@ describe("Plugin host", () => {
           false
         ),
       ],
-      corpus,
+      env,
       items,
       recallInput
     );
@@ -222,10 +231,10 @@ describe("Plugin host", () => {
       reorder("guard", () => Promise.reject(new PluginAbortError("unsafe cue")))
     );
     await expect(
-      runAfterRecall([broken], corpus, items, recallInput).then(refs)
+      runAfterRecall([broken], env, items, recallInput).then(refs)
     ).resolves.toStrictEqual(["a", "b"]);
     await expect(
-      runAfterRecall([guard, broken], corpus, items, recallInput)
+      runAfterRecall([guard, broken], env, items, recallInput)
     ).resolves.toStrictEqual({ error: "guard: unsafe cue" });
     expect(log).toHaveBeenCalledOnce();
     log.mockRestore();

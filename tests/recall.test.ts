@@ -152,10 +152,10 @@ describe("Recall", () => {
     });
   });
 
-  it("returns 20 results by default", () => {
-    const corpus = Array.from({ length: 21 }, (_, index) =>
+  it("returns 10 results by default", () => {
+    const corpus = Array.from({ length: 11 }, (_, index) =>
       item(`m-${index.toString().padStart(2, "0")}`, "cue")
     );
-    expect(recall(corpus, { cue: "cue" }).fragments).toHaveLength(20);
+    expect(recall(corpus, { cue: "cue" }).fragments).toHaveLength(10);
   });
 });

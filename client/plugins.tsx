@@ -5,7 +5,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { cn } from "cn";
-import { Puzzle, RotateCcw } from "lucide-react";
+import { ChevronDown, Puzzle, RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { SessionExpired } from "@/components/session-expired";
@@ -21,12 +21,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { api, failure, isExpired } from "@/lib/api";
 
 import type { Json, PluginView } from "../contract/plugin";
-import { hasFields, SchemaForm } from "./schema-form";
+import { hasFields, SchemaForm, summarize } from "./schema-form";
 import type { FieldErrors } from "./schema-form";
 
 interface Draft {
@@ -65,10 +70,69 @@ const describe = (error: Error) => {
   };
 };
 
+const SaveProblem = ({
+  conflict,
+  text,
+}: {
+  conflict: boolean;
+  text: string;
+}) => {
+  const queryClient = useQueryClient();
+  return (
+    <CardContent className="pb-4">
+      <Alert className="flex flex-wrap items-center justify-between gap-3 bg-amber-50 text-amber-950 ring-amber-300">
+        <AlertDescription className="text-amber-950">{text}</AlertDescription>
+        {conflict ? (
+          <Button
+            onClick={() => {
+              void queryClient.invalidateQueries({ queryKey: PLUGINS });
+            }}
+            size="sm"
+            variant="outline"
+          >
+            Reload
+          </Button>
+        ) : null}
+      </Alert>
+    </CardContent>
+  );
+};
+
+interface ActionsProps {
+  busy: boolean;
+  dirty: boolean;
+  onDiscard: () => void;
+  onReset: (() => void) | null;
+  onSave: () => void;
+}
+
+const Actions = ({ busy, dirty, onDiscard, onReset, onSave }: ActionsProps) => (
+  <>
+    {onReset ? (
+      <Button disabled={busy} onClick={onReset} size="sm" variant="ghost">
+        <RotateCcw aria-hidden="true" />
+        Reset to defaults
+      </Button>
+    ) : null}
+    {dirty ? (
+      <div className="ml-auto flex items-center gap-2">
+        <Button disabled={busy} onClick={onDiscard} size="sm" variant="outline">
+          Discard
+        </Button>
+        <Button disabled={busy} onClick={onSave} size="sm">
+          {busy ? "Saving…" : "Save"}
+        </Button>
+      </div>
+    ) : null}
+  </>
+);
+
 const PluginCard = ({ view }: { view: PluginView }) => {
   const queryClient = useQueryClient();
   const saved = { config: view.config, enabled: view.enabled };
   const [draft, setDraft] = useState<Draft>(saved);
+  // Settings start closed; an invalid saved config opens them.
+  const [open, setOpen] = useState(view.status === "invalid");
   const mutation = useMutation({
     mutationFn: (change: Change) =>
       (change.type === "reset"
@@ -96,108 +160,110 @@ const PluginCard = ({ view }: { view: PluginView }) => {
   const problem = mutation.error ? describe(mutation.error) : null;
   const status = STATUS[view.status];
   const id = `plugin-${view.name}`;
+  const configurable = hasFields(view.schema);
+  // Field errors stay visible until fixed.
+  const expanded = open || Object.keys(problem?.fields ?? {}).length > 0;
+  // Reset lives with the settings; plugins without settings show it directly.
+  const footer =
+    dirty || (view.status !== "default" && (expanded || !configurable));
+
+  const actions = (
+    <Actions
+      busy={busy}
+      dirty={dirty}
+      onDiscard={() => setDraft(saved)}
+      onReset={
+        view.status === "default"
+          ? null
+          : () => mutation.mutate({ type: "reset" })
+      }
+      onSave={() => mutation.mutate({ draft, type: "save" })}
+    />
+  );
 
   return (
     <li aria-labelledby={`${id}-title`}>
-      <Card className="gap-0 py-0">
-        <CardHeader className="py-5">
-          <CardTitle
-            className="flex flex-wrap items-center gap-2"
-            id={`${id}-title`}
-          >
-            {view.title}
-            {status ? (
-              <Badge className={status.className} variant="secondary">
-                {status.label}
-              </Badge>
-            ) : null}
-          </CardTitle>
-          <CardDescription>{view.description}</CardDescription>
-          <CardAction>
-            <Switch
-              aria-label={`Enable ${view.title}`}
-              checked={draft.enabled}
-              disabled={busy}
-              onCheckedChange={(enabled) => setDraft({ ...draft, enabled })}
-            />
-          </CardAction>
-        </CardHeader>
-
-        {hasFields(view.schema) ? (
-          <CardContent
-            className={cn(
-              "border-t py-4 transition-opacity",
-              draft.enabled ? "" : "opacity-55"
-            )}
-          >
-            <SchemaForm
-              defaults={view.defaults.config}
-              disabled={busy}
-              errors={problem?.fields ?? {}}
-              idPrefix={id}
-              onChange={(config) => setDraft({ ...draft, config })}
-              schema={view.schema}
-              value={draft.config}
-            />
-          </CardContent>
-        ) : null}
-
-        {problem?.text ? (
-          <CardContent className="pb-4">
-            <Alert className="flex flex-wrap items-center justify-between gap-3 bg-amber-50 text-amber-950 ring-amber-300">
-              <AlertDescription className="text-amber-950">
-                {problem.text}
-              </AlertDescription>
-              {problem.conflict ? (
-                <Button
-                  onClick={() => {
-                    void queryClient.invalidateQueries({ queryKey: PLUGINS });
-                  }}
-                  size="sm"
-                  variant="outline"
-                >
-                  Reload
-                </Button>
+      <Collapsible onOpenChange={setOpen} open={expanded}>
+        <Card
+          className={cn(
+            "relative gap-0 py-0",
+            configurable && "rounded-b-none"
+          )}
+        >
+          <CardHeader className="py-5">
+            <CardTitle
+              className="flex flex-wrap items-center gap-2"
+              id={`${id}-title`}
+            >
+              {view.title}
+              {status ? (
+                <Badge className={status.className} variant="secondary">
+                  {status.label}
+                </Badge>
               ) : null}
-            </Alert>
-          </CardContent>
-        ) : null}
-
-        {dirty || view.status !== "default" ? (
-          <CardFooter className="bg-muted/50 justify-between gap-3 border-t py-3">
-            {view.status === "default" ? null : (
-              <Button
+            </CardTitle>
+            <CardDescription>{view.description}</CardDescription>
+            <CardAction>
+              <Switch
+                aria-label={`Enable ${view.title}`}
+                checked={draft.enabled}
                 disabled={busy}
-                onClick={() => mutation.mutate({ type: "reset" })}
-                size="sm"
-                variant="ghost"
+                onCheckedChange={(enabled) => setDraft({ ...draft, enabled })}
+              />
+            </CardAction>
+          </CardHeader>
+
+          {problem?.text ? (
+            <SaveProblem conflict={problem.conflict} text={problem.text} />
+          ) : null}
+
+          {!configurable && footer ? (
+            <CardFooter className="bg-muted/50 justify-between gap-3 border-t py-3">
+              {actions}
+            </CardFooter>
+          ) : null}
+        </Card>
+
+        {configurable ? (
+          <div className="border-foreground/10 bg-muted/60 rounded-b-xl border border-t-0">
+            <CollapsibleTrigger className="group/trigger text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 flex w-full items-center gap-3 rounded-b-xl px-4 py-2.5 text-left text-xs outline-none focus-visible:ring-[3px] data-[panel-open]:rounded-none">
+              <span className="text-foreground shrink-0 font-medium">
+                Settings
+              </span>
+              <span className="min-w-0 flex-1 truncate group-data-[panel-open]/trigger:invisible">
+                {summarize(view.schema, draft.config)}
+              </span>
+              <ChevronDown
+                aria-hidden="true"
+                className="size-4 shrink-0 transition-transform duration-200 group-data-[panel-open]/trigger:rotate-180"
+              />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="h-[var(--collapsible-panel-height)] overflow-hidden transition-[height] duration-200 ease-out data-[ending-style]:h-0 data-[starting-style]:h-0">
+              <div
+                className={cn(
+                  "border-foreground/10 border-t px-4 py-4 transition-opacity",
+                  draft.enabled ? "" : "opacity-55"
+                )}
               >
-                <RotateCcw aria-hidden="true" />
-                Reset to defaults
-              </Button>
-            )}
-            {dirty ? (
-              <div className="ml-auto flex items-center gap-2">
-                <Button
+                <SchemaForm
+                  defaults={view.defaults.config}
                   disabled={busy}
-                  onClick={() => setDraft(saved)}
-                  size="sm"
-                  variant="outline"
-                >
-                  Discard
-                </Button>
-                <Button
-                  disabled={busy}
-                  onClick={() => mutation.mutate({ draft, type: "save" })}
-                  size="sm"
-                >
-                  {busy ? "Saving…" : "Save"}
-                </Button>
+                  errors={problem?.fields ?? {}}
+                  idPrefix={id}
+                  onChange={(config) => setDraft({ ...draft, config })}
+                  schema={view.schema}
+                  value={draft.config}
+                />
+              </div>
+            </CollapsibleContent>
+            {footer ? (
+              <div className="border-foreground/10 flex items-center justify-between gap-3 border-t px-3 py-2.5">
+                {actions}
               </div>
             ) : null}
-          </CardFooter>
+          </div>
         ) : null}
-      </Card>
+      </Collapsible>
     </li>
   );
 };

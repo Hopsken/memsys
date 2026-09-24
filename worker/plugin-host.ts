@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { Fragment, RecallInput, RecallItem } from "../contract/memory";
+import type { RecallInput, RecallItem } from "../contract/memory";
 import { PluginAbortError } from "../contract/plugin";
 import type {
   Ctx,
@@ -80,10 +80,11 @@ export const resolvePlugins = (
     };
   });
 
-export const createCtx = <C>(
-  config: C,
-  corpus: ReadonlyMap<string, Fragment>
-): Ctx<C> => ({
+// What the host supplies to every hook besides config.
+export type PluginEnv = Pick<Ctx<Json>, "ai" | "corpus">;
+
+export const createCtx = <C>(config: C, { ai, corpus }: PluginEnv): Ctx<C> => ({
+  ai,
   config,
   corpus,
   index: {
@@ -94,7 +95,7 @@ export const createCtx = <C>(
 // Hooks run in parallel. A failing hook is skipped; PluginAbort rejects the write.
 export const runVerdicts = async (
   states: readonly PluginState[],
-  corpus: ReadonlyMap<string, Fragment>,
+  env: PluginEnv,
   hook: (plugin: Plugin<Json>, ctx: Ctx<Json>) => Promise<Verdict> | undefined
 ): Promise<Verdict> => {
   const verdicts = await Promise.all(
@@ -102,7 +103,7 @@ export const runVerdicts = async (
       .filter((state) => state.enabled)
       .map(async ({ config, plugin }) => {
         try {
-          return (await hook(plugin, createCtx(config, corpus))) ?? NO_VERDICT;
+          return (await hook(plugin, createCtx(config, env))) ?? NO_VERDICT;
         } catch (error) {
           if (error instanceof PluginAbortError) {
             return {
@@ -130,7 +131,7 @@ export const runVerdicts = async (
 // PluginAbort fails the recall.
 export const runAfterRecall = async (
   states: readonly PluginState[],
-  corpus: ReadonlyMap<string, Fragment>,
+  env: PluginEnv,
   candidates: readonly RecallItem[],
   input: RecallInput
 ): Promise<RecallItem[] | { error: string }> => {
@@ -144,7 +145,7 @@ export const runAfterRecall = async (
       // Sequential by design: each hook sees the previous hook's output.
       // oxlint-disable-next-line no-await-in-loop
       const next = await plugin.afterRecall(
-        createCtx(config, corpus),
+        createCtx(config, env),
         items,
         input
       );
