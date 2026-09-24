@@ -11,7 +11,6 @@ import "./styles.css";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: false,
       // 4xx answers, expired sessions included, will not change on retry.
       retry: (count, error) => {
         const { status } = failure(error);

@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
-import { ArrowDown, Layers, RefreshCw } from "lucide-react";
+import { ArrowDown, Layers } from "lucide-react";
 
 import { SessionExpired } from "@/components/session-expired";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -48,27 +48,6 @@ export const FragmentsView = () => {
 
   return (
     <>
-      <div className="mb-5 flex justify-end">
-        <Button
-          disabled={query.isFetching}
-          onClick={() => {
-            void query.refetch();
-          }}
-          size="sm"
-          variant="outline"
-        >
-          <RefreshCw
-            aria-hidden="true"
-            className={
-              query.isFetching && !query.isFetchingNextPage
-                ? "motion-safe:animate-spin"
-                : ""
-            }
-          />
-          Refresh
-        </Button>
-      </div>
-
       {query.isError ? (
         <Alert className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <AlertDescription className="text-foreground">
