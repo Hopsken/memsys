@@ -4,6 +4,7 @@ import { z } from "zod";
 import type {
   Fragment,
   FragmentPage,
+  RecallInput,
   RecallItem,
   RecallResult,
 } from "../contract/memory";
@@ -118,15 +119,18 @@ const associationKeys = (anchor: string): string[] =>
         /^[a-z]+$/u.test(word) ? stem(word) : word
       );
 
-export const recall = (
+// Candidate generation: cue matches (newest first), then one-hop associations.
+export const recallCandidates = (
   corpus: Iterable<Fragment>,
-  input: z.input<typeof inputs.recall>
-): RecallResult => {
+  raw: z.input<typeof inputs.recall>
+) => {
   const {
     associate = true,
+    context = null,
     cue,
     limit = RESULT_LIMIT,
-  } = inputs.recall.parse(input);
+  } = inputs.recall.parse(raw);
+  const input: RecallInput = { associate, context, cue, limit };
   const ordered = [...corpus].toSorted(
     (a, b) =>
       b.updatedAt.localeCompare(a.updatedAt) || a.ref.localeCompare(b.ref)
@@ -155,10 +159,25 @@ export const recall = (
       ),
     }))
     .filter((item) => item.via.length > 0);
-  const candidates = [...matches, ...associated];
+  const candidates: RecallItem[] = [...matches, ...associated];
+  return { candidates, input };
+};
 
-  return {
-    fragments: candidates.slice(0, limit),
-    hasMore: candidates.length > limit,
-  };
+// Terminal truncation. `hasMore` describes candidate generation, not plugin output.
+export const truncate = (
+  candidates: readonly RecallItem[],
+  ranked: readonly RecallItem[],
+  limit: number
+): RecallResult => ({
+  fragments: ranked.slice(0, limit),
+  hasMore: candidates.length > limit,
+});
+
+// Core recall without plugins.
+export const recall = (
+  corpus: Iterable<Fragment>,
+  raw: z.input<typeof inputs.recall>
+): RecallResult => {
+  const { candidates, input } = recallCandidates(corpus, raw);
+  return truncate(candidates, candidates, input.limit);
 };

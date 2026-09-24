@@ -81,15 +81,15 @@ describe("Development identity", () => {
       fragments: (Fragment & { via?: string[] })[];
     }>();
     await expect(seeded.json()).resolves.toStrictEqual({ fragments: 8 });
-    // Today's order is updatedAt; RFC 5's IDF ranking would lift f7 above f4.
+    // IDF ranking lifts f7's rare #d1 above the #memsys hub; ties keep recency.
     expect(
       fragments.map(({ fragment, via }) => [label(fragment), via])
     ).toStrictEqual([
       ["f2", undefined],
       ["f1", ["cloudflare", "memsys"]],
+      ["f7", ["d1", "memsys"]],
       ["f4", ["memsys"]],
       ["f6", ["memsys"]],
-      ["f7", ["d1", "memsys"]],
     ]);
   });
 

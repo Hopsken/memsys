@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { Fragment } from "../contract/memory";
+import type { Fragment, RecallInput, RecallItem } from "../contract/memory";
 import { PluginAbortError } from "../contract/plugin";
 import type {
   Ctx,
@@ -123,6 +123,47 @@ export const runVerdicts = async (
     rejections: verdicts.flatMap((verdict) => verdict.rejections),
     warnings: verdicts.flatMap((verdict) => verdict.warnings),
   };
+};
+
+// Hooks run in registry order, each on the previous output. A hook may only
+// reorder or drop items; a failing hook passes its input through, and
+// PluginAbort fails the recall.
+export const runAfterRecall = async (
+  states: readonly PluginState[],
+  corpus: ReadonlyMap<string, Fragment>,
+  candidates: readonly RecallItem[],
+  input: RecallInput
+): Promise<RecallItem[] | { error: string }> => {
+  let items = [...candidates];
+  for (const { config, enabled, plugin } of states) {
+    if (!enabled || !plugin.afterRecall) {
+      continue;
+    }
+    try {
+      const current = new Map(items.map((item) => [item.ref, item]));
+      // Sequential by design: each hook sees the previous hook's output.
+      // oxlint-disable-next-line no-await-in-loop
+      const next = await plugin.afterRecall(
+        createCtx(config, corpus),
+        items,
+        input
+      );
+      items = [...new Set(next.map((item) => item.ref))].flatMap((ref) => {
+        const item = current.get(ref);
+        return item ? [item] : [];
+      });
+    } catch (error) {
+      if (error instanceof PluginAbortError) {
+        return { error: `${plugin.name}: ${error.reason}` };
+      }
+      console.error({
+        error: String(error),
+        event: "plugin.hook.failed",
+        plugin: plugin.name,
+      });
+    }
+  }
+  return items;
 };
 
 export const enabledTools = (states: readonly PluginState[]) =>

@@ -5,7 +5,7 @@ import { migrate } from "drizzle-orm/durable-sqlite/migrator";
 import { customAlphabet } from "nanoid";
 import { z } from "zod";
 
-import type { Fragment } from "../contract/memory";
+import type { Fragment, RecallResult } from "../contract/memory";
 import type { PluginView, Verdict } from "../contract/plugin";
 import migrations from "../migrations/migrations.js";
 import { plugins } from "../plugins";
@@ -14,9 +14,10 @@ import type { SeedFragment } from "./dev/corpus";
 import {
   inputs,
   listFragments,
-  recall,
+  recallCandidates,
   REF_ALPHABET,
   REF_LENGTH,
+  truncate,
 } from "./memory";
 import {
   assertRegistry,
@@ -24,6 +25,7 @@ import {
   enabledTools,
   pluginUpdate,
   resolvePlugins,
+  runAfterRecall,
   runVerdicts,
   viewPlugin,
 } from "./plugin-host";
@@ -150,8 +152,19 @@ export class MemoryDO extends DurableObject<Env> {
     return withWarnings(item, verdict);
   }
 
-  recall(input: z.input<typeof inputs.recall>) {
-    return recall(this.corpus.values(), input);
+  async recall(
+    raw: z.input<typeof inputs.recall>
+  ): Promise<RecallResult | { error: string }> {
+    const { candidates, input } = recallCandidates(this.corpus.values(), raw);
+    const ranked = await runAfterRecall(
+      this.plugins,
+      this.corpus,
+      candidates,
+      input
+    );
+    return "error" in ranked
+      ? ranked
+      : truncate(candidates, ranked, input.limit);
   }
 
   list(input: { cursor?: string }) {

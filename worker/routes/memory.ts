@@ -20,11 +20,12 @@ export const memory = new Hono<AppEnv>()
       .remember(inputs.remember.parse(await c.req.json()));
     return "error" in result ? c.json(result, 422) : c.json(result, 201);
   })
-  .post("/recall", async (c) =>
-    c.json(
-      await c.get("memory").recall(inputs.recall.parse(await c.req.json()))
-    )
-  )
+  .post("/recall", async (c) => {
+    const result = await c
+      .get("memory")
+      .recall(inputs.recall.parse(await c.req.json()));
+    return "error" in result ? c.json(result, 422) : c.json(result);
+  })
   .post("/revise", async (c) => {
     const result = await c
       .get("memory")
