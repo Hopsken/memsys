@@ -73,7 +73,7 @@ Pages contain up to 50 items, ordered by `updatedAt` descending and then ref asc
 
 ### Plugins
 
-Plugins live in `plugins/` and see the worker only through `contract/`. Each instance stores its own choices in the `plugin_config` table; without a row a plugin uses its defaults. `GET /api/plugins` lists every plugin with its effective config, defaults, JSON Schema, added tools, and status (`default`, `custom`, or `invalid` when a stored config no longer parses and defaults apply). Tool changes reach MCP clients on reconnect.
+Plugins live in `plugins/` and see the worker only through `contract/`. Each instance stores its own choices in the `plugin_config` table; without a row a plugin uses its defaults. `GET /api/plugins` lists every plugin with its effective config, defaults, JSON Schema, added tools, and status (`default`, `custom`, or `invalid` when a stored config no longer parses and defaults apply). `PUT /api/plugins/:name` takes `{ enabled, config, updatedAt }`, where `updatedAt` is the value last read (`null` for defaults); it returns the updated plugin, 404 for unknown plugins, 409 if the config changed since it was read, or 422 with `issues` (`{ path, message }`) for invalid config. `DELETE /api/plugins/:name` resets a plugin to its defaults. The web UI edits these at `#/plugins`, rendering each plugin's JSON Schema as a form. Tool changes reach MCP clients on reconnect.
 
 Pagination is not a snapshot: new or revised fragments can move ahead of the cursor. Refresh to see current data. Deleting the cursor's fragment does not prevent loading the next page.
 
