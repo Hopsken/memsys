@@ -101,7 +101,7 @@ See [How it works](../README.md#how-it-works) for matching behavior and limits. 
 | `401` continues after login | Check registration, token exchange, and refresh with MCP Inspector. If the response comes from the Worker, check its Access issuer and audience. |
 | `403` from the Worker with `Untrusted origin` | The request supplied a cross-origin `Origin`. The server currently does not support cross-origin browser clients. Do not add a CORS wildcard to fix OAuth callbacks; callback allowlisting is a separate Access setting. |
 | Opening `/mcp` returns `405` after login | MCP uses POST requests; entering the URL in a browser is not a tool test. Open `/` to view the memory page. |
-| No memories appear | Check the Access identity and use a phrase present in the fragment. ChatGPT's built-in memories are not imported. |
+| No memories appear | Check the Access identity and use words that appear in the fragment. ChatGPT's built-in memories are not imported. |
 | Tools or descriptions are stale | Refresh the connection metadata and start a new conversation. |
 
 ### Check discovery without credentials

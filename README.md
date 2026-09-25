@@ -18,7 +18,7 @@ The app uses Vite, React, Tailwind CSS 4, and shadcn/ui in `client/`. Hono, auth
 
 Agents connect over MCP at `/mcp` (stateless Streamable HTTP). The core tools are `remember`, `recall`, `revise`, and `forget`; plugins may add more, such as the default `list_tags`. The web UI uses the same operations through a JSON API under `/api/`. Input schemas live in `worker/memory.ts`.
 
-- **Recall** matches the cue as a case- and whitespace-insensitive substring, then follows one hop through shared `#anchors`. Associated results list those anchors in `via`. Association splits anchors on `-` and stems English words; `/` namespaces match exactly.
+- **Recall** matches fragments that contain every word of the cue, in any order; English words are stemmed, and a cue of three or more words may miss one. Fragments containing the whole cue as a phrase come first, the rest rank by words matched and BM25. Recall then follows one hop through shared `#anchors`. Associated results list those anchors in `via`. Association splits anchors on `-` and stems English words; `/` namespaces match exactly.
 - **Length** is counted in grapheme clusters. Core rejects anything over 1000; the [size-limit plugin](docs/plugins/size-limit.md) sets the everyday limits.
 - **Plugins** live in `plugins/` and reach the worker only through `contract/`. Each one is documented in [docs/plugins](docs/plugins/README.md); [Architecture](docs/Architecture.md) covers the hooks, failure rules, and per-instance configuration.
 
@@ -74,6 +74,7 @@ pnpm install --frozen-lockfile
 cp .dev.vars.example .dev.vars
 pnpm check       # Types, tests, production build, lint, format check
 pnpm dev         # Vite frontend and local Worker; no login
+pnpm eval        # Score recall on eval/dataset.ts; JEV=1 adds Jev (bills Workers AI)
 ```
 
 `pnpm dev` uses local SQLite storage. The ignored `.dev.vars` file sets `DEV_IDENTITY=local-user` and clears both Access settings. The page, REST, and MCP share a test memory object named from `["local-dev", DEV_IDENTITY]`. Anyone with access to the dev server can change its test memory; do not store sensitive data there. Open `/` on the development server to view the memory page.
