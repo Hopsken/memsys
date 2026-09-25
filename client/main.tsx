@@ -5,13 +5,14 @@ import { createBrowserRouter, Navigate, RouterProvider } from "react-router";
 
 import { failure } from "@/lib/api";
 
+import { ApiKeysView } from "./api-keys";
 import { App } from "./app";
+import { ConsentView } from "./consent";
 import { DataView } from "./data";
 import { FragmentsView } from "./fragments";
 import { LoginView } from "./login";
 import { PluginsView } from "./plugins";
 import { AccountView, SettingsView } from "./settings";
-import { TokensView } from "./tokens";
 
 import "./styles.css";
 
@@ -29,6 +30,7 @@ const queryClient = new QueryClient({
 
 const router = createBrowserRouter([
   { element: <LoginView />, path: "/login" },
+  { element: <ConsentView />, path: "/consent" },
   {
     // App sends visitors without a session to /login.
     children: [
@@ -36,7 +38,7 @@ const router = createBrowserRouter([
       {
         children: [
           { element: <Navigate replace to="mcp" />, index: true },
-          { element: <TokensView />, path: "mcp" },
+          { element: <ApiKeysView />, path: "mcp" },
           { element: <PluginsView />, path: "plugins" },
           { element: <DataView />, path: "data" },
           { element: <AccountView />, path: "account" },

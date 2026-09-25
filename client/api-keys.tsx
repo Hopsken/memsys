@@ -4,7 +4,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { Check, Copy, KeyRound, Plus } from "lucide-react";
+import { Check, Copy, Plus } from "lucide-react";
 import { useState } from "react";
 
 import { SessionExpired } from "@/components/session-expired";
@@ -22,10 +22,11 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, failure, isExpired } from "@/lib/api";
 
-import { formatRelativeDate } from "../lib/date";
+import { formatRelativeDateInline } from "../lib/date";
+import { ConnectedApps } from "./connections";
 
-// MCP tokens are Better Auth API keys; the list never includes the secret.
-interface Token {
+// Better Auth API keys; the list never includes the secret.
+interface ApiKey {
   createdAt: string;
   id: string;
   lastRequest: string | null;
@@ -33,7 +34,7 @@ interface Token {
   start: string | null;
 }
 
-const TOKENS = ["tokens"];
+const API_KEYS = ["api-keys"];
 
 const mcpUrl = () => `${window.location.origin}/mcp`;
 
@@ -74,7 +75,7 @@ const Snippet = ({ label, value }: { label: string; value: string }) => (
 );
 
 // The secret exists only in this response; closing it loses it for good.
-const NewToken = ({
+const NewApiKey = ({
   onDone,
   secret,
 }: {
@@ -99,7 +100,7 @@ const NewToken = ({
   return (
     <Card className="ring-primary/30 mb-6">
       <CardHeader>
-        <CardTitle>Copy your new token</CardTitle>
+        <CardTitle>Copy your new API key</CardTitle>
         <CardDescription>
           You won’t see it again. Anyone who has it can read and change your
           memories.
@@ -108,13 +109,13 @@ const NewToken = ({
       <CardContent className="space-y-4">
         <div className="flex items-center gap-2">
           <Input
-            aria-label="New token"
+            aria-label="New API key"
             className="font-mono"
             onFocus={(event) => event.target.select()}
             readOnly
             value={secret}
           />
-          <CopyButton label="Copy token" value={secret} />
+          <CopyButton label="Copy API key" value={secret} />
         </div>
         <Snippet label="Claude Code command" value={claude} />
         <Snippet label="MCP config for other apps" value={config} />
@@ -128,25 +129,25 @@ const NewToken = ({
   );
 };
 
-const TokenRow = ({ token }: { token: Token }) => {
+const ApiKeyRow = ({ apiKey }: { apiKey: ApiKey }) => {
   const queryClient = useQueryClient();
   const [confirming, setConfirming] = useState(false);
   const revoke = useMutation({
     mutationFn: () =>
-      api.post("/api/auth/api-key/delete", { json: { keyId: token.id } }),
-    mutationKey: [...TOKENS, token.id],
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: TOKENS }),
+      api.post("/api/auth/api-key/delete", { json: { keyId: apiKey.id } }),
+    mutationKey: [...API_KEYS, apiKey.id],
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: API_KEYS }),
   });
   return (
     <li className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3.5">
       <div className="min-w-0 space-y-1">
-        <p className="truncate text-sm font-medium">{token.name}</p>
+        <p className="truncate text-sm font-medium">{apiKey.name}</p>
         <p className="text-muted-foreground flex flex-wrap gap-x-3 text-xs">
-          <span className="font-mono">{token.start}…</span>
-          <span>Created {formatRelativeDate(token.createdAt)}</span>
+          <span className="font-mono">{apiKey.start}…</span>
+          <span>Created {formatRelativeDateInline(apiKey.createdAt)}</span>
           <span>
-            {token.lastRequest
-              ? `Last used ${formatRelativeDate(token.lastRequest)}`
+            {apiKey.lastRequest
+              ? `Last used ${formatRelativeDateInline(apiKey.lastRequest)}`
               : "Never used"}
           </span>
         </p>
@@ -182,7 +183,7 @@ const TokenRow = ({ token }: { token: Token }) => {
   );
 };
 
-export const TokensView = () => {
+export const ApiKeysView = () => {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [secret, setSecret] = useState<string | null>(null);
@@ -193,25 +194,25 @@ export const TokensView = () => {
           searchParams: { sortBy: "createdAt", sortDirection: "desc" },
           signal,
         })
-        .json<{ apiKeys: Token[] }>();
+        .json<{ apiKeys: ApiKey[] }>();
       return apiKeys;
     },
-    queryKey: TOKENS,
+    queryKey: API_KEYS,
   });
   const create = useMutation({
-    mutationFn: (tokenName: string) =>
+    mutationFn: (keyName: string) =>
       api
-        .post("/api/auth/api-key/create", { json: { name: tokenName } })
+        .post("/api/auth/api-key/create", { json: { name: keyName } })
         .json<{ key: string }>(),
-    mutationKey: [...TOKENS, "create"],
+    mutationKey: [...API_KEYS, "create"],
     onSuccess: ({ key }) => {
       setSecret(key);
       setName("");
-      void queryClient.invalidateQueries({ queryKey: TOKENS });
+      void queryClient.invalidateQueries({ queryKey: API_KEYS });
     },
   });
   const mutationErrors = useMutationState({
-    filters: { mutationKey: TOKENS, status: "error" },
+    filters: { mutationKey: API_KEYS, status: "error" },
     select: (mutation) => mutation.state.error,
   });
 
@@ -220,92 +221,95 @@ export const TokensView = () => {
   }
 
   return (
-    <section aria-busy={query.isFetching} aria-label="MCP tokens">
-      <p className="text-muted-foreground mb-6 text-sm">
-        Give each AI tool its own token so it can use your memories. Revoke a
-        token to disconnect that tool.
-      </p>
+    <>
+      <div className="mb-8 space-y-3">
+        <p className="text-muted-foreground text-sm">
+          Add this URL to an AI tool, then sign in when it asks.
+        </p>
+        <Snippet label="MCP URL" value={mcpUrl()} />
+        <Snippet
+          label="Claude Code"
+          value={`claude mcp add --transport http memsys ${mcpUrl()}`}
+        />
+      </div>
 
-      {secret ? (
-        <NewToken onDone={() => setSecret(null)} secret={secret} />
-      ) : (
-        <form
-          className="mb-6 flex flex-wrap items-end gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            create.mutate(name.trim());
-          }}
-        >
-          <div className="min-w-48 flex-1 space-y-2">
-            <Label htmlFor="token-name">Name</Label>
-            <Input
-              id="token-name"
-              maxLength={64}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Claude Code on laptop"
-              required
-              value={name}
-            />
-          </div>
-          <Button
-            disabled={create.isPending || name.trim() === ""}
-            type="submit"
-          >
-            <Plus aria-hidden="true" />
-            {create.isPending ? "Creating…" : "Create token"}
-          </Button>
-          {create.error ? (
-            <p className="text-destructive w-full text-xs">
-              {describe(create.error)}
-            </p>
-          ) : null}
-        </form>
-      )}
+      <ConnectedApps />
 
-      {query.isError ? (
-        <Alert className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <AlertDescription className="text-foreground">
-            Couldn’t load your tokens.
-          </AlertDescription>
-          <Button
-            onClick={() => {
-              void query.refetch();
+      <section aria-busy={query.isFetching} aria-label="API keys">
+        <h2 className="mb-1 font-medium">API keys</h2>
+        <p className="text-muted-foreground mb-6 text-sm">
+          If a tool doesn’t ask you to sign in, give it an API key instead.
+        </p>
+
+        {secret ? (
+          <NewApiKey onDone={() => setSecret(null)} secret={secret} />
+        ) : (
+          <form
+            className="mb-6 flex flex-wrap items-end gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              create.mutate(name.trim());
             }}
-            size="sm"
-            variant="outline"
           >
-            Try again
-          </Button>
-        </Alert>
-      ) : null}
-      {query.isPending ? (
-        <div className="divide-y" role="status">
-          <span className="sr-only">Loading tokens</span>
-          {[1, 2].map((key) => (
-            <div className="space-y-2 py-3.5" key={key}>
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-3 w-64" />
+            <div className="min-w-48 flex-1 space-y-2">
+              <Label htmlFor="api-key-name">Name</Label>
+              <Input
+                id="api-key-name"
+                maxLength={64}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Backup script"
+                required
+                value={name}
+              />
             </div>
+            <Button
+              disabled={create.isPending || name.trim() === ""}
+              type="submit"
+            >
+              <Plus aria-hidden="true" />
+              {create.isPending ? "Creating…" : "Create API key"}
+            </Button>
+            {create.error ? (
+              <p className="text-destructive w-full text-xs">
+                {describe(create.error)}
+              </p>
+            ) : null}
+          </form>
+        )}
+
+        {query.isError ? (
+          <Alert className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <AlertDescription className="text-foreground">
+              Couldn’t load your API keys.
+            </AlertDescription>
+            <Button
+              onClick={() => {
+                void query.refetch();
+              }}
+              size="sm"
+              variant="outline"
+            >
+              Try again
+            </Button>
+          </Alert>
+        ) : null}
+        {query.isPending ? (
+          <div className="divide-y" role="status">
+            <span className="sr-only">Loading API keys</span>
+            {[1, 2].map((key) => (
+              <div className="space-y-2 py-3.5" key={key}>
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-3 w-64" />
+              </div>
+            ))}
+          </div>
+        ) : null}
+        <ul className="divide-y">
+          {query.data?.map((apiKey) => (
+            <ApiKeyRow key={apiKey.id} apiKey={apiKey} />
           ))}
-        </div>
-      ) : null}
-      {query.data?.length === 0 ? (
-        <div className="rounded-xl border border-dashed px-6 py-12 text-center">
-          <KeyRound
-            aria-hidden="true"
-            className="text-muted-foreground mx-auto mb-4 size-6"
-          />
-          <h2 className="font-medium">No tokens yet</h2>
-          <p className="text-muted-foreground mt-2 text-sm">
-            Create one for each AI tool you connect, like Claude Code.
-          </p>
-        </div>
-      ) : null}
-      <ul className="divide-y">
-        {query.data?.map((token) => (
-          <TokenRow key={token.id} token={token} />
-        ))}
-      </ul>
-    </section>
+        </ul>
+      </section>
+    </>
   );
 };

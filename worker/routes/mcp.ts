@@ -10,7 +10,7 @@ export const mcp = new Hono<AppEnv>().all("/", async (c) => {
     c.header("Allow", "POST");
     return c.json({ error: "Stateless MCP supports POST only" }, 405);
   }
-  const server = await createMcpServer(c.get("memory"));
+  const server = await createMcpServer(c.get("memory"), c.get("scopes"));
   const transport = new StreamableHTTPTransport({
     // Omit sessionIdGenerator to use stateless mode.
     enableJsonResponse: true,

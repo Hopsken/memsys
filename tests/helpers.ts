@@ -9,7 +9,7 @@ import worker from "../worker/index";
 
 export const ORIGIN = "https://memsys.test";
 
-// A signed-in user: a browser session for /api, an MCP token for /mcp.
+// A signed-in user: a browser session for /api, an API key for /mcp.
 export interface User {
   cookie: string;
   email: string;

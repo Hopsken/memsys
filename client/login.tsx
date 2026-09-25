@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth";
+import { useConnectingApp } from "@/lib/oauth";
 
 // Better Auth error codes, in words a person signing in can act on. Other
 // errors, such as an address outside the allowlist, keep the worker's text.
@@ -60,6 +61,9 @@ const Problem = ({ text }: { text: string }) => (
 export const LoginView = () => {
   const session = authClient.useSession();
   const navigate = useNavigate();
+  // An app sent the user here to sign in; Better Auth sends them on to it.
+  const app = useConnectingApp();
+  const { forApp } = app;
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -88,14 +92,16 @@ export const LoginView = () => {
   const verify = useMutation({
     mutationFn: (otp: string) =>
       check(authClient.signIn.emailOtp({ email: sentTo ?? "", otp })),
-    onSuccess: () => navigate("/", { replace: true }),
+    onSuccess: () => (forApp ? undefined : navigate("/", { replace: true })),
   });
 
-  if (session.data && !verify.isPending) {
+  if (session.data && !verify.isPending && !forApp) {
     return <Navigate replace to="/" />;
   }
 
   const error = (sentTo ? verify.error : null) ?? send.error;
+  const signInTitle =
+    forApp && !app.isPending ? `Sign in to connect ${app.name}` : "Sign in";
 
   return (
     <main className="mx-auto flex min-h-svh max-w-sm flex-col justify-center gap-6 px-5 py-10">
@@ -105,7 +111,7 @@ export const LoginView = () => {
       </h1>
       <Card>
         <CardHeader>
-          <CardTitle>{sentTo ? "Check your email" : "Sign in"}</CardTitle>
+          <CardTitle>{sentTo ? "Check your email" : signInTitle}</CardTitle>
           <CardDescription>
             {sentTo
               ? `A 6-digit code is on its way to ${sentTo}. It expires in 5 minutes.`
