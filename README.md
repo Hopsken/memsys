@@ -33,7 +33,7 @@ One SQLite Durable Object holds each user's memory. Its name is `JSON.stringify(
 For future schema changes:
 
 ```sh
-pnpm db:generate descriptive-migration-name
+pnpm db:generate:memory descriptive-migration-name
 ```
 
 Commit the generated SQL, snapshot, and migration bundle. Wrangler's `v1` migration registers the SQLite object class; it is separate from SQL schema migrations.

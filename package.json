@@ -6,7 +6,7 @@
   "scripts": {
     "build": "vite build",
     "check": "pnpm typecheck && pnpm test && pnpm build && pnpm lint && pnpm format:check",
-    "db:generate": "drizzle-kit generate --name",
+    "db:generate:memory": "drizzle-kit generate --config worker/memory-do/drizzle.config.ts --name",
     "db:seed": "curl -fsS -X POST -H 'Content-Type: application/json' -d '{}' \"${SEED_URL:-http://localhost:5173}/api/dev/seed\" && echo",
     "deploy": "pnpm build && wrangler deploy",
     "dev": "vite dev",
