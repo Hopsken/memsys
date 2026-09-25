@@ -33,7 +33,6 @@ import { api, failure, isExpired } from "@/lib/api";
 import type { Json, PluginView } from "../contract/plugin";
 import { hasFields, SchemaForm, summarize } from "./schema-form";
 import type { FieldErrors } from "./schema-form";
-import { PanelHeader } from "./settings";
 
 interface Draft {
   enabled: boolean;
@@ -286,10 +285,6 @@ export const PluginsView = () => {
 
   return (
     <section aria-busy={query.isFetching} aria-label="Plugins">
-      <PanelHeader title="Plugins">
-        Plugins change how fragments are written and recalled. Settings here
-        apply to your memory only.
-      </PanelHeader>
       {query.isError ? (
         <Alert className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <AlertDescription className="text-foreground">
@@ -324,7 +319,7 @@ export const PluginsView = () => {
             aria-hidden="true"
             className="text-muted-foreground mx-auto mb-4 size-6"
           />
-          <h4 className="font-medium">No plugins installed</h4>
+          <h2 className="font-medium">No plugins installed</h2>
         </div>
       ) : null}
       <ul className="space-y-4">

@@ -18,7 +18,6 @@ import {
 import { api, failure, isExpired } from "@/lib/api";
 
 import type { FragmentExport, ImportResult } from "../contract/memory";
-import { PanelHeader } from "./settings";
 
 const FORMAT: FragmentExport["format"] = "memsys.fragments";
 
@@ -113,9 +112,6 @@ export const DataView = () => {
 
   return (
     <section aria-label="Data">
-      <PanelHeader title="Data">
-        Move your memory between instances, or keep a copy of it.
-      </PanelHeader>
       <div className="space-y-4">
         <Card>
           <CardHeader>
@@ -143,8 +139,7 @@ export const DataView = () => {
             <CardTitle>Import</CardTitle>
             <CardDescription>
               Add fragments from a memsys export file. Fragments already in
-              memory are never changed, and nothing is stored if any item is
-              invalid.
+              memory are never changed.
             </CardDescription>
             <CardAction>
               <Button
