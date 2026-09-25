@@ -1,6 +1,6 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-import type { Json } from "../../contract/plugin";
+import type { Json } from "../../../contract/plugin";
 
 export const fragments = sqliteTable("fragments", {
   content: text().notNull(),

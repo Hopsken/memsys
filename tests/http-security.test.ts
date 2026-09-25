@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "../contract/memory";
 import worker from "../worker/index";
-import { list, post, useAccess } from "./helpers";
+import { list, post, useAuth } from "./helpers";
 
 describe("HTTP request safety", () => {
-  const token = useAccess();
+  const signIn = useAuth();
 
   it.each([
     "/api/remember",
@@ -17,11 +17,11 @@ describe("HTTP request safety", () => {
   ] as const)(
     "blocks cross-origin writes to %s without changing memory",
     async (path) => {
-      const jwt = await token();
+      const user = await signIn();
       const saved = await post(
         "/api/remember",
         { fragment: "Original memory" },
-        jwt
+        user
       );
       const item = await saved.json<Fragment>();
       const bodies = {
@@ -44,12 +44,12 @@ describe("HTTP request safety", () => {
         },
       };
       const body = bodies[path];
-      const response = await post(path, body, jwt, {
+      const response = await post(path, body, user, {
         Origin: "https://attacker.test",
         "Sec-Fetch-Site": "same-origin",
       });
       expect(response.status).toBe(403);
-      await expect(list(jwt)).resolves.toStrictEqual({
+      await expect(list(user)).resolves.toStrictEqual({
         fragments: [item],
         nextCursor: null,
       });
@@ -60,7 +60,7 @@ describe("HTTP request safety", () => {
     "rejects untrusted Origin %s",
     async (origin) => {
       await expect(
-        post("/mcp", {}, await token(), { Origin: origin })
+        post("/mcp", {}, await signIn(), { Origin: origin })
       ).resolves.toMatchObject({ status: 403 });
     }
   );
@@ -73,8 +73,8 @@ describe("HTTP request safety", () => {
   ])(
     "rejects REST media type %j without writing memory",
     async (contentType) => {
-      const jwt = await token();
-      const headers = new Headers({ "Cf-Access-Jwt-Assertion": jwt });
+      const user = await signIn();
+      const headers = new Headers({ Cookie: user.cookie });
       if (contentType) {
         headers.set("Content-Type", contentType);
       }
@@ -87,7 +87,7 @@ describe("HTTP request safety", () => {
         env
       );
       expect(response.status).toBe(415);
-      await expect(list(jwt)).resolves.toStrictEqual({
+      await expect(list(user)).resolves.toStrictEqual({
         fragments: [],
         nextCursor: null,
       });
@@ -102,7 +102,7 @@ describe("HTTP request safety", () => {
           ? { id: 1, jsonrpc: "2.0", method: "tools/list" }
           : { fragment: "Same-origin memory" };
       await expect(
-        post(path, body, await token(), {
+        post(path, body, await signIn(), {
           "Content-Type": "application/json; charset=utf-8",
           Origin: "https://memsys.test",
         })

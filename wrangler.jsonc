@@ -9,17 +9,9 @@
   },
   "workers_dev": false,
   "preview_urls": false,
-  "routes": [
-    {
-      "pattern": "memsys.hopsken.com",
-      "custom_domain": true,
-    },
-  ],
-  // Access application for memsys.hopsken.com.
-  "vars": {
-    "ACCESS_ISSUER": "https://hopsken.cloudflareaccess.com",
-    "ACCESS_AUD": "1057d4d820dff96ff37befbb0fd68a026d728868654867182fd2e1659ca8360b",
-  },
+  // Variables and secrets live in the Cloudflare dashboard, not here; deploys
+  // keep them. See .dev.vars.example for the list.
+  "keep_vars": true,
   // Keep within the runtime version supported by the Cloudflare Vitest pool.
   "compatibility_date": "2026-08-16",
   "observability": {
@@ -37,6 +29,16 @@
     "binding": "AI",
     "remote": true,
   },
+  // The Worker's database: accounts, sessions, and MCP tokens. Create it with
+  // `wrangler d1 create memsys` and add its `database_id` before deploying.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "memsys",
+      "migrations_dir": "migrations",
+      "migrations_pattern": "migrations/*/migration.sql",
+    },
+  ],
   "durable_objects": {
     "bindings": [
       {

@@ -121,7 +121,7 @@ Plugins do **not** extend core tool inputs. A policy plugin works with what the 
 3. **The core contract does not change because a plugin is on.** Plugins change result quality, not the calling convention.
 4. **Tool plugins are additive.** They cannot override, shadow, or redefine a core tool.
 5. **Policy hooks apply only to core `recall` and the core write path.** Tool plugin output does not pass through them.
-6. **The agent cannot change instance configuration.** It is not exposed over MCP, so an injected agent cannot switch off its own guardrails.
+6. **The agent cannot change instance configuration.** Configuration is not exposed over MCP, and the agent's credential reaches only MCP: configuration and credential management need the user's own session. An injected agent cannot switch off its own guardrails.
 
 ## Per-instance configuration
 

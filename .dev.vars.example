@@ -1,5 +1,14 @@
-# Copy to .dev.vars for local development without Access login.
-# Never configure DEV_IDENTITY as a deployed Worker variable; production builds ignore it.
-ACCESS_ISSUER=""
-ACCESS_AUD=""
-DEV_IDENTITY=local-user
+# Every variable and secret the Worker reads. Copy to .dev.vars for local
+# development; in production set them in the Cloudflare dashboard. `pnpm
+# typegen` also reads this file to type them.
+
+# The origin users open, e.g. https://memsys.example.com.
+PUBLIC_URL=http://localhost:5173
+# Signs sessions. Use at least 32 random characters (`openssl rand -base64 32`).
+BETTER_AUTH_SECRET=local-development-secret-change-me-0123456789
+# Who may sign in: comma-separated addresses, or `@domain` for a whole domain.
+AUTH_ALLOWED_EMAILS=you@example.com
+# Sign-in emails go through Resend from this address on a verified domain.
+# Leave either empty in development to print codes in the dev server log.
+EMAIL_FROM="memsys <memsys@example.com>"
+RESEND_API_KEY=

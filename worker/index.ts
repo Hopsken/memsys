@@ -3,7 +3,7 @@ import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 
-import { access } from "./auth";
+import { getAuth, requireSession, requireToken } from "./auth";
 import type { AppEnv } from "./auth";
 import { dev } from "./dev";
 import { mcp } from "./routes/mcp";
@@ -19,7 +19,6 @@ app.use("*", (c, next) => {
   }
   return next();
 });
-app.use("*", access);
 const requestBody = bodyLimit({ maxSize: 32 * 1024 });
 // A whole memory: roughly ten thousand fragments of a few hundred characters.
 const importBody = bodyLimit({ maxSize: 5 * 1024 * 1024 });
@@ -43,13 +42,21 @@ app.use("/api/*", (c, next) => {
   return next();
 });
 
-app.route("/mcp", mcp);
-app.route("/api", memory);
-app.route("/api/plugins", plugins);
+// Better Auth answers sign-in, session, and token management itself.
+app.on(["GET", "POST"], "/api/auth/*", (c) =>
+  getAuth(c.env).handler(c.req.raw)
+);
 // Replaced with `false` in production builds, which then drop worker/dev.
 if (import.meta.env.DEV) {
   app.route("/api/dev", dev);
 }
+// Agents hold MCP tokens; only a signed-in user reaches the rest of /api.
+app.use("/mcp", requireToken);
+app.use("/api/*", requireSession);
+
+app.route("/mcp", mcp);
+app.route("/api", memory);
+app.route("/api/plugins", plugins);
 
 app.onError((cause, c) => {
   if (cause instanceof z.ZodError || cause instanceof SyntaxError) {

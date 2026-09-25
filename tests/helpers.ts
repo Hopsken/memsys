@@ -1,62 +1,44 @@
 import { env } from "cloudflare:workers";
 import type { JSONValue } from "hono/utils/types";
-import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { afterAll, beforeAll, vi } from "vitest";
+import { z } from "zod";
 
 import type { FragmentPage } from "../contract/memory";
+import { defaultSpace, memoryOf as memoryOfSpace } from "../worker/auth";
 import worker from "../worker/index";
 
-// Exercise real Access verification; only the remote signing-key lookup is mocked.
-export const useAccess = () => {
-  let privateKey: CryptoKey;
-  beforeAll(async () => {
-    const pair = await generateKeyPair("RS256", { extractable: true });
-    ({ privateKey } = pair);
-    const key = await exportJWK(pair.publicKey);
-    vi.spyOn(globalThis, "fetch").mockImplementation((url) => {
-      if (String(url) !== `${env.ACCESS_ISSUER}/cdn-cgi/access/certs`) {
-        throw new Error("Unexpected network request");
-      }
-      return Promise.resolve(
-        Response.json({
-          keys: [{ ...key, alg: "RS256", kid: "test-key", use: "sig" }],
-        })
-      );
-    });
-  });
-  afterAll(() => vi.restoreAllMocks());
+export const ORIGIN = "https://memsys.test";
 
-  return (
-    claims: Record<string, JSONValue | undefined> = {},
-    key = privateKey
-  ) =>
-    new SignJWT({
-      aud: env.ACCESS_AUD,
-      exp: Math.floor(Date.now() / 1000) + 300,
-      iat: Math.floor(Date.now() / 1000),
-      iss: env.ACCESS_ISSUER,
-      // Fresh identities isolate DO storage; explicit claims can reuse a subject.
-      sub: crypto.randomUUID(),
-      type: "app",
-      ...claims,
-    })
-      .setProtectedHeader({ alg: "RS256", kid: "test-key" })
-      .sign(key);
+// A signed-in user: a browser session for /api, an MCP token for /mcp.
+export interface User {
+  cookie: string;
+  email: string;
+  id: string;
+  token: string;
+}
+
+const credentials = (path: string, user: User | null) => {
+  if (!user) {
+    return {};
+  }
+  return path.startsWith("/mcp")
+    ? { Authorization: `Bearer ${user.token}` }
+    : { Cookie: user.cookie };
 };
 
 export const post = (
   path: string,
   body: JSONValue,
-  jwt: string,
+  user: User | null,
   headers: Record<string, string> = {}
 ) =>
   worker.fetch(
-    new Request(`https://memsys.test${path}`, {
+    new Request(`${ORIGIN}${path}`, {
       body: JSON.stringify(body),
       headers: {
         Accept: "application/json, text/event-stream",
-        "Cf-Access-Jwt-Assertion": jwt,
         "Content-Type": "application/json",
+        ...credentials(path, user),
         ...headers,
       },
       method: "POST",
@@ -64,16 +46,85 @@ export const post = (
     env
   );
 
-export const getList = (jwt: string, query = "") =>
+export const randomIp = () =>
+  [10, ...crypto.getRandomValues(new Uint8Array(3))].join(".");
+
+const resendEmail = z.object({ text: z.string(), to: z.array(z.string()) });
+
+// Codes the worker sent through Resend, by recipient.
+const codes = new Map<string, string>();
+
+// Exercise real email sign-in; only the Resend request is mocked.
+export const useAuth = () => {
+  beforeAll(() => {
+    vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      if (String(input) !== "https://api.resend.com/emails") {
+        throw new Error("Unexpected network request");
+      }
+      const { text, to } = resendEmail.parse(JSON.parse(String(init?.body)));
+      const code = /\b(?<code>\d{6})\b/u.exec(text)?.groups?.["code"];
+      if (code && to[0]) {
+        codes.set(to[0], code);
+      }
+      return Promise.resolve(Response.json({ id: crypto.randomUUID() }));
+    });
+  });
+  afterAll(() => vi.restoreAllMocks());
+
+  // Fresh users isolate memory; an explicit email signs the same user in again.
+  return async (
+    email = `${crypto.randomUUID()}@memsys.test`
+  ): Promise<User> => {
+    // Auth routes are rate limited per client address.
+    const client = { "cf-connecting-ip": randomIp() };
+    await post(
+      "/api/auth/email-otp/send-verification-otp",
+      { email, type: "sign-in" },
+      null,
+      client
+    );
+    const signedIn = await post(
+      "/api/auth/sign-in/email-otp",
+      { email, otp: codes.get(email) ?? "" },
+      null,
+      client
+    );
+    if (!signedIn.ok) {
+      throw new Error(`Sign-in failed: ${signedIn.status}`);
+    }
+    const { user } = z
+      .object({ user: z.object({ id: z.string() }) })
+      .parse(await signedIn.json());
+    const cookie = signedIn.headers
+      .getSetCookie()
+      .map((value) => value.split(";", 1)[0])
+      .join("; ");
+    const created = await post(
+      "/api/auth/api-key/create",
+      { name: "test" },
+      null,
+      { ...client, Cookie: cookie, Origin: ORIGIN }
+    );
+    const { key } = await created.json<{ key: string }>();
+    return { cookie, email, id: user.id, token: key };
+  };
+};
+
+export const sentCode = (email: string) => codes.get(email);
+
+export const memoryOf = (user: User) =>
+  memoryOfSpace(env, defaultSpace(user.id));
+
+export const getList = (user: User | null, query = "") =>
   worker.fetch(
-    new Request(`https://memsys.test/api/fragments${query}`, {
-      headers: { "Cf-Access-Jwt-Assertion": jwt },
+    new Request(`${ORIGIN}/api/fragments${query}`, {
+      headers: credentials("/api", user),
     }),
     env
   );
 
-export const list = async (jwt: string) => {
-  const response = await getList(jwt);
+export const list = async (user: User) => {
+  const response = await getList(user);
   return response.json<FragmentPage>();
 };
 
@@ -82,7 +133,7 @@ interface ToolResult {
   isError?: boolean;
 }
 
-export const call = async (jwt: string, name: string, args: JSONValue) => {
+export const call = async (user: User, name: string, args: JSONValue) => {
   const response = await post(
     "/mcp",
     {
@@ -91,7 +142,7 @@ export const call = async (jwt: string, name: string, args: JSONValue) => {
       method: "tools/call",
       params: { arguments: args, name },
     },
-    jwt
+    user
   );
   const body = await response.json<{ result: ToolResult }>();
   return body.result;

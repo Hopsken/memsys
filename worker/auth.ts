@@ -1,60 +1,128 @@
+import { apiKey } from "@better-auth/api-key";
+import { betterAuth } from "better-auth";
+import { APIError } from "better-auth/api";
+import { emailOTP } from "better-auth/plugins/email-otp";
+import type { Context } from "hono";
 import { createMiddleware } from "hono/factory";
-import { createRemoteJWKSet, jwtVerify } from "jose";
-import { z } from "zod";
 
+import { sendSignInCode } from "./email";
 import type { MemoryDO } from "./memory-do";
 
 export interface AppEnv {
-  Bindings: Env & { DEV_IDENTITY?: string };
+  Bindings: Env;
   Variables: { memory: DurableObjectStub<MemoryDO> };
 }
 
-// Configured Access always takes precedence over the development identity.
-export const isDevIdentity = (env: AppEnv["Bindings"]) =>
-  Boolean(env.DEV_IDENTITY) && !env.ACCESS_ISSUER && !env.ACCESS_AUD;
-
-const keySets = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
-
-export const access = createMiddleware<AppEnv>(async (c, next) => {
-  const issuer = c.env.ACCESS_ISSUER;
-  const audience = c.env.ACCESS_AUD;
-  // Dev builds only: production bundles compile this branch away.
-  if (import.meta.env.DEV && c.env.DEV_IDENTITY && isDevIdentity(c.env)) {
-    c.set(
-      "memory",
-      c.env.MEMORY.getByName(JSON.stringify(["local-dev", c.env.DEV_IDENTITY]))
+// AUTH_ALLOWED_EMAILS: comma- or space-separated addresses, or `@domain`.
+export const isAllowedEmail = (env: Env, email: string) => {
+  const address = email.trim().toLowerCase();
+  return (env.AUTH_ALLOWED_EMAILS ?? "")
+    .toLowerCase()
+    .split(/[\s,]+/u)
+    .some(
+      (entry) =>
+        entry !== "" &&
+        (entry.startsWith("@") ? address.endsWith(entry) : address === entry)
     );
-    return next();
+};
+
+const createAuth = (env: Env) =>
+  betterAuth({
+    advanced: { ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] } },
+    basePath: "/api/auth",
+    baseURL: env.PUBLIC_URL,
+    database: env.DB,
+    databaseHooks: {
+      user: {
+        create: {
+          // Sign-in creates the account, so the allowlist is enforced here too.
+          before: (user) => {
+            if (!isAllowedEmail(env, user.email)) {
+              throw new APIError("FORBIDDEN", {
+                message: "Sign-in not allowed",
+              });
+            }
+            return Promise.resolve();
+          },
+        },
+      },
+    },
+    plugins: [
+      emailOTP({
+        // Codes go only to allowed addresses; others get the same response.
+        sendVerificationOTP: async ({ email, otp, type }) => {
+          if (type === "sign-in" && isAllowedEmail(env, email)) {
+            await sendSignInCode(env, email, otp);
+          }
+        },
+        storeOTP: "hashed",
+      }),
+      // MCP tokens. A key never stands in for a session, so it cannot reach
+      // /api: plugin configuration and token management stay with the user.
+      apiKey({
+        defaultPrefix: "memsys_",
+        enableSessionForAPIKeys: false,
+        maximumNameLength: 64,
+        rateLimit: { enabled: false },
+        requireName: true,
+        startingCharactersConfig: { charactersLength: 11 },
+      }),
+    ],
+    rateLimit: { enabled: true, storage: "database" },
+    secret: env.BETTER_AUTH_SECRET,
+    session: { cookieCache: { enabled: true, maxAge: 5 * 60 } },
+    telemetry: { enabled: false },
+  });
+
+// Bindings are fixed per deployment; reuse one instance per env object.
+const instances = new WeakMap<Env, ReturnType<typeof createAuth>>();
+
+export const getAuth = (env: Env) => {
+  let auth = instances.get(env);
+  if (!auth) {
+    auth = createAuth(env);
+    instances.set(env, auth);
   }
-  if (!issuer || !audience) {
-    return c.json({ error: "Cloudflare Access is not configured" }, 503);
-  }
-  const token = c.req.header("Cf-Access-Jwt-Assertion");
-  if (!token) {
+  return auth;
+};
+
+// A memory space id names one memory object. Each user has a default space
+// whose id is their user id; this is the only place that ties the two, so
+// more spaces per user, or another sign-in system, change only this.
+export const defaultSpace = (userId: string) => userId;
+
+export const memoryOf = (env: Env, spaceId: string) =>
+  env.MEMORY.getByName(spaceId);
+
+const unauthorized = (c: Context<AppEnv>) => {
+  c.header("WWW-Authenticate", 'Bearer realm="memsys"');
+  return c.json({ error: "Authentication required" }, 401);
+};
+
+// The web UI and /api: a signed-in browser session.
+export const requireSession = createMiddleware<AppEnv>(async (c, next) => {
+  const result = await getAuth(c.env).api.getSession({
+    headers: c.req.raw.headers,
+  });
+  if (!result) {
     return c.json({ error: "Authentication required" }, 401);
   }
-  let subject: string;
-  try {
-    let keys = keySets.get(issuer);
-    if (!keys) {
-      keys = createRemoteJWKSet(new URL("/cdn-cgi/access/certs", issuer));
-      keySets.set(issuer, keys);
-    }
-    const { payload } = await jwtVerify(token, keys, {
-      algorithms: ["RS256"],
-      audience,
-      issuer,
-      requiredClaims: ["sub", "exp", "iat"],
-    });
-    const subjectResult = z.string().min(1).safeParse(payload.sub);
-    if (!subjectResult.success || payload.type !== "app") {
-      return c.json({ error: "Invalid Access identity" }, 401);
-    }
-    subject = subjectResult.data;
-  } catch {
-    return c.json({ error: "Invalid Access token" }, 401);
+  c.set("memory", memoryOf(c.env, defaultSpace(result.user.id)));
+  return next();
+});
+
+// /mcp: an MCP token as a bearer token, naming the user who created it.
+export const requireToken = createMiddleware<AppEnv>(async (c, next) => {
+  const key = /^Bearer\s+(?<key>\S+)$/iu.exec(
+    c.req.header("Authorization") ?? ""
+  )?.groups?.["key"];
+  if (!key) {
+    return unauthorized(c);
   }
-  // Use only verified identity, never client-supplied space names or email headers.
-  c.set("memory", c.env.MEMORY.getByName(JSON.stringify([issuer, subject])));
+  const verified = await getAuth(c.env).api.verifyApiKey({ body: { key } });
+  if (!verified.valid || !verified.key) {
+    return unauthorized(c);
+  }
+  c.set("memory", memoryOf(c.env, defaultSpace(verified.key.referenceId)));
   return next();
 });

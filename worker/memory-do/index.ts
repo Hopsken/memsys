@@ -10,12 +10,10 @@ import type {
   FragmentExport,
   ImportResult,
   RecallResult,
-} from "../contract/memory";
-import type { PluginView, Verdict } from "../contract/plugin";
-import migrations from "../migrations/migrations.js";
-import { plugins } from "../plugins";
-import { fragments, pluginConfig } from "./db/schema";
-import type { SeedFragment } from "./dev/corpus";
+} from "../../contract/memory";
+import type { PluginView, Verdict } from "../../contract/plugin";
+import { plugins } from "../../plugins";
+import type { SeedFragment } from "../dev/corpus";
 import {
   importInput,
   inputs,
@@ -24,7 +22,7 @@ import {
   REF_ALPHABET,
   REF_LENGTH,
   truncate,
-} from "./memory";
+} from "../memory";
 import {
   assertRegistry,
   createCtx,
@@ -34,8 +32,10 @@ import {
   runAfterRecall,
   runVerdicts,
   viewPlugin,
-} from "./plugin-host";
-import type { PluginEnv, PluginState, PluginUpdate } from "./plugin-host";
+} from "../plugin-host";
+import type { PluginEnv, PluginState, PluginUpdate } from "../plugin-host";
+import { fragments, pluginConfig } from "./db/schema";
+import migrations from "./migrations/migrations.js";
 
 assertRegistry(plugins);
 
