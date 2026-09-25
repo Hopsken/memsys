@@ -20,7 +20,12 @@ app.use("*", (c, next) => {
   return next();
 });
 app.use("*", access);
-app.use("*", bodyLimit({ maxSize: 32 * 1024 }));
+const requestBody = bodyLimit({ maxSize: 32 * 1024 });
+// A whole memory: roughly ten thousand fragments of a few hundred characters.
+const importBody = bodyLimit({ maxSize: 5 * 1024 * 1024 });
+app.use("*", (c, next) =>
+  (c.req.path === "/api/import" ? importBody : requestBody)(c, next)
+);
 app.use("/api/*", (c, next) => {
   const mediaType = c.req
     .header("Content-Type")

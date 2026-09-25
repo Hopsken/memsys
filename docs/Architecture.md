@@ -55,6 +55,7 @@ Any future "let's add X" starts here.
 - A fragment is text plus a `ref` and timestamps. Nothing else.
 - Tags are derived from the text at read time and never stored.
 - Every index — tag counts, IDF tables, virtual directories — is a cache computed from the corpus. Deleting it loses nothing.
+- Export and import move fragments verbatim — ref, text, timestamps — between instances. Import is a user migrating memory, not an agent writing: it runs core validation but no write hooks, only adds, and is not exposed over MCP.
 
 ## Core
 
