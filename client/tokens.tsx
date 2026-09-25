@@ -101,8 +101,8 @@ const NewToken = ({
       <CardHeader>
         <CardTitle>Copy your new token</CardTitle>
         <CardDescription>
-          It will not be shown again. Anyone with it can read and change your
-          memory.
+          You won’t see it again. Anyone who has it can read and change your
+          memories.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -116,8 +116,8 @@ const NewToken = ({
           />
           <CopyButton label="Copy token" value={secret} />
         </div>
-        <Snippet label="Claude Code" value={claude} />
-        <Snippet label="MCP client config" value={config} />
+        <Snippet label="Claude Code command" value={claude} />
+        <Snippet label="MCP config for other apps" value={config} />
         <div className="flex justify-end">
           <Button onClick={onDone} size="sm">
             Done
@@ -222,8 +222,8 @@ export const TokensView = () => {
   return (
     <section aria-busy={query.isFetching} aria-label="MCP tokens">
       <p className="text-muted-foreground mb-6 text-sm">
-        Agents connect to <code className="font-mono">{mcpUrl()}</code> with a
-        token as a bearer header.
+        Give each AI tool its own token so it can use your memories. Revoke a
+        token to disconnect that tool.
       </p>
 
       {secret ? (
@@ -265,7 +265,7 @@ export const TokensView = () => {
       {query.isError ? (
         <Alert className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <AlertDescription className="text-foreground">
-            Could not load tokens.
+            Couldn’t load your tokens.
           </AlertDescription>
           <Button
             onClick={() => {
@@ -297,7 +297,7 @@ export const TokensView = () => {
           />
           <h2 className="font-medium">No tokens yet</h2>
           <p className="text-muted-foreground mt-2 text-sm">
-            Create one for each agent or device you connect.
+            Create one for each AI tool you connect, like Claude Code.
           </p>
         </div>
       ) : null}

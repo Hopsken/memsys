@@ -350,7 +350,7 @@ export class MemoryDO extends DurableObject<Env> {
       return json(
         {
           error:
-            "Plugin configuration changed elsewhere. Reload and try again.",
+            "These settings were changed in another window. Reload to see the latest.",
         },
         { status: 409 }
       );

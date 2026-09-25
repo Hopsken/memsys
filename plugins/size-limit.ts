@@ -18,7 +18,7 @@ const config = z
     }),
   })
   .refine((value) => value.soft <= value.hard, {
-    message: "Soft limit must not exceed the hard limit.",
+    message: "Can’t be higher than Refuse above.",
     path: ["soft"],
   });
 

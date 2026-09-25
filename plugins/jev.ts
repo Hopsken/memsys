@@ -120,7 +120,7 @@ export const jev = definePlugin({
     enabled: false,
   },
   description:
-    "Uses a small AI model (Jev) to check each related memory against what your AI is looking for, and hides the ones that don't help. Adds up to a second per recall and uses Workers AI credits.",
+    "Uses a small AI model (Jev) to check each related memory against what your AI is looking for, and hides the ones that don’t help. Adds up to a second per recall and uses Workers AI credits.",
   name: "jev",
   title: "Relevance filter (Jev)",
 });

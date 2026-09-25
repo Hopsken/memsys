@@ -44,11 +44,11 @@ type Change = { type: "reset" } | { type: "save"; draft: Draft };
 const PLUGINS = ["plugins"];
 
 const STATUS = {
-  custom: { className: "", label: "Custom" },
+  custom: { className: "", label: "Customized" },
   default: null,
   invalid: {
     className: "bg-amber-50 text-amber-900 ring-1 ring-amber-300",
-    label: "Invalid — using defaults",
+    label: "Invalid settings — using defaults",
   },
 } satisfies Record<
   PluginView["status"],
@@ -66,7 +66,9 @@ const describe = (error: Error) => {
   return {
     conflict: status === 409,
     fields,
-    text: problem.issues ? null : (problem.error ?? "Could not save."),
+    text: problem.issues
+      ? null
+      : (problem.error ?? "Couldn’t save. Try again."),
   };
 };
 
@@ -288,7 +290,7 @@ export const PluginsView = () => {
       {query.isError ? (
         <Alert className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <AlertDescription className="text-foreground">
-            Could not load plugins.
+            Couldn’t load plugins.
           </AlertDescription>
           <Button
             onClick={() => {

@@ -55,7 +55,7 @@ export const FragmentsView = () => {
       {query.isError ? (
         <Alert className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <AlertDescription className="text-foreground">
-            Could not load memory.
+            Couldn’t load your memories.
           </AlertDescription>
           <Button
             onClick={() => {
@@ -71,10 +71,10 @@ export const FragmentsView = () => {
         </Alert>
       ) : null}
 
-      <section aria-busy={query.isFetching} aria-label="Fragments">
+      <section aria-busy={query.isFetching} aria-label="Memories">
         {query.isPending ? (
           <div className="divide-y" role="status">
-            <span className="sr-only">Loading memory</span>
+            <span className="sr-only">Loading memories</span>
             {[1, 2, 3].map((key) => (
               <div className="space-y-2 py-3.5" key={key}>
                 <Skeleton className="h-3 w-24" />
@@ -89,17 +89,17 @@ export const FragmentsView = () => {
               aria-hidden="true"
               className="text-muted-foreground mx-auto mb-4 size-6"
             />
-            <h2 className="font-medium">No fragments yet</h2>
+            <h2 className="font-medium">No memories yet</h2>
             <p className="text-muted-foreground mt-2 text-sm">
-              Save a memory through a{" "}
+              What your AI saves shows up here.{" "}
               <Link className={linkClass} to="/settings/mcp">
-                connected agent
-              </Link>
-              , or{" "}
+                Connect an AI tool
+              </Link>{" "}
+              to get started, or{" "}
               <Link className={linkClass} to="/settings/data">
-                import an export file
+                import memories
               </Link>
-              , to see it here.
+              .
             </p>
           </div>
         ) : null}

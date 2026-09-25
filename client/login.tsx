@@ -16,13 +16,35 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth";
 
+// Better Auth error codes, in words a person signing in can act on. Other
+// errors, such as an address outside the allowlist, keep the worker's text.
+const MESSAGES = new Map([
+  ["INVALID_OTP", "That code isn’t right. Check it and try again."],
+  ["OTP_EXPIRED", "That code has expired. Send a new one."],
+  [
+    "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE",
+    "Too many wrong codes. Send a new one.",
+  ],
+]);
+
 // Better Auth answers with `{ data, error }`; mutations want a thrown error.
 const check = async (
-  result: Promise<{ error: { message?: string | undefined } | null }>
+  result: Promise<{
+    error: {
+      code?: string | undefined;
+      message?: string | undefined;
+      status: number;
+    } | null;
+  }>
 ) => {
   const { error } = await result;
   if (error) {
-    throw new Error(error.message ?? "Something went wrong.");
+    throw new Error(
+      (error.code ? MESSAGES.get(error.code) : undefined) ??
+        (error.status === 429
+          ? "Too many tries. Wait a minute and try again."
+          : (error.message ?? "Something went wrong. Try again."))
+    );
   }
 };
 
@@ -87,7 +109,7 @@ export const LoginView = () => {
           <CardDescription>
             {sentTo
               ? `A 6-digit code is on its way to ${sentTo}. It expires in 5 minutes.`
-              : "We will email you a one-time code."}
+              : "We’ll email you a code to sign in."}
           </CardDescription>
         </CardHeader>
         <CardContent>

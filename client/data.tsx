@@ -36,14 +36,18 @@ interface Picked {
 }
 
 const plural = (count: number) =>
-  `${count} ${count === 1 ? "fragment" : "fragments"}`;
+  `${count} ${count === 1 ? "memory" : "memories"}`;
 
 const summary = ({ conflicts, imported, skipped }: ImportResult) =>
   [
-    `Imported ${plural(imported)}.`,
-    skipped > 0 ? `Skipped ${skipped} already in memory.` : "",
+    imported > 0
+      ? `Imported ${plural(imported)}.`
+      : "No new memories to import.",
+    skipped > 0
+      ? `${plural(skipped)} ${skipped === 1 ? "was" : "were"} already here.`
+      : "",
     conflicts.length > 0
-      ? `Left ${plural(conflicts.length)} unchanged because memory holds different text under the same ref: ${conflicts.join(", ")}.`
+      ? `Kept your current version of ${plural(conflicts.length)} that differ from the file: ${conflicts.join(", ")}.`
       : "",
   ]
     .filter(Boolean)
@@ -53,11 +57,11 @@ const summary = ({ conflicts, imported, skipped }: ImportResult) =>
 const problem = (error: Error) => {
   const { problem: body, status } = failure(error);
   if (status === 413) {
-    return "Nothing was imported: the file is too large.";
+    return "Nothing was imported. The file is larger than 5 MB.";
   }
   return body.error
-    ? `Nothing was imported:\n${body.error}`
-    : "Could not import. Nothing was stored.";
+    ? `Nothing was imported. Fix these problems in the file and try again:\n${body.error}`
+    : "Import failed. Your memories are unchanged.";
 };
 
 const read = async (file: File): Promise<Picked | null> => {
@@ -117,7 +121,7 @@ export const DataView = () => {
           <CardHeader>
             <CardTitle>Export</CardTitle>
             <CardDescription>
-              Download every fragment as a JSON file.
+              Download all your memories as a JSON file.
             </CardDescription>
             <CardAction>
               <a
@@ -138,8 +142,8 @@ export const DataView = () => {
           <CardHeader>
             <CardTitle>Import</CardTitle>
             <CardDescription>
-              Add fragments from a memsys export file. Fragments already in
-              memory are never changed.
+              Add memories from a memsys export file. Memories you already have
+              stay as they are.
             </CardDescription>
             <CardAction>
               <Button
