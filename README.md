@@ -55,7 +55,7 @@ Commit the generated SQL and snapshot, plus the memory object's migration bundle
 
 A token never stands in for a session, so an agent holding one cannot change plugin settings or create tokens, and a session cookie does not open `/mcp`. Tokens are stored hashed; the web UI shows each one once, when it is created. Revoking a token takes effect on the next request.
 
-Sign-in codes go out through [Resend](https://resend.com/) and only to addresses in `AUTH_ALLOWED_EMAILS` (comma-separated; `@example.com` allows a domain). Other addresses get the same response and no email, and cannot create an account. Sign-in routes are rate limited per client address, with counters in D1.
+Sign-in codes go out through [Resend](https://resend.com/) and only to addresses in `AUTH_ALLOWED_EMAILS` (comma-separated; `@example.com` allows a domain). Other addresses are refused with an error, get no email, and cannot create an account. Sign-in routes are rate limited per client address, with counters in D1.
 
 Connect an agent with its token as a bearer header, for example in Claude Code:
 

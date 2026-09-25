@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { Layers } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -26,6 +26,9 @@ const check = async (
   }
 };
 
+// Seconds before another code may be requested.
+const RESEND_DELAY = 60;
+
 const Problem = ({ text }: { text: string }) => (
   <Alert className="bg-amber-50 text-amber-950 ring-amber-300">
     <AlertDescription className="text-amber-950">{text}</AlertDescription>
@@ -38,6 +41,14 @@ export const LoginView = () => {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [sentTo, setSentTo] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
+  useEffect(() => {
+    if (cooldown <= 0) {
+      return;
+    }
+    const timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
   const send = useMutation({
     mutationFn: (address: string) =>
       check(
@@ -49,6 +60,7 @@ export const LoginView = () => {
     onSuccess: (_, address) => {
       setSentTo(address);
       setCode("");
+      setCooldown(RESEND_DELAY);
     },
   });
   const verify = useMutation({
@@ -74,7 +86,7 @@ export const LoginView = () => {
           <CardTitle>{sentTo ? "Check your email" : "Sign in"}</CardTitle>
           <CardDescription>
             {sentTo
-              ? `If ${sentTo} may sign in, a 6-digit code is on its way. It expires in 5 minutes.`
+              ? `A 6-digit code is on its way to ${sentTo}. It expires in 5 minutes.`
               : "We will email you a one-time code."}
           </CardDescription>
         </CardHeader>
@@ -123,7 +135,7 @@ export const LoginView = () => {
                   Use another email
                 </Button>
                 <Button
-                  disabled={send.isPending}
+                  disabled={send.isPending || cooldown > 0}
                   onClick={() => {
                     verify.reset();
                     send.mutate(sentTo);
@@ -133,6 +145,7 @@ export const LoginView = () => {
                   variant="ghost"
                 >
                   {send.isPending ? "Sending…" : "Send a new code"}
+                  {cooldown > 0 ? ` (${cooldown}s)` : null}
                 </Button>
               </div>
             </form>

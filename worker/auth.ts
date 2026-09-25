@@ -1,9 +1,10 @@
 import { apiKey } from "@better-auth/api-key";
 import { betterAuth } from "better-auth";
-import { APIError } from "better-auth/api";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import type { Context } from "hono";
 import { createMiddleware } from "hono/factory";
+import { z } from "zod";
 
 import { sendSignInCode } from "./email";
 import type { MemoryDO } from "./memory-do";
@@ -26,6 +27,11 @@ export const isAllowedEmail = (env: Env, email: string) => {
     );
 };
 
+const signInCodeRequest = z.object({
+  email: z.string(),
+  type: z.literal("sign-in"),
+});
+
 const createAuth = (env: Env) =>
   betterAuth({
     advanced: { ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] } },
@@ -47,9 +53,25 @@ const createAuth = (env: Env) =>
         },
       },
     },
+    hooks: {
+      // Tell an address outside the allowlist so, before any code is stored.
+      before: createAuthMiddleware((ctx) => {
+        const request = signInCodeRequest.safeParse(ctx.body);
+        if (
+          ctx.path === "/email-otp/send-verification-otp" &&
+          request.success &&
+          !isAllowedEmail(env, request.data.email)
+        ) {
+          throw new APIError("FORBIDDEN", {
+            message: "This email is not allowed to sign in.",
+          });
+        }
+        return Promise.resolve();
+      }),
+    },
     plugins: [
       emailOTP({
-        // Codes go only to allowed addresses; others get the same response.
+        // Codes go only to allowed addresses.
         sendVerificationOTP: async ({ email, otp, type }) => {
           if (type === "sign-in" && isAllowedEmail(env, email)) {
             await sendSignInCode(env, email, otp);
