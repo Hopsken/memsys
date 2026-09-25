@@ -46,7 +46,7 @@ describe("Authentication", () => {
     ).resolves.toMatchObject({ status: 401 });
   });
 
-  it("sends codes only to allowed addresses and never creates other users", async () => {
+  it("refuses codes for other addresses and never creates their users", async () => {
     const email = `${crypto.randomUUID()}@elsewhere.test`;
     const sent = await post(
       "/api/auth/email-otp/send-verification-otp",
@@ -69,7 +69,7 @@ describe("Authentication", () => {
     }).toStrictEqual({
       code: undefined,
       row: null,
-      sent: 200,
+      sent: 403,
       signedIn: false,
     });
   });
