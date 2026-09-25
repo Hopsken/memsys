@@ -4,20 +4,20 @@ import { describe, expect, it } from "vitest";
 
 import type { Fragment, FragmentPage } from "../contract/memory";
 import worker from "../worker/index";
-import { getList, list, post, useAccess } from "./helpers";
+import { getList, list, post, useAuth } from "./helpers";
 
 describe("Fragment HTTP API", () => {
-  const token = useAccess();
+  const signIn = useAuth();
 
   it("creates and replaces text while preserving identity and creation time", async () => {
-    const jwt = await token();
-    const saved = await post("/api/remember", { fragment: "Original" }, jwt);
+    const user = await signIn();
+    const saved = await post("/api/remember", { fragment: "Original" }, user);
     expect(saved.status).toBe(201);
     const item = await saved.json<Fragment>();
     const revised = await post(
       "/api/revise",
       { fragment: "Changed design #project/b", ref: item.ref },
-      jwt
+      user
     );
     expect(revised.status).toBe(200);
     await expect(revised.json()).resolves.toMatchObject({
@@ -25,7 +25,7 @@ describe("Fragment HTTP API", () => {
       fragment: "Changed design #project/b",
       ref: item.ref,
     });
-    const found = await post("/api/recall", { cue: "changed design" }, jwt);
+    const found = await post("/api/recall", { cue: "changed design" }, user);
     await expect(found.json()).resolves.toMatchObject({
       fragments: [{ fragment: "Changed design #project/b", ref: item.ref }],
       hasMore: false,
@@ -33,42 +33,46 @@ describe("Fragment HTTP API", () => {
   });
 
   it("deletes a fragment and reports missing refs", async () => {
-    const jwt = await token();
-    const saved = await post("/api/remember", { fragment: "Delete this" }, jwt);
+    const user = await signIn();
+    const saved = await post(
+      "/api/remember",
+      { fragment: "Delete this" },
+      user
+    );
     const { ref } = await saved.json<Fragment>();
-    const deleted = await post("/api/forget", { ref }, jwt);
+    const deleted = await post("/api/forget", { ref }, user);
     expect(deleted.status).toBe(200);
     await expect(deleted.json()).resolves.toStrictEqual({ ref });
-    await expect(post("/api/forget", { ref }, jwt)).resolves.toMatchObject({
+    await expect(post("/api/forget", { ref }, user)).resolves.toMatchObject({
       status: 404,
     });
     await expect(
-      post("/api/revise", { fragment: "Gone", ref }, jwt)
+      post("/api/revise", { fragment: "Gone", ref }, user)
     ).resolves.toMatchObject({ status: 404 });
-    await expect(list(jwt)).resolves.toStrictEqual({
+    await expect(list(user)).resolves.toStrictEqual({
       fragments: [],
       nextCursor: null,
     });
   });
 
   it("follows the returned page cursor without caching or changing fragments", async () => {
-    const jwt = await token();
+    const user = await signIn();
     const saved = await Promise.all(
       Array.from({ length: 51 }, async (_, index) => {
         const response = await post(
           "/api/remember",
           { fragment: `Page item ${index}` },
-          jwt
+          user
         );
         return response.json<Fragment>();
       })
     );
-    const response = await getList(jwt);
+    const response = await getList(user);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     const first = await response.json<FragmentPage>();
     expect(first.fragments).toHaveLength(50);
     const next = await getList(
-      jwt,
+      user,
       `?${new URLSearchParams({ cursor: first.nextCursor ?? "" })}`
     );
     const last = await next.json<FragmentPage>();
@@ -88,7 +92,7 @@ describe("Fragment HTTP API", () => {
     "?cursor=2026-01-01T00:00:00.000Z,aaaaaaa,extra",
     "?space=other",
   ])("rejects invalid list query %s", async (query) => {
-    await expect(getList(await token(), query)).resolves.toMatchObject({
+    await expect(getList(await signIn(), query)).resolves.toMatchObject({
       status: 400,
     });
   });
@@ -107,20 +111,21 @@ describe("Fragment HTTP API", () => {
   ] satisfies [string, JSONValue, number][])(
     "rejects invalid request %#",
     async (path, body, status) => {
-      await expect(post(path, body, await token())).resolves.toMatchObject({
+      await expect(post(path, body, await signIn())).resolves.toMatchObject({
         status,
       });
     }
   );
 
   it("rejects malformed JSON", async () => {
+    const user = await signIn();
     await expect(
       worker.fetch(
         new Request("https://memsys.test/api/remember", {
           body: "{",
           headers: {
-            "Cf-Access-Jwt-Assertion": await token(),
             "Content-Type": "application/json",
+            Cookie: user.cookie,
           },
           method: "POST",
         }),

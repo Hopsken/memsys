@@ -4,12 +4,13 @@ import { describe, expect, it } from "vitest";
 
 import type { Fragment, ImportResult } from "../contract/memory";
 import worker from "../worker/index";
-import { list, post, useAccess } from "./helpers";
+import { list, post, useAuth } from "./helpers";
+import type { User } from "./helpers";
 
-const exportFile = (jwt: string) =>
+const exportFile = (user: User) =>
   worker.fetch(
     new Request("https://memsys.test/api/export", {
-      headers: { "Cf-Access-Jwt-Assertion": jwt },
+      headers: { Cookie: user.cookie },
     }),
     env
   );
@@ -20,16 +21,16 @@ const file = (fragments: JSONValue[]) => ({
   version: 1,
 });
 
-const remember = async (jwt: string, fragment: string) => {
-  const response = await post("/api/remember", { fragment }, jwt);
+const remember = async (user: User, fragment: string) => {
+  const response = await post("/api/remember", { fragment }, user);
   return response.json<Fragment>();
 };
 
 describe("Fragment export and import", () => {
-  const token = useAccess();
+  const signIn = useAuth();
 
   it("moves every fragment verbatim to another instance", async () => {
-    const source = await token();
+    const source = await signIn();
     await remember(source, "First #memsys");
     await remember(source, "Second #memsys");
     const response = await exportFile(source);
@@ -39,7 +40,7 @@ describe("Fragment export and import", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     const exported: JSONValue = JSON.parse(await response.text());
 
-    const target = await token();
+    const target = await signIn();
     const imported = await post("/api/import", exported, target);
     expect(imported.status).toBe(200);
     await expect(imported.json()).resolves.toStrictEqual({
@@ -52,10 +53,10 @@ describe("Fragment export and import", () => {
   });
 
   it("skips what is already there and reports changed refs without touching them", async () => {
-    const jwt = await token();
-    const kept = await remember(jwt, "Kept as is");
-    const changed = await remember(jwt, "Local text");
-    const same = await remember(jwt, "Same text elsewhere");
+    const user = await signIn();
+    const kept = await remember(user, "Kept as is");
+    const changed = await remember(user, "Local text");
+    const same = await remember(user, "Same text elsewhere");
     const response = await post(
       "/api/import",
       file([
@@ -65,14 +66,14 @@ describe("Fragment export and import", () => {
         { fragment: "New one" },
         { fragment: "New one" },
       ]),
-      jwt
+      user
     );
     await expect(response.json<ImportResult>()).resolves.toStrictEqual({
       conflicts: [changed.ref],
       imported: 1,
       skipped: 3,
     });
-    const page = await list(jwt);
+    const page = await list(user);
     expect(
       page.fragments.map(({ fragment }) => fragment).toSorted()
     ).toStrictEqual([
@@ -84,7 +85,7 @@ describe("Fragment export and import", () => {
     const again = await post(
       "/api/import",
       file([{ fragment: "New one" }]),
-      jwt
+      user
     );
     await expect(again.json()).resolves.toMatchObject({
       imported: 0,
@@ -93,16 +94,16 @@ describe("Fragment export and import", () => {
   });
 
   it("fills in missing refs and times and keeps given ones", async () => {
-    const jwt = await token();
+    const user = await signIn();
     await post(
       "/api/import",
       file([
         { createdAt: "2024-01-02T03:04:05+08:00", fragment: "Dated" },
         { fragment: "Undated", ref: "abcdefg" },
       ]),
-      jwt
+      user
     );
-    const { fragments } = await list(jwt);
+    const { fragments } = await list(user);
     const dated = fragments.find(({ fragment }) => fragment === "Dated");
     expect(dated).toMatchObject({
       createdAt: "2024-01-01T19:04:05.000Z",
@@ -115,23 +116,23 @@ describe("Fragment export and import", () => {
   });
 
   it("bypasses plugin write limits but not the core ceiling", async () => {
-    const jwt = await token();
+    const user = await signIn();
     const long = await post(
       "/api/import",
       file([{ fragment: "x".repeat(800) }]),
-      jwt
+      user
     );
     await expect(long.json()).resolves.toMatchObject({ imported: 1 });
     const tooLong = await post(
       "/api/import",
       file([{ fragment: "y".repeat(1001) }]),
-      jwt
+      user
     );
     expect(tooLong.status).toBe(422);
   });
 
   it("stores nothing when any item is invalid and says which", async () => {
-    const jwt = await token();
+    const user = await signIn();
     const cases = [
       [{ fragment: "Fine" }, { fragment: "  " }],
       [{ fragment: "Fine" }, { fragment: "Bad ref", ref: "0000000" }],
@@ -149,7 +150,7 @@ describe("Fragment export and import", () => {
       [{ fragment: "Fine" }, { content: "Wrong field" }],
     ];
     const responses = await Promise.all(
-      cases.map((items) => post("/api/import", file(items), jwt))
+      cases.map((items) => post("/api/import", file(items), user))
     );
     expect(responses.map(({ status }) => status)).toStrictEqual(
       cases.map(() => 422)
@@ -161,26 +162,26 @@ describe("Fragment export and import", () => {
     const unknown = await post(
       "/api/import",
       { format: "other", fragments: [], version: 1 },
-      jwt
+      user
     );
     expect(unknown.status).toBe(422);
-    await expect(list(jwt)).resolves.toStrictEqual({
+    await expect(list(user)).resolves.toStrictEqual({
       fragments: [],
       nextCursor: null,
     });
   });
 
   it("accepts a whole memory above the normal request limit", async () => {
-    const jwt = await token();
+    const user = await signIn();
     const items = Array.from({ length: 200 }, (_, index) => ({
       fragment: `Bulk fragment ${index} ${"z".repeat(200)}`,
     }));
-    const response = await post("/api/import", file(items), jwt);
+    const response = await post("/api/import", file(items), user);
     await expect(response.json()).resolves.toMatchObject({ imported: 200 });
     const huge = await post(
       "/api/import",
       file([{ fragment: "x".repeat(6 * 1024 * 1024) }]),
-      jwt
+      user
     );
     expect(huge.status).toBe(413);
   });

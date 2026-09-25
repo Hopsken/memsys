@@ -33,9 +33,11 @@ export default defineConfig(async () => {
         // Keep auth tests independent of local .dev.vars overrides.
         miniflare: {
           bindings: {
-            ACCESS_AUD: "memory-app",
-            ACCESS_ISSUER: "https://memsys-test.cloudflareaccess.com",
-            DEV_IDENTITY: "",
+            AUTH_ALLOWED_EMAILS: "@memsys.test",
+            BETTER_AUTH_SECRET: "test-secret-with-enough-entropy-0123456789",
+            EMAIL_FROM: "memsys <memsys@memsys.test>",
+            PUBLIC_URL: "https://memsys.test",
+            RESEND_API_KEY: "test-resend-key",
             TEST_MIGRATIONS: migrations,
           },
         },

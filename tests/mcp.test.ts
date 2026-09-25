@@ -3,16 +3,17 @@ import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "../contract/memory";
 import worker from "../worker/index";
-import { call, content, list, post, useAccess } from "./helpers";
+import { call, content, list, post, useAuth } from "./helpers";
+import type { User } from "./helpers";
 
-const tags = async (jwt: string) =>
-  content<string[]>(await call(jwt, "list_tags", {}));
+const tags = async (user: User) =>
+  content<string[]>(await call(user, "list_tags", {}));
 
 describe("Stateless MCP", () => {
-  const token = useAccess();
+  const signIn = useAuth();
 
   it("initializes without a session and advertises the supported tools", async () => {
-    const jwt = await token();
+    const user = await signIn();
     const init = await post(
       "/mcp",
       {
@@ -25,7 +26,7 @@ describe("Stateless MCP", () => {
           protocolVersion: "2025-03-26",
         },
       },
-      jwt
+      user
     );
     expect(init.status).toBe(200);
     expect(init.headers.has("mcp-session-id")).toBeFalsy();
@@ -35,7 +36,7 @@ describe("Stateless MCP", () => {
     const response = await post(
       "/mcp",
       { id: 2, jsonrpc: "2.0", method: "tools/list" },
-      jwt
+      user
     );
     const { result } = await response.json<{
       result: {
@@ -58,86 +59,89 @@ describe("Stateless MCP", () => {
   });
 
   it("shares writes, recall, and deletion with REST without initialization", async () => {
-    const jwt = await token();
+    const user = await signIn();
     const item = content<Fragment>(
-      await call(jwt, "remember", { fragment: "MCP memory #test" })
+      await call(user, "remember", { fragment: "MCP memory #test" })
     );
     expect(item.fragment).toBe("MCP memory #test");
-    await expect(list(jwt)).resolves.toStrictEqual({
+    await expect(list(user)).resolves.toStrictEqual({
       fragments: [item],
       nextCursor: null,
     });
-    const found = await call(jwt, "recall", { cue: "MCP memory" });
+    const found = await call(user, "recall", { cue: "MCP memory" });
     expect(content(found)).toStrictEqual({ fragments: [item], hasMore: false });
-    expect(content(await call(jwt, "forget", { ref: item.ref }))).toStrictEqual(
-      { ref: item.ref }
-    );
-    await expect(list(jwt)).resolves.toStrictEqual({
+    expect(
+      content(await call(user, "forget", { ref: item.ref }))
+    ).toStrictEqual({ ref: item.ref });
+    await expect(list(user)).resolves.toStrictEqual({
       fragments: [],
       nextCursor: null,
     });
   });
 
   it("lists complete, unique tags from current memory with identity isolation", async () => {
-    const jwt = await token();
-    const other = await token();
-    await expect(tags(jwt)).resolves.toStrictEqual([]);
+    const user = await signIn();
+    const other = await signIn();
+    await expect(tags(user)).resolves.toStrictEqual([]);
     const first = content<Fragment>(
-      await call(jwt, "remember", {
+      await call(user, "remember", {
         fragment: "First #Zeta #PROJECT/One #Agents",
       })
     );
     const second = content<Fragment>(
-      await call(jwt, "remember", {
+      await call(user, "remember", {
         fragment: "Second #zeta #记忆 #agent-memory",
       })
     );
     await call(other, "remember", { fragment: "Other user #private" });
-    await expect(Promise.all([tags(jwt), tags(other)])).resolves.toStrictEqual([
-      ["agent-memory", "agents", "project/one", "zeta", "记忆"],
-      ["private"],
-    ]);
-    await call(jwt, "revise", {
+    await expect(Promise.all([tags(user), tags(other)])).resolves.toStrictEqual(
+      [["agent-memory", "agents", "project/one", "zeta", "记忆"], ["private"]]
+    );
+    await call(user, "revise", {
       fragment: "Updated #beta #PROJECT/Two",
       ref: first.ref,
     });
-    await expect(tags(jwt)).resolves.toStrictEqual([
+    await expect(tags(user)).resolves.toStrictEqual([
       "agent-memory",
       "beta",
       "project/two",
       "zeta",
       "记忆",
     ]);
-    await call(jwt, "forget", { ref: second.ref });
-    await expect(tags(jwt)).resolves.toStrictEqual(["beta", "project/two"]);
+    await call(user, "forget", { ref: second.ref });
+    await expect(tags(user)).resolves.toStrictEqual(["beta", "project/two"]);
     await expect(
-      call(jwt, "list_tags", { unexpected: true })
+      call(user, "list_tags", { unexpected: true })
     ).resolves.toMatchObject({ isError: true });
   });
 
   it("returns tool errors for invalid input and missing fragments", async () => {
-    const jwt = await token();
+    const user = await signIn();
     await expect(
-      call(jwt, "remember", { fragment: " " })
+      call(user, "remember", { fragment: " " })
     ).resolves.toMatchObject({ isError: true });
     await expect(
-      call(jwt, "forget", { ref: "2222222" })
+      call(user, "forget", { ref: "2222222" })
     ).resolves.toMatchObject({ isError: true });
     await expect(
-      call(jwt, "revise", { fragment: "new", ref: "2222222" })
+      call(user, "revise", { fragment: "new", ref: "2222222" })
     ).resolves.toMatchObject({ isError: true });
   });
 
   it("accepts notifications and rejects GET and DELETE", async () => {
-    const jwt = await token();
+    const user = await signIn();
     await expect(
-      post("/mcp", { jsonrpc: "2.0", method: "notifications/initialized" }, jwt)
+      post(
+        "/mcp",
+        { jsonrpc: "2.0", method: "notifications/initialized" },
+        user
+      )
     ).resolves.toMatchObject({ status: 202 });
     const responses = await Promise.all(
       ["GET", "DELETE"].map((method) =>
         worker.fetch(
           new Request("https://memsys.test/mcp", {
-            headers: { "Cf-Access-Jwt-Assertion": jwt },
+            headers: { Authorization: `Bearer ${user.token}` },
             method,
           }),
           env

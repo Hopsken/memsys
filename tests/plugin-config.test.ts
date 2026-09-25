@@ -4,10 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { PluginView } from "../contract/plugin";
 import worker from "../worker/index";
-import { call, post, useAccess } from "./helpers";
-
-const memoryFor = (sub: string) =>
-  env.MEMORY.getByName(JSON.stringify([env.ACCESS_ISSUER, sub]));
+import { call, memoryOf, post, useAuth } from "./helpers";
+import type { User } from "./helpers";
 
 interface Limits {
   hard: number;
@@ -18,10 +16,10 @@ type Result = PluginView & { issues?: { path: string[] }[] };
 
 const views = (response: Response) => response.json<PluginView[]>();
 
-const getPlugins = async (jwt: string) => {
+const getPlugins = async (user: User) => {
   const response = await worker.fetch(
     new Request("https://memsys.test/api/plugins", {
-      headers: { "Cf-Access-Jwt-Assertion": jwt },
+      headers: { Cookie: user.cookie },
     }),
     env
   );
@@ -31,7 +29,7 @@ const getPlugins = async (jwt: string) => {
 const send = (
   method: string,
   name: string,
-  jwt: string,
+  user: User,
   body?: string,
   headers: Record<string, string> = {}
 ) =>
@@ -39,8 +37,8 @@ const send = (
     new Request(`https://memsys.test/api/plugins/${name}`, {
       body: body ?? null,
       headers: {
-        "Cf-Access-Jwt-Assertion": jwt,
         "Content-Type": "application/json",
+        Cookie: user.cookie,
         ...headers,
       },
       method,
@@ -48,21 +46,21 @@ const send = (
     env
   );
 
-const toolNames = async (jwt: string) => {
+const toolNames = async (user: User) => {
   const response = await post(
     "/mcp",
     { id: 1, jsonrpc: "2.0", method: "tools/list" },
-    jwt
+    user
   );
   const body = await response.json<{ result: { tools: { name: string }[] } }>();
   return body.result.tools.map((tool) => tool.name).toSorted();
 };
 
 describe("Plugin configuration", () => {
-  const token = useAccess();
+  const signIn = useAuth();
 
   it("lists plugins with defaults and a JSON Schema for each config", async () => {
-    const listed = await getPlugins(await token());
+    const listed = await getPlugins(await signIn());
     expect(
       listed.map(({ config, name, schema, status, tools }) => ({
         config,
@@ -104,7 +102,7 @@ describe("Plugin configuration", () => {
   });
 
   it("validates updates, detects conflicts, persists, and resets", async () => {
-    const memory = memoryFor(crypto.randomUUID());
+    const memory = env.MEMORY.getByName(crypto.randomUUID());
     const update = async (config: Limits, updatedAt: number | null) => {
       const response = await memory.updatePlugin("size-limit", {
         config: { ...config },
@@ -139,17 +137,16 @@ describe("Plugin configuration", () => {
   });
 
   it("registers tool plugins only while enabled", async () => {
-    const sub = crypto.randomUUID();
-    const jwt = await token({ sub });
-    const before = await toolNames(jwt);
-    await memoryFor(sub).updatePlugin("list-tags", {
+    const user = await signIn();
+    const before = await toolNames(user);
+    await memoryOf(user).updatePlugin("list-tags", {
       config: {},
       enabled: false,
       updatedAt: null,
     });
-    const listed = await call(jwt, "list_tags", {});
+    const listed = await call(user, "list_tags", {});
     expect({
-      after: await toolNames(jwt),
+      after: await toolNames(user),
       before,
       call: listed.isError,
     }).toStrictEqual({
@@ -161,7 +158,7 @@ describe("Plugin configuration", () => {
 
   it("uses defaults when a stored config no longer parses", async () => {
     const log = vi.spyOn(console, "error").mockReturnValue();
-    const memory = memoryFor(crypto.randomUUID());
+    const memory = env.MEMORY.getByName(crypto.randomUUID());
     await runInDurableObject(memory, (_, state) => {
       state.storage.sql.exec(
         "INSERT INTO plugin_config (name, enabled, config, updated_at) VALUES ('size-limit', 1, '{\"hard\":\"big\"}', 1)"
@@ -177,22 +174,22 @@ describe("Plugin configuration", () => {
   });
 
   it("updates and resets over HTTP with the same request guards as writes", async () => {
-    const jwt = await token();
+    const user = await signIn();
     const body = JSON.stringify({
       config: { hard: 40, soft: 20 },
       enabled: true,
       updatedAt: null,
     });
     const statuses = await Promise.all([
-      send("PUT", "size-limit", jwt, body, { "Content-Type": "text/plain" }),
-      send("PUT", "size-limit", jwt, body, { Origin: "https://evil.test" }),
-      send("PUT", "size-limit", jwt, '{"enabled":true}'),
-      send("PUT", "missing", jwt, body),
+      send("PUT", "size-limit", user, body, { "Content-Type": "text/plain" }),
+      send("PUT", "size-limit", user, body, { Origin: "https://evil.test" }),
+      send("PUT", "size-limit", user, '{"enabled":true}'),
+      send("PUT", "missing", user, body),
     ]).then((responses) => responses.map((response) => response.status));
-    const saved = await send("PUT", "size-limit", jwt, body);
-    const [custom] = await getPlugins(jwt);
-    const reset = await send("DELETE", "size-limit", jwt);
-    const [restored] = await getPlugins(jwt);
+    const saved = await send("PUT", "size-limit", user, body);
+    const [custom] = await getPlugins(user);
+    const reset = await send("DELETE", "size-limit", user);
+    const [restored] = await getPlugins(user);
     expect({
       custom: custom?.status,
       reset: reset.status,
