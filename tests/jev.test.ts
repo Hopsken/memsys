@@ -42,7 +42,10 @@ type Run = Ctx<Json>["ai"]["run"];
 
 const malformed = () => Promise.resolve({ answers: { f2: { noul: "yes" } } });
 
-const hook = (run: Run, rows: RecallItem[], config = jev.defaults.config) => {
+// Most cases exercise association gating; defaults also judge cue matches.
+const ASSOCIATIONS = { matches: false, strictness: "medium" } as const;
+
+const hook = (run: Run, rows: RecallItem[], config: Json = ASSOCIATIONS) => {
   if (!jev.afterRecall) {
     throw new Error("jev has no afterRecall hook");
   }
@@ -53,7 +56,7 @@ const hook = (run: Run, rows: RecallItem[], config = jev.defaults.config) => {
   );
 };
 
-const gate = (run: Run, config = jev.defaults.config) =>
+const gate = (run: Run, config: Json = ASSOCIATIONS) =>
   hook(run, items, config);
 
 const refs = (rows: RecallItem[]) => rows.map((row) => row.ref);
@@ -100,12 +103,12 @@ describe("jev plugin", () => {
     await expect(gate(run).then(refs)).resolves.toStrictEqual(["f7", "f2"]);
   });
 
-  it("gates cue matches when configured", async () => {
+  it("gates cue matches by default", async () => {
     const run = vi.fn<Run>(() =>
       Promise.resolve(noul({ f2: 0.6, f7: 0.2, f8: 0.4, fx: 0.8 }))
     );
     await expect(
-      gate(run, { matches: true, strictness: "medium" }).then(refs)
+      gate(run, jev.defaults.config).then(refs)
     ).resolves.toStrictEqual(["f2", "f8", "fx"]);
   });
 

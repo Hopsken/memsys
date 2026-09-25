@@ -94,7 +94,7 @@ describe("Plugin configuration", () => {
         tools: [],
       },
       {
-        config: { matches: false, strictness: "medium" },
+        config: { matches: true, strictness: "medium" },
         name: "jev",
         properties: ["matches", "strictness"],
         status: "default",
