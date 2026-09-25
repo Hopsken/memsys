@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { api, failure, isExpired } from "@/lib/api";
 
 import { formatRelativeDate } from "../lib/date";
+import { PanelHeader } from "./settings";
 
 // MCP tokens are Better Auth API keys; the list never includes the secret.
 interface Token {
@@ -221,14 +222,11 @@ export const TokensView = () => {
 
   return (
     <section aria-busy={query.isFetching} aria-label="MCP tokens">
-      <div className="mb-6 space-y-1">
-        <h2 className="text-lg font-medium">MCP tokens</h2>
-        <p className="text-muted-foreground text-sm">
-          Agents connect to <code className="font-mono">{mcpUrl()}</code> with a
-          token as a bearer header. A token can use memory tools, but cannot
-          change plugin settings or manage tokens.
-        </p>
-      </div>
+      <PanelHeader title="MCP tokens">
+        Agents connect to <code className="font-mono">{mcpUrl()}</code> with a
+        token as a bearer header. A token can use memory tools, but cannot
+        change plugin settings or manage tokens.
+      </PanelHeader>
 
       {secret ? (
         <NewToken onDone={() => setSecret(null)} secret={secret} />
@@ -299,7 +297,7 @@ export const TokensView = () => {
             aria-hidden="true"
             className="text-muted-foreground mx-auto mb-4 size-6"
           />
-          <h3 className="font-medium">No tokens yet</h3>
+          <h4 className="font-medium">No tokens yet</h4>
           <p className="text-muted-foreground mt-2 text-sm">
             Create one for each agent or device you connect.
           </p>

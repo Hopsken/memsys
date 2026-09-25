@@ -1,6 +1,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
 import { ArrowDown, Layers } from "lucide-react";
+import { Link } from "react-router";
 
 import { SessionExpired } from "@/components/session-expired";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -10,7 +11,9 @@ import { api, isExpired } from "@/lib/api";
 
 import type { Fragment, FragmentPage } from "../contract/memory";
 import { formatRelativeDate } from "../lib/date";
-import { Transfer } from "./transfer";
+
+const linkClass =
+  "text-foreground underline underline-offset-4 hover:text-foreground/80";
 
 // A fragment revised between page loads can appear twice; keep its latest copy.
 const flatten = (pages: FragmentPage[]) => {
@@ -49,7 +52,6 @@ export const FragmentsView = () => {
 
   return (
     <>
-      <Transfer />
       {query.isError ? (
         <Alert className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <AlertDescription className="text-foreground">
@@ -89,8 +91,15 @@ export const FragmentsView = () => {
             />
             <h2 className="font-medium">No fragments yet</h2>
             <p className="text-muted-foreground mt-2 text-sm">
-              Save a memory through your connected agent, or import an export
-              file, to see it here.
+              Save a memory through a{" "}
+              <Link className={linkClass} to="/settings/mcp">
+                connected agent
+              </Link>
+              , or{" "}
+              <Link className={linkClass} to="/settings/data">
+                import an export file
+              </Link>
+              , to see it here.
             </p>
           </div>
         ) : null}
