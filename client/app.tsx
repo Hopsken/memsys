@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "cn";
-import { Layers, LogOut, SlidersHorizontal } from "lucide-react";
+import { KeyRound, Layers, LogOut, SlidersHorizontal } from "lucide-react";
 import { Navigate, NavLink, Outlet, useNavigate } from "react-router";
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -45,6 +45,14 @@ export const App = () => {
               to="/plugins"
             >
               <SlidersHorizontal aria-hidden="true" />
+            </NavLink>
+            <NavLink
+              aria-label="MCP tokens"
+              className={navClass}
+              title="MCP tokens"
+              to="/tokens"
+            >
+              <KeyRound aria-hidden="true" />
             </NavLink>
             <Button
               aria-label="Sign out"
