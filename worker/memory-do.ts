@@ -5,13 +5,19 @@ import { migrate } from "drizzle-orm/durable-sqlite/migrator";
 import { customAlphabet } from "nanoid";
 import { z } from "zod";
 
-import type { Fragment, RecallResult } from "../contract/memory";
+import type {
+  Fragment,
+  FragmentExport,
+  ImportResult,
+  RecallResult,
+} from "../contract/memory";
 import type { PluginView, Verdict } from "../contract/plugin";
 import migrations from "../migrations/migrations.js";
 import { plugins } from "../plugins";
 import { fragments, pluginConfig } from "./db/schema";
 import type { SeedFragment } from "./dev/corpus";
 import {
+  importInput,
   inputs,
   listFragments,
   recallCandidates,
@@ -35,16 +41,35 @@ assertRegistry(plugins);
 
 const newRef = customAlphabet(REF_ALPHABET, REF_LENGTH);
 
+const freshRef = (taken: { has: (ref: string) => boolean }) => {
+  let ref = newRef();
+  while (taken.has(ref)) {
+    ref = newRef();
+  }
+  return ref;
+};
+
 type ToolInput = z.input<z.ZodObject>;
 
 export type WriteResult =
   | (Fragment & { warnings?: string[] })
   | { error: string };
 
-type PluginResponse =
-  | PluginView
-  | PluginView[]
-  | { error: string; issues?: { path: string[]; message: string }[] };
+interface Problem {
+  error: string;
+  issues: { path: string[]; message: string }[];
+}
+
+type PluginResponse = PluginView | PluginView[] | Problem | { error: string };
+
+// Validation failures in the shape the client attaches to fields.
+const problem = (error: z.ZodError): Problem => ({
+  error: z.prettifyError(error),
+  issues: error.issues.map(({ message, path }) => ({
+    message,
+    path: path.map(String),
+  })),
+});
 
 const json = (body: PluginResponse, init?: ResponseInit) =>
   Response.json(body, {
@@ -141,10 +166,7 @@ export class MemoryDO extends DurableObject<Env> {
     if (rejected) {
       return rejected;
     }
-    let ref = newRef();
-    while (this.corpus.has(ref)) {
-      ref = newRef();
-    }
+    const ref = freshRef(this.corpus);
     const now = Date.now();
     const item = {
       createdAt: new Date(now).toISOString(),
@@ -175,6 +197,74 @@ export class MemoryDO extends DurableObject<Env> {
 
   list(input: { cursor?: string }) {
     return listFragments(this.corpus.values(), input);
+  }
+
+  exportFragments(): FragmentExport {
+    return {
+      exportedAt: new Date().toISOString(),
+      format: "memsys.fragments",
+      fragments: [...this.corpus.values()].toSorted(
+        (a, b) =>
+          a.createdAt.localeCompare(b.createdAt) || a.ref.localeCompare(b.ref)
+      ),
+      version: 1,
+    };
+  }
+
+  // A user migrating memory, not an agent writing: core validation only, no
+  // write hooks, so fragments the old instance accepted are not re-judged.
+  // Merge only; existing fragments are never changed. All or nothing.
+  importFragments(raw: z.input<typeof importInput>): ImportResult | Problem {
+    const parsed = importInput.safeParse(raw);
+    if (!parsed.success) {
+      return problem(parsed.error);
+    }
+    const items = parsed.data.fragments;
+    const taken = new Set([
+      ...this.corpus.keys(),
+      ...items.flatMap(({ ref }) => (ref ? [ref] : [])),
+    ]);
+    const texts = new Set(
+      [...this.corpus.values()].map(({ fragment }) => fragment)
+    );
+    const now = Date.now();
+    const rows: (typeof fragments.$inferInsert)[] = [];
+    const conflicts: string[] = [];
+    let skipped = 0;
+    for (const { createdAt, fragment, ref, updatedAt } of items) {
+      const existing = ref ? this.corpus.get(ref) : undefined;
+      if (ref && existing && existing.fragment !== fragment) {
+        conflicts.push(ref);
+        continue;
+      }
+      if (existing || texts.has(fragment)) {
+        skipped += 1;
+        continue;
+      }
+      texts.add(fragment);
+      const id = ref ?? freshRef(taken);
+      taken.add(id);
+      rows.push({
+        content: fragment,
+        createdAt: createdAt ?? updatedAt ?? now,
+        id,
+        updatedAt: updatedAt ?? createdAt ?? now,
+      });
+    }
+    this.ctx.storage.transactionSync(() => {
+      for (const row of rows) {
+        this.db.insert(fragments).values(row).run();
+      }
+    });
+    for (const row of rows) {
+      this.corpus.set(row.id, {
+        createdAt: new Date(row.createdAt).toISOString(),
+        fragment: row.content,
+        ref: row.id,
+        updatedAt: new Date(row.updatedAt).toISOString(),
+      });
+    }
+    return { conflicts, imported: rows.length, skipped };
   }
 
   async revise(
@@ -267,16 +357,7 @@ export class MemoryDO extends DurableObject<Env> {
     }
     const parsed = state.plugin.config.safeParse(update.config);
     if (!parsed.success) {
-      return json(
-        {
-          error: z.prettifyError(parsed.error),
-          issues: parsed.error.issues.map(({ message, path }) => ({
-            message,
-            path: path.map(String),
-          })),
-        },
-        { status: 422 }
-      );
+      return json(problem(parsed.error), { status: 422 });
     }
     const row = {
       config: parsed.data,

@@ -8,7 +8,13 @@ import { list, post, useAccess } from "./helpers";
 describe("HTTP request safety", () => {
   const token = useAccess();
 
-  it.each(["/api/remember", "/api/revise", "/api/forget", "/mcp"] as const)(
+  it.each([
+    "/api/remember",
+    "/api/revise",
+    "/api/forget",
+    "/api/import",
+    "/mcp",
+  ] as const)(
     "blocks cross-origin writes to %s without changing memory",
     async (path) => {
       const jwt = await token();
@@ -20,6 +26,11 @@ describe("HTTP request safety", () => {
       const item = await saved.json<Fragment>();
       const bodies = {
         "/api/forget": { ref: item.ref },
+        "/api/import": {
+          format: "memsys.fragments",
+          fragments: [{ fragment: "Injected memory" }],
+          version: 1,
+        },
         "/api/remember": { fragment: "Injected memory" },
         "/api/revise": { fragment: "Injected memory", ref: item.ref },
         "/mcp": {

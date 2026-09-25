@@ -12,6 +12,8 @@ To connect the deployed server, follow [Use memsys in ChatGPT](docs/chatgpt.md).
 
 Open `/` to browse your fragments and `/plugins` to configure plugins for your memory. Fragments are created, revised, and deleted through your connected agent.
 
+To move memory to another instance, use **Export** on `/` to download every fragment as JSON (`GET /api/export`), then **Import** that file on the other instance (`POST /api/import`, up to 5 MB). Import keeps each fragment's ref, text, and timestamps. It only adds: a fragment whose ref or text is already in memory is skipped, and a ref that holds different text is reported and left unchanged. Only `fragment` is required per item, so files from other systems can be converted into the same shape. Import runs core validation but not plugin write checks, and stores nothing if any item is invalid. Neither operation is available over MCP.
+
 The app uses Vite, React, Tailwind CSS 4, and shadcn/ui in `client/`. Hono, authentication, MCP, and the Durable Object live in `worker/`. The Cloudflare Vite plugin serves both from one origin. Cloudflare Access protects the whole hostname; the browser sends same-origin requests without storing tokens.
 
 ## How it works

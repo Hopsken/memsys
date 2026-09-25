@@ -27,3 +27,18 @@ export interface FragmentPage {
   fragments: Fragment[];
   nextCursor: string | null;
 }
+
+// A whole memory as a file, for moving it between instances.
+export interface FragmentExport {
+  format: "memsys.fragments";
+  version: 1;
+  exportedAt: string;
+  fragments: Fragment[];
+}
+
+// `conflicts` lists refs that already hold different text; they were not changed.
+export interface ImportResult {
+  conflicts: string[];
+  imported: number;
+  skipped: number;
+}

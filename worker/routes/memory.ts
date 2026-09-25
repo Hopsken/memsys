@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import type { AppEnv } from "../auth";
 import { inputs, listInput } from "../memory";
 
-// The four memory operations plus paging, mounted at /api.
+// The four memory operations plus paging and migration, mounted at /api.
 export const memory = new Hono<AppEnv>()
   .get("/fragments", async (c) => {
     c.header("Cache-Control", "no-store");
@@ -33,6 +33,19 @@ export const memory = new Hono<AppEnv>()
     if (!result) {
       return c.json({ error: "Fragment not found" }, 404);
     }
+    return "error" in result ? c.json(result, 422) : c.json(result);
+  })
+  .get("/export", async (c) => {
+    const file = await c.get("memory").exportFragments();
+    // Indented so a person can read and edit the file.
+    return c.body(`${JSON.stringify(file, null, 2)}\n`, 200, {
+      "Cache-Control": "no-store",
+      "Content-Disposition": `attachment; filename="memsys-${file.exportedAt.slice(0, 10)}.json"`,
+      "Content-Type": "application/json; charset=utf-8",
+    });
+  })
+  .post("/import", async (c) => {
+    const result = await c.get("memory").importFragments(await c.req.json());
     return "error" in result ? c.json(result, 422) : c.json(result);
   })
   .post("/forget", async (c) => {

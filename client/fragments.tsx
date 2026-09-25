@@ -10,6 +10,7 @@ import { api, isExpired } from "@/lib/api";
 
 import type { Fragment, FragmentPage } from "../contract/memory";
 import { formatRelativeDate } from "../lib/date";
+import { Transfer } from "./transfer";
 
 // A fragment revised between page loads can appear twice; keep its latest copy.
 const flatten = (pages: FragmentPage[]) => {
@@ -48,6 +49,7 @@ export const FragmentsView = () => {
 
   return (
     <>
+      <Transfer />
       {query.isError ? (
         <Alert className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <AlertDescription className="text-foreground">
@@ -87,7 +89,8 @@ export const FragmentsView = () => {
             />
             <h2 className="font-medium">No fragments yet</h2>
             <p className="text-muted-foreground mt-2 text-sm">
-              Save a memory through your connected agent to see it here.
+              Save a memory through your connected agent, or import an export
+              file, to see it here.
             </p>
           </div>
         ) : null}

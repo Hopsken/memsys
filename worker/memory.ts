@@ -71,6 +71,53 @@ export const inputs = {
   revise: z.object({ fragment, ref }).strict(),
 };
 
+// Epoch milliseconds, the storage format; any ISO offset is accepted.
+const timestamp = z.iso
+  .datetime({ offset: true })
+  .transform((value) => Date.parse(value));
+
+// Only the text is required, so files from other systems can be imported;
+// missing refs and times are filled in at import.
+export const importInput = z.object({
+  format: z.literal("memsys.fragments"),
+  fragments: z
+    .array(
+      z
+        .object({
+          createdAt: timestamp.optional(),
+          fragment,
+          ref: ref.optional(),
+          updatedAt: timestamp.optional(),
+        })
+        .refine(
+          ({ createdAt, updatedAt }) =>
+            createdAt === undefined ||
+            updatedAt === undefined ||
+            createdAt <= updatedAt,
+          {
+            message: "createdAt must not be after updatedAt",
+            path: ["updatedAt"],
+          }
+        )
+    )
+    .superRefine((items, ctx) => {
+      const seen = new Set<string>();
+      for (const [index, { ref: value }] of items.entries()) {
+        if (value !== undefined && seen.has(value)) {
+          ctx.addIssue({
+            code: "custom",
+            message: `Duplicate ref ${value}`,
+            path: [index, "ref"],
+          });
+        }
+        if (value !== undefined) {
+          seen.add(value);
+        }
+      }
+    }),
+  version: z.literal(1),
+});
+
 export const listFragments = (
   corpus: Iterable<Fragment>,
   input: { cursor?: string }
