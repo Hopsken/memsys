@@ -72,7 +72,7 @@ Four tools, the minimal complete operation set of a memory: write, change, forge
 ### Kinds
 
 - **Policy plugins** fill hooks. They reorder or subset recall results, and warn on or reject writes.
-- **Tool plugins** add agent-visible tools.
+- **Tool plugins** add agent-visible tools. A tool marked `readOnlyHint` is shown to agents granted `memory:read`; any other tool needs `memory:write`.
 
 A plugin may do both. Plugins are a compile-time registry: no dynamic loading, no inter-plugin dependency, no lifecycle, no event bus. The types are in `contract/plugin.ts`; hooks are added when a plugin first needs one.
 

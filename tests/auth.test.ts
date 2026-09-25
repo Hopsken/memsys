@@ -38,8 +38,8 @@ describe("Authentication", () => {
     ).resolves.toMatchObject({ status: 401 });
     const missing = await tools({});
     expect(missing.status).toBe(401);
-    expect(missing.headers.get("WWW-Authenticate")).toBe(
-      'Bearer realm="memsys"'
+    expect(missing.headers.get("WWW-Authenticate")).toContain(
+      "resource_metadata="
     );
     await expect(
       tools({ Authorization: "Bearer memsys_forged" })
@@ -97,7 +97,7 @@ describe("Authentication", () => {
     });
   });
 
-  it("keeps MCP tokens to /mcp and sessions to the web UI", async () => {
+  it("keeps API keys to /mcp and sessions to the web UI", async () => {
     const user = await signIn();
     const asToken = [
       { Authorization: `Bearer ${user.token}` },
@@ -137,7 +137,7 @@ describe("Authentication", () => {
     });
   });
 
-  it("lists tokens without secrets and revokes them immediately", async () => {
+  it("lists API keys without secrets and revokes them immediately", async () => {
     const user = await signIn();
     const extra = await createToken(user, "laptop");
     const bearer = async (key: string) => {

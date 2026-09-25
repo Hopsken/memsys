@@ -3,6 +3,8 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 import type { RecallResult } from "../contract/memory";
 import { plugins } from "../plugins";
+import { MEMORY_READ, MEMORY_WRITE } from "./auth";
+import type { Scope } from "./auth";
 import { inputs } from "./memory";
 import type { MemoryDO, WriteResult } from "./memory-do";
 
@@ -23,7 +25,14 @@ const result = (
   return { content: [{ text: JSON.stringify(value), type: "text" }] };
 };
 
-export const createMcpServer = async (memory: DurableObjectStub<MemoryDO>) => {
+// Tools follow the caller's scopes: read-only tools need memory:read, the
+// rest memory:write. A caller never sees a tool it cannot use.
+export const createMcpServer = async (
+  memory: DurableObjectStub<MemoryDO>,
+  scopes: ReadonlySet<Scope>
+) => {
+  const canRead = scopes.has(MEMORY_READ);
+  const canWrite = scopes.has(MEMORY_WRITE);
   const server = new McpServer(
     { name: "memsys", version: "0.1.0" },
     {
@@ -36,48 +45,55 @@ Use #anchors for stable entities or concepts that should link related fragments.
 Recall with short textual cues such as distinctive phrases, names, projects, or concepts. Try multiple cues when needed.`,
     }
   );
-  server.registerTool(
-    "remember",
-    {
-      description:
-        "Store one durable, independently recallable memory fragment. Keep it atomic, self-contained, and concise. Split multiple ideas into separate fragments. Use #anchors to link related memories.",
-      inputSchema: inputs.remember,
-    },
-    async (input) => result(await memory.remember(input))
-  );
-  server.registerTool(
-    "recall",
-    {
-      annotations: { readOnlyHint: true },
-      description:
-        "Recall memories using a short textual cue. Prefer distinctive phrases, entities, or concepts. Fragments matching the cue come first; fragments with `via` were associated through the listed shared #anchors.",
-      inputSchema: inputs.recall,
-    },
-    async (input) => result(await memory.recall(input))
-  );
-  server.registerTool(
-    "revise",
-    {
-      description:
-        "Replace the full text of a known memory when its information has changed or needs correction. Keep the replacement atomic and self-contained.",
-      inputSchema: inputs.revise,
-    },
-    async (input) => result(await memory.revise(input))
-  );
-  server.registerTool(
-    "forget",
-    {
-      annotations: { destructiveHint: true },
-      description:
-        "Delete a known memory that is obsolete, incorrect, duplicated, or explicitly requested to be forgotten.",
-      inputSchema: inputs.forget,
-    },
-    async (input) => result(await memory.forget(input))
-  );
-  // Tool plugins enabled for this instance; core tools above are always present.
+  if (canWrite) {
+    server.registerTool(
+      "remember",
+      {
+        description:
+          "Store one durable, independently recallable memory fragment. Keep it atomic, self-contained, and concise. Split multiple ideas into separate fragments. Use #anchors to link related memories.",
+        inputSchema: inputs.remember,
+      },
+      async (input) => result(await memory.remember(input))
+    );
+  }
+  if (canRead) {
+    server.registerTool(
+      "recall",
+      {
+        annotations: { readOnlyHint: true },
+        description:
+          "Recall memories using a short textual cue. Prefer distinctive phrases, entities, or concepts. Fragments matching the cue come first; fragments with `via` were associated through the listed shared #anchors.",
+        inputSchema: inputs.recall,
+      },
+      async (input) => result(await memory.recall(input))
+    );
+  }
+  if (canWrite) {
+    server.registerTool(
+      "revise",
+      {
+        description:
+          "Replace the full text of a known memory when its information has changed or needs correction. Keep the replacement atomic and self-contained.",
+        inputSchema: inputs.revise,
+      },
+      async (input) => result(await memory.revise(input))
+    );
+    server.registerTool(
+      "forget",
+      {
+        annotations: { destructiveHint: true },
+        description:
+          "Delete a known memory that is obsolete, incorrect, duplicated, or explicitly requested to be forgotten.",
+        inputSchema: inputs.forget,
+      },
+      async (input) => result(await memory.forget(input))
+    );
+  }
+  // Tool plugins enabled for this instance, within the caller's scopes.
   const enabled = new Set(await memory.enabledTools());
   for (const tool of plugins.flatMap((plugin) => plugin.tools ?? [])) {
-    if (enabled.has(tool.name)) {
+    const allowed = tool.annotations?.readOnlyHint ? canRead : canWrite;
+    if (allowed && enabled.has(tool.name)) {
       server.registerTool(
         tool.name,
         {
