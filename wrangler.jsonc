@@ -37,6 +37,16 @@
     "binding": "AI",
     "remote": true,
   },
+  // The Worker's database: accounts, sessions, and MCP tokens. Create it with
+  // `wrangler d1 create memsys` and add its `database_id` before deploying.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "memsys",
+      "migrations_dir": "migrations",
+      "migrations_pattern": "migrations/*/migration.sql",
+    },
+  ],
   "durable_objects": {
     "bindings": [
       {
