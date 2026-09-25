@@ -6,5 +6,7 @@ export default defineConfig({
   ignorePatterns: [
     "**/migrations/*/snapshot.json",
     "worker-configuration.d.ts",
+    // Written by `pnpm eval`.
+    "eval/results.md",
   ],
 });

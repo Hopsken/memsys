@@ -10,6 +10,7 @@
     "db:seed": "curl -fsS -X POST -H 'Content-Type: application/json' -d '{}' \"${SEED_URL:-http://localhost:5173}/api/dev/seed\" && echo",
     "deploy": "pnpm build && wrangler deploy",
     "dev": "vite dev",
+    "eval": "vitest run --config eval/vitest.config.ts",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "lint": "oxlint .",
