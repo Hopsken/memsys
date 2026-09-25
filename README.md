@@ -4,15 +4,15 @@ A tiny associative memory system for agents. Fragments are plain text; shared ha
 
 Store one durable idea per fragment. Recall starts from a textual cue and follows explicit anchors, not inferred relationships. Fragments are the source of truth; tags and associations are derived. Vector search, automatic summaries, and memory reinforcement are outside the current scope.
 
-To connect an agent, sign in to the web UI, create an MCP token under **MCP tokens**, and add the server with that token (see [Sign-in and MCP tokens](#sign-in-and-mcp-tokens)).
+To connect an agent, sign in to the web UI, create an MCP token under **Settings → MCP**, and add the server with that token (see [Sign-in and MCP tokens](#sign-in-and-mcp-tokens)).
 
 [Project Vision](docs/VISION.md) [Architecture](docs/Architecture.md)
 
 ## Web UI
 
-Sign in at `/login` with a one-time code sent to your email. Open `/` to browse your fragments, `/plugins` to configure plugins for your memory, and `/tokens` to manage MCP tokens. Fragments are created, revised, and deleted through your connected agent.
+Sign in at `/login` with a one-time code sent to your email. Open `/` to browse your fragments. **Settings** (`/settings`) has a tab each for MCP tokens, plugins, import and export, and your account. Fragments are created, revised, and deleted through your connected agent.
 
-To move memory to another instance, use **Export** on `/` to download every fragment as JSON (`GET /api/export`), then **Import** that file on the other instance (`POST /api/import`, up to 5 MB). Import keeps each fragment's ref, text, and timestamps. It only adds: a fragment whose ref or text is already in memory is skipped, and a ref that holds different text is reported and left unchanged. Only `fragment` is required per item, so files from other systems can be converted into the same shape. Import runs core validation but not plugin write checks, and stores nothing if any item is invalid. Neither operation is available over MCP.
+To move memory to another instance, use **Export** under **Settings → Data** to download every fragment as JSON (`GET /api/export`), then **Import** that file on the other instance (`POST /api/import`, up to 5 MB). Import keeps each fragment's ref, text, and timestamps. It only adds: a fragment whose ref or text is already in memory is skipped, and a ref that holds different text is reported and left unchanged. Only `fragment` is required per item, so files from other systems can be converted into the same shape. Import runs core validation but not plugin write checks, and stores nothing if any item is invalid. Neither operation is available over MCP.
 
 The app uses Vite, React, Tailwind CSS 4, and shadcn/ui in `client/`. Hono, authentication, MCP, and the Durable Object live in `worker/`. The Cloudflare Vite plugin serves both from one origin. The browser keeps its session in an HTTP-only cookie and sends same-origin requests.
 
@@ -80,7 +80,7 @@ Before the first deployment:
 
 ### Keeping memory from the Access deployment
 
-Earlier versions named memory objects after the Cloudflare Access identity, so a new user starts with empty memory. To keep it, **Export** on `/` before deploying this version, then **Import** the file after signing in. That moves fragments only; set plugins again on `/plugins`.
+Earlier versions named memory objects after the Cloudflare Access identity, so a new user starts with empty memory. To keep it, **Export** under **Settings → Data** before deploying this version, then **Import** the file after signing in. That moves fragments only; set plugins again under **Settings → Plugins**.
 
 ## Development and checks
 

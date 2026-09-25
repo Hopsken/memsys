@@ -1,6 +1,6 @@
 # Plugins
 
-Each plugin is one file in `plugins/`, registered in `plugins/index.ts`. Registry order is the order recall hooks run in. Settings are edited per instance on the Plugins page. How plugins fit the system is in [Architecture](../Architecture.md).
+Each plugin is one file in `plugins/`, registered in `plugins/index.ts`. Registry order is the order recall hooks run in. Settings are edited per instance under **Settings → Plugins** in the web UI. How plugins fit the system is in [Architecture](../Architecture.md).
 
 | Plugin | Kind | Default | Doc |
 | --- | --- | --- | --- |

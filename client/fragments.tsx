@@ -1,6 +1,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
 import { ArrowDown, Layers } from "lucide-react";
+import { Link } from "react-router";
 
 import { SessionExpired } from "@/components/session-expired";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -10,7 +11,9 @@ import { api, isExpired } from "@/lib/api";
 
 import type { Fragment, FragmentPage } from "../contract/memory";
 import { formatRelativeDate } from "../lib/date";
-import { Transfer } from "./transfer";
+
+const linkClass =
+  "text-foreground underline underline-offset-4 hover:text-foreground/80";
 
 // A fragment revised between page loads can appear twice; keep its latest copy.
 const flatten = (pages: FragmentPage[]) => {
@@ -49,11 +52,10 @@ export const FragmentsView = () => {
 
   return (
     <>
-      <Transfer />
       {query.isError ? (
         <Alert className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <AlertDescription className="text-foreground">
-            Could not load memory.
+            Couldn’t load your memories.
           </AlertDescription>
           <Button
             onClick={() => {
@@ -69,10 +71,10 @@ export const FragmentsView = () => {
         </Alert>
       ) : null}
 
-      <section aria-busy={query.isFetching} aria-label="Fragments">
+      <section aria-busy={query.isFetching} aria-label="Memories">
         {query.isPending ? (
           <div className="divide-y" role="status">
-            <span className="sr-only">Loading memory</span>
+            <span className="sr-only">Loading memories</span>
             {[1, 2, 3].map((key) => (
               <div className="space-y-2 py-3.5" key={key}>
                 <Skeleton className="h-3 w-24" />
@@ -87,10 +89,17 @@ export const FragmentsView = () => {
               aria-hidden="true"
               className="text-muted-foreground mx-auto mb-4 size-6"
             />
-            <h2 className="font-medium">No fragments yet</h2>
+            <h2 className="font-medium">No memories yet</h2>
             <p className="text-muted-foreground mt-2 text-sm">
-              Save a memory through your connected agent, or import an export
-              file, to see it here.
+              What your AI saves shows up here.{" "}
+              <Link className={linkClass} to="/settings/mcp">
+                Connect an AI tool
+              </Link>{" "}
+              to get started, or{" "}
+              <Link className={linkClass} to="/settings/data">
+                import memories
+              </Link>
+              .
             </p>
           </div>
         ) : null}

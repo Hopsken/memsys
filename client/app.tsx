@@ -1,9 +1,8 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "cn";
-import { KeyRound, Layers, LogOut, SlidersHorizontal } from "lucide-react";
-import { Navigate, NavLink, Outlet, useNavigate } from "react-router";
+import { Layers, Settings } from "lucide-react";
+import { Navigate, NavLink, Outlet } from "react-router";
 
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { authClient } from "@/lib/auth";
 
 const navClass = cn(
@@ -13,8 +12,6 @@ const navClass = cn(
 
 export const App = () => {
   const session = authClient.useSession();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   if (session.isPending) {
     return null;
@@ -37,37 +34,15 @@ export const App = () => {
               memsys
             </NavLink>
           </h1>
-          <nav className="flex items-center gap-1">
+          <nav>
             <NavLink
-              aria-label="Plugins"
+              aria-label="Settings"
               className={navClass}
-              title="Plugins"
-              to="/plugins"
+              title="Settings"
+              to="/settings"
             >
-              <SlidersHorizontal aria-hidden="true" />
+              <Settings aria-hidden="true" />
             </NavLink>
-            <NavLink
-              aria-label="MCP tokens"
-              className={navClass}
-              title="MCP tokens"
-              to="/tokens"
-            >
-              <KeyRound aria-hidden="true" />
-            </NavLink>
-            <Button
-              aria-label="Sign out"
-              className="text-muted-foreground"
-              onClick={async () => {
-                await authClient.signOut();
-                queryClient.clear();
-                await navigate("/login", { replace: true });
-              }}
-              size="icon"
-              title={`Sign out ${session.data.user.email}`}
-              variant="ghost"
-            >
-              <LogOut aria-hidden="true" />
-            </Button>
           </nav>
         </div>
       </header>
