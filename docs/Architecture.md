@@ -8,7 +8,7 @@ A change that only moves a number or adds a plugin should not need an edit here.
 
 - **fragment** — one short, atomic, self-contained text; the unit of memory.
 - **anchor / tag** — a `#word` inside fragment text; extracted, never stored.
-- **recalled** — fragments whose text contains the cue.
+- **recalled** — fragments that match the cue's words.
 - **associated** — fragments sharing an anchor with a recalled fragment.
 - **hub** — an anchor on a large share of the corpus; connects everything, discriminates nothing.
 - **instance** — one user's memory: fragments plus configuration.

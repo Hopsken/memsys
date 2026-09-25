@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "../contract/memory";
 import { extractAnchors, recall } from "../worker/memory";
+import { terms } from "../worker/search";
 
 const item = (ref: string, fragment: string, day = "01"): Fragment => ({
   createdAt: "2026-01-01T00:00:00.000Z",
@@ -12,6 +13,9 @@ const item = (ref: string, fragment: string, day = "01"): Fragment => ({
 
 const associated = (corpus: Fragment[], cue: string) =>
   recall(corpus, { cue }).fragments.filter((row) => row.via);
+
+const matched = (corpus: Fragment[], cue: string) =>
+  recall(corpus, { associate: false, cue }).fragments.map((row) => row.ref);
 
 describe("Recall", () => {
   it("extracts normalized anchors without treating URLs or headings as tags", () => {
@@ -29,7 +33,7 @@ describe("Recall", () => {
     ]);
   });
 
-  it("uses phrase matching and one-hop associations without duplicate results", () => {
+  it("matches cue words and follows one hop of associations without duplicate results", () => {
     const corpus = [
       item("a", "Durable\n  Objects #Project/A #shared"),
       item("b", "Related #project/a #shared #next"),
@@ -38,7 +42,11 @@ describe("Recall", () => {
       item("e", "Objects are durable #unrelated"),
     ];
     expect(recall(corpus, { cue: " DURABLE objects " })).toStrictEqual({
-      fragments: [corpus[0], { ...corpus[1], via: ["project/a", "shared"] }],
+      fragments: [
+        corpus[0],
+        corpus[4],
+        { ...corpus[1], via: ["project/a", "shared"] },
+      ],
       hasMore: false,
     });
     expect(recall(corpus, { cue: "absent" })).toStrictEqual({
@@ -63,11 +71,68 @@ describe("Recall", () => {
       ...corpus[0],
       via: ["programming", "relational"],
     });
-    expect(recall(corpus, { cue: "#programming" }).fragments).toStrictEqual([
-      corpus[0],
-      { ...corpus[1], via: ["program", "programs", "relation"] },
+  });
+
+  it("tokenizes words and anchor parts, dropping possessives and stopwords", () => {
+    expect(
+      terms("The DOs got evicted; D1's #Durable-Objects in integrity_check")
+    ).toStrictEqual([
+      "dos",
+      "got",
+      "evict",
+      "d1",
+      "durabl",
+      "object",
+      "integrity_check",
     ]);
-    expect(recall(corpus, { cue: "relations" }).fragments).toStrictEqual([]);
+    expect(terms("the of and")).toStrictEqual([]);
+  });
+
+  it("matches every cue word in any order or inflection", () => {
+    const corpus = [
+      item("a", "D1's primary region is in US West #d1"),
+      item("b", "Evicted objects rebuild from SQLite"),
+      item("c", "Region only"),
+    ];
+    expect(matched(corpus, "d1 region")).toStrictEqual(["a"]);
+    expect(matched(corpus, "eviction object")).toStrictEqual(["b"]);
+    expect(matched(corpus, "west region D1")).toStrictEqual(["a"]);
+  });
+
+  it("lets a cue of three or more words miss one word, and no more", () => {
+    const corpus = [item("a", "Vite dev server returns 403")];
+    expect(matched(corpus, "vite 403 error")).toStrictEqual(["a"]);
+    expect(matched(corpus, "vite error")).toStrictEqual([]);
+    expect(matched(corpus, "vite bug error")).toStrictEqual([]);
+  });
+
+  it("ranks phrase matches first, then by words matched, then by BM25", () => {
+    expect(
+      matched(
+        [
+          item("words", "server dev vite", "03"),
+          item("phrase", "vite dev server", "01"),
+          item("partial", "vite server", "02"),
+        ],
+        "vite dev server"
+      )
+    ).toStrictEqual(["phrase", "words", "partial"]);
+    // gamma is rarer than beta, so it weighs more.
+    expect(
+      matched(
+        [
+          item("common", "alpha beta", "02"),
+          item("rare", "alpha gamma", "01"),
+          ...["x", "y", "z"].map((ref) => item(ref, "beta")),
+        ],
+        "alpha beta gamma"
+      )
+    ).toStrictEqual(["rare", "common"]);
+  });
+
+  it("falls back to phrase matching when the cue has only stopwords", () => {
+    const corpus = [item("a", "To be or not to be"), item("b", "Or else")];
+    expect(matched(corpus, "to be")).toStrictEqual(["a"]);
   });
 
   it.each([

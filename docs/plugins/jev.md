@@ -6,7 +6,7 @@ Asks [Jev](https://developers.cloudflare.com/ai/models/typesafe/jev/), a small j
 
 | Setting | Default | Effect |
 | --- | --- | --- |
-| Check direct matches (`matches`) | off | Also judge fragments that contain the cue. Off judges associations only. |
+| Check direct matches (`matches`) | on | Also judge fragments that match the cue. Off judges associations only. |
 | Strictness (`strictness`) | medium | How much to hide: `low` 0.1, `medium` 0.3, `high` 0.5, `max` 0.7. A fragment is hidden when Jev's probability that it helps falls below the level. |
 
 On real recalls, misses scored about 0.15 or lower and hits about 0.9, which is where the levels come from. Configs saved with the earlier numeric `threshold` still load, as `medium`.

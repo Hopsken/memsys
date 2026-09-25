@@ -10,6 +10,7 @@ import type {
 } from "../contract/memory";
 import { FRAGMENT_MAX, fragmentLength } from "../lib/fragment";
 import { RECALL_LIMIT_MAX } from "../lib/recall";
+import { bm25, terms } from "./search";
 
 // Lowercase only; omit 0, 1, i, l, and o. 31^7 possible refs.
 export const REF_ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz";
@@ -119,7 +120,7 @@ const associationKeys = (anchor: string): string[] =>
         /^[a-z]+$/u.test(word) ? stem(word) : word
       );
 
-// Candidate generation: cue matches (newest first), then one-hop associations.
+// Candidate generation: cue matches (best first), then one-hop associations.
 export const recallCandidates = (
   corpus: Iterable<Fragment>,
   raw: z.input<typeof inputs.recall>
@@ -136,9 +137,31 @@ export const recallCandidates = (
       b.updatedAt.localeCompare(a.updatedAt) || a.ref.localeCompare(b.ref)
   );
   const normalizedCue = normalize(cue);
-  const matches: RecallItem[] = ordered.filter((item) =>
-    normalize(item.fragment).includes(normalizedCue)
+  const cueTerms = [...new Set(terms(cue))];
+  // Every cue term must appear; a cue of three or more terms may miss one.
+  const required = cueTerms.length >= 3 ? cueTerms.length - 1 : cueTerms.length;
+  const scored = new Map(
+    bm25(ordered, cueTerms).map((entry) => [entry.item.ref, entry])
   );
+  // Phrase matches first, then by terms matched and BM25; ties stay newest first.
+  const matches: RecallItem[] = ordered
+    .map((item) => ({
+      item,
+      matched: scored.get(item.ref)?.matched ?? 0,
+      phrase: normalize(item.fragment).includes(normalizedCue),
+      score: scored.get(item.ref)?.score ?? 0,
+    }))
+    .filter(
+      ({ matched, phrase }) =>
+        phrase || (cueTerms.length > 0 && matched >= required)
+    )
+    .toSorted(
+      (a, b) =>
+        Number(b.phrase) - Number(a.phrase) ||
+        b.matched - a.matched ||
+        b.score - a.score
+    )
+    .map(({ item }) => item);
   const refs = new Set(matches.map((item) => item.ref));
   // Only returned matches seed association.
   const keys = new Set(

@@ -116,7 +116,7 @@ export const jev = definePlugin({
   afterRecall: gate,
   config,
   defaults: {
-    config: { matches: false, strictness: "medium" },
+    config: { matches: true, strictness: "medium" },
     enabled: false,
   },
   description:

@@ -1,0 +1,11 @@
+// Workers AI for the recall evaluation's Jev setups. A separate Worker name
+// keeps wrangler's remote proxy off memsys's Access-protected hostname.
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "memsys-eval",
+  "compatibility_date": "2026-08-16",
+  "ai": {
+    "binding": "AI",
+    "remote": true,
+  },
+}
