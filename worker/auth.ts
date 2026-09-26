@@ -62,9 +62,13 @@ const clientRegistration = z.looseObject({
   redirect_uris: z.array(z.string()).min(1),
 });
 
-// A before hook may replace the request body the endpoint sees.
-interface RegistrationOverride {
-  context: { body: z.output<typeof clientRegistration> };
+const authorizationRequest = z.looseObject({ scope: z.string() });
+
+// A before hook may replace the body or query the endpoint sees.
+interface RequestOverride {
+  context:
+    | { body: z.output<typeof clientRegistration> }
+    | { query: z.output<typeof authorizationRequest> };
 }
 
 // A redirect back to an app on the user's machine: a loopback address or
@@ -83,8 +87,10 @@ const isNativeRedirect = (uri: string) => {
 // Fetches an app's client metadata document (CIMD). Better Auth's transport
 // is Node-only; on Workers, fetch cannot reach private networks, so this
 // refuses the rest: plain HTTP, IP literals, localhost, and redirects.
+// Better Auth asks for redirect "error", which Workers rejects; "manual"
+// hands a redirect back as a 3xx, which Better Auth then refuses.
 const fetchClientMetadata: ClientMetadataResourceFetch = (input, init) => {
-  const request = new Request(input, init);
+  const request = new Request(input, { ...init, redirect: "manual" });
   const { hostname, protocol } = new URL(request.url);
   if (
     protocol !== "https:" ||
@@ -94,10 +100,7 @@ const fetchClientMetadata: ClientMetadataResourceFetch = (input, init) => {
   ) {
     throw new TypeError("Client metadata must be on a public HTTPS host");
   }
-  return fetch(request, {
-    redirect: "manual",
-    signal: init?.signal ?? AbortSignal.timeout(5000),
-  });
+  return fetch(request, { signal: init?.signal ?? AbortSignal.timeout(5000) });
 };
 
 // OAuth for /mcp: apps sign the user in instead of holding a key.
@@ -140,35 +143,52 @@ const createAuth = (env: Env) =>
       },
     },
     hooks: {
-      before: createAuthMiddleware(
-        (ctx): Promise<RegistrationOverride | null> => {
-          // Desktop MCP apps register loopback redirects without saying they
-          // are native apps, and web apps may not use http://localhost.
-          const client = clientRegistration.safeParse(ctx.body);
-          if (
-            ctx.path === "/oauth2/register" &&
-            client.success &&
-            client.data.application_type === undefined &&
-            client.data.redirect_uris.every(isNativeRedirect)
-          ) {
-            return Promise.resolve({
-              context: { body: { ...client.data, application_type: "native" } },
-            });
-          }
-          // Tell an address outside the allowlist so, before any code is stored.
-          const request = signInCodeRequest.safeParse(ctx.body);
-          if (
-            ctx.path === "/email-otp/send-verification-otp" &&
-            request.success &&
-            !isAllowedEmail(env, request.data.email)
-          ) {
-            throw new APIError("FORBIDDEN", {
-              message: "This email is not allowed to sign in.",
-            });
-          }
-          return Promise.resolve(null);
+      before: createAuthMiddleware((ctx): Promise<RequestOverride | null> => {
+        // Desktop MCP apps register loopback redirects without saying they
+        // are native apps, and web apps may not use http://localhost.
+        const client = clientRegistration.safeParse(ctx.body);
+        if (
+          ctx.path === "/oauth2/register" &&
+          client.success &&
+          client.data.application_type === undefined &&
+          client.data.redirect_uris.every(isNativeRedirect)
+        ) {
+          return Promise.resolve({
+            context: { body: { ...client.data, application_type: "native" } },
+          });
         }
-      ),
+        // Apps such as ChatGPT ask only for the scopes /mcp lists, which
+        // leave out offline_access, and so would get no refresh token and
+        // need the user to sign in again every hour. Ask for it on their
+        // behalf; only apps registered for refresh tokens receive one.
+        const authorization = authorizationRequest.safeParse(ctx.query);
+        if (
+          ctx.path === "/oauth2/authorize" &&
+          authorization.success &&
+          !authorization.data.scope.split(" ").includes("offline_access")
+        ) {
+          return Promise.resolve({
+            context: {
+              query: {
+                ...authorization.data,
+                scope: `${authorization.data.scope} offline_access`,
+              },
+            },
+          });
+        }
+        // Tell an address outside the allowlist so, before any code is stored.
+        const request = signInCodeRequest.safeParse(ctx.body);
+        if (
+          ctx.path === "/email-otp/send-verification-otp" &&
+          request.success &&
+          !isAllowedEmail(env, request.data.email)
+        ) {
+          throw new APIError("FORBIDDEN", {
+            message: "This email is not allowed to sign in.",
+          });
+        }
+        return Promise.resolve(null);
+      }),
     },
     plugins: [
       emailOTP({

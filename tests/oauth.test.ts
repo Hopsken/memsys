@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
-import { describe, expect, it } from "vitest";
+import type { JSONValue } from "hono/utils/types";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import worker from "../worker/index";
@@ -40,9 +41,27 @@ const register = async () => {
 
 const redirect = z.object({ url: z.string() });
 
+// How an app asks for access and proves who it is at the token endpoint.
+interface App {
+  credentials: () => Promise<Record<string, string>>;
+  redirectUri: string;
+  scope: string;
+}
+
+const desktopApp = (clientId: string): App => ({
+  credentials: () => Promise.resolve({ client_id: clientId }),
+  redirectUri: REDIRECT_URI,
+  scope: "memory:read memory:write offline_access",
+});
+
 // The authorization code flow an MCP app runs, with the user allowing
 // `granted` on the consent page, which always keeps the app signed in.
-const authorize = async (user: User, clientId: string, granted: string) => {
+const authorize = async (
+  user: User,
+  clientId: string,
+  granted: string,
+  app = desktopApp(clientId)
+) => {
   const verifier = base64Url(crypto.getRandomValues(new Uint8Array(32)));
   const challenge = base64Url(
     await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))
@@ -51,10 +70,10 @@ const authorize = async (user: User, clientId: string, granted: string) => {
     client_id: clientId,
     code_challenge: challenge,
     code_challenge_method: "S256",
-    redirect_uri: REDIRECT_URI,
+    redirect_uri: app.redirectUri,
     resource: RESOURCE,
     response_type: "code",
-    scope: "memory:read memory:write offline_access",
+    scope: app.scope,
     state: "state-1",
   });
   const authorized = await request(`/api/auth/oauth2/authorize?${query}`, {
@@ -78,11 +97,11 @@ const authorize = async (user: User, clientId: string, granted: string) => {
   expect(callback.searchParams.get("state")).toBe("state-1");
   const token = await request("/api/auth/oauth2/token", {
     body: new URLSearchParams({
-      client_id: clientId,
+      ...(await app.credentials()),
       code: callback.searchParams.get("code") ?? "",
       code_verifier: verifier,
       grant_type: "authorization_code",
-      redirect_uri: REDIRECT_URI,
+      redirect_uri: app.redirectUri,
       resource: RESOURCE,
     }),
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -230,6 +249,114 @@ describe("OAuth for MCP", () => {
       method: "DELETE",
     });
     expect(removed.status).toBe(404);
+  });
+
+  it("connects an app through its client metadata document", async () => {
+    // Like ChatGPT: a hosted client_id URL, a web redirect, a signed client
+    // assertion at the token endpoint, and no offline_access in the request.
+    const clientId = "https://chat.example/oauth/client.json";
+    const jwksUri = "https://chat.example/oauth/jwks.json";
+    const redirectUri = "https://chat.example/oauth/callback";
+    const keys = await crypto.subtle.generateKey(
+      {
+        hash: "SHA-256",
+        modulusLength: 2048,
+        name: "RSASSA-PKCS1-v1_5",
+        publicExponent: new Uint8Array([1, 0, 1]),
+      },
+      true,
+      ["sign", "verify"]
+    );
+    const publicKey = await crypto.subtle.exportKey("jwk", keys.publicKey);
+    const documents = new Map<string, unknown>([
+      [
+        clientId,
+        {
+          client_id: clientId,
+          client_name: "Chat",
+          client_uri: "https://chat.example/",
+          grant_types: ["authorization_code", "refresh_token"],
+          jwks_uri: jwksUri,
+          redirect_uris: [redirectUri],
+          response_types: ["code"],
+          token_endpoint_auth_method: "private_key_jwt",
+          token_endpoint_auth_signing_alg: "RS256",
+        },
+      ],
+      [
+        jwksUri,
+        { keys: [{ ...publicKey, alg: "RS256", kid: "k1", use: "sig" }] },
+      ],
+    ]);
+    const encode = (value: JSONValue) =>
+      base64Url(new TextEncoder().encode(JSON.stringify(value)));
+    const assertion = async () => {
+      const now = Math.floor(Date.now() / 1000);
+      const input = `${encode({ alg: "RS256", kid: "k1", typ: "JWT" })}.${encode(
+        {
+          aud: `${ORIGIN}/api/auth/oauth2/token`,
+          exp: now + 60,
+          iat: now,
+          iss: clientId,
+          jti: crypto.randomUUID(),
+          sub: clientId,
+        }
+      )}`;
+      const signature = await crypto.subtle.sign(
+        "RSASSA-PKCS1-v1_5",
+        keys.privateKey,
+        new TextEncoder().encode(input)
+      );
+      return `${input}.${base64Url(signature)}`;
+    };
+    const fetchMock = vi.mocked(globalThis.fetch);
+    const resend = fetchMock.getMockImplementation();
+    const redirects: (string | undefined)[] = [];
+    fetchMock.mockImplementation((input, init) => {
+      const url = input instanceof Request ? input.url : String(input);
+      const document = documents.get(url);
+      if (document === undefined) {
+        return resend?.(input, init) ?? Promise.reject(new Error(url));
+      }
+      redirects.push(
+        init?.redirect ??
+          (input instanceof Request ? input.redirect : undefined)
+      );
+      return Promise.resolve(Response.json(document));
+    });
+    try {
+      const user = await signIn();
+      const tokens = await authorize(
+        user,
+        clientId,
+        "memory:read memory:write",
+        {
+          credentials: async () => ({
+            client_assertion: await assertion(),
+            client_assertion_type:
+              "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+            client_id: clientId,
+          }),
+          redirectUri,
+          scope: "memory:read memory:write",
+        }
+      );
+      expect(tokens.scope.split(" ").toSorted()).toStrictEqual([
+        "memory:read",
+        "memory:write",
+        "offline_access",
+      ]);
+      await expect(toolNames(tokens.access_token)).resolves.toContain(
+        "remember"
+      );
+      // Redirects are handed back, never followed.
+      expect(redirects.length).toBeGreaterThan(0);
+      expect(new Set(redirects)).toStrictEqual(new Set(["manual"]));
+    } finally {
+      if (resend) {
+        fetchMock.mockImplementation(resend);
+      }
+    }
   });
 
   it("refuses tokens for another resource or a forged signature", async () => {
