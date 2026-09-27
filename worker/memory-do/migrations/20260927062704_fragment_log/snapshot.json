@@ -1,0 +1,108 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "ea6ed5c7-4243-4cac-b7b5-2ee5c7bfa1fa",
+  "prevIds": [
+    "16ee4ecd-6716-4201-89c2-c976c6ea7e9c"
+  ],
+  "ddl": [
+    {
+      "name": "plugin_config",
+      "entityType": "tables"
+    },
+    {
+      "name": "records",
+      "entityType": "tables"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "config",
+      "entityType": "columns",
+      "table": "plugin_config"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "enabled",
+      "entityType": "columns",
+      "table": "plugin_config"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "name",
+      "entityType": "columns",
+      "table": "plugin_config"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "plugin_config"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "at",
+      "entityType": "columns",
+      "table": "records"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "fragment",
+      "entityType": "columns",
+      "table": "records"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "ref",
+      "entityType": "columns",
+      "table": "records"
+    },
+    {
+      "columns": [
+        "ref",
+        "at"
+      ],
+      "nameExplicit": false,
+      "name": "records_pk",
+      "entityType": "pks",
+      "table": "records"
+    },
+    {
+      "columns": [
+        "name"
+      ],
+      "nameExplicit": false,
+      "name": "plugin_config_pk",
+      "table": "plugin_config",
+      "entityType": "pks"
+    }
+  ],
+  "renames": []
+}

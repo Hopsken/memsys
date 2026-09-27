@@ -1,6 +1,6 @@
 # RFC 0001: Append-only fragment log
 
-- Status: Proposed
+- Status: Accepted
 - Created: 2026-09-21
 - Revised: 2026-09-27
 - Discussion: pull request #12
@@ -50,7 +50,7 @@ for each record, ordered by at:
 
 Replay is a pure function with no Cloudflare imports. The Durable Object uses it on load, import uses it to read a file, and any other tool can reuse it.
 
-A ref that has ever appeared in the log is never handed out again by `remember`; otherwise a new fragment would continue a forgotten one's history. Replay also collects the set of every ref seen.
+A ref that has ever appeared in the log is never handed out again by `remember`; otherwise a new fragment would continue a forgotten one's history. Replay also returns every ref seen with the `at` of its latest record, forgotten refs included.
 
 ## Storage
 
@@ -69,7 +69,7 @@ export const records = sqliteTable(
 ```
 
 - There is no sequence column: `at`, in epoch milliseconds, is the order, and the key `(ref, at)` enforces that a ref's records never tie. `v` is not stored; the table is versioned by migrations, and `v` is added when serializing.
-- A write stamps `at` with the current time. Each write is its own call into the Durable Object and lands well after the previous write to the same ref, so times increase without extra rules. If two writes to one ref ever did land in the same millisecond, the key rejects the second instead of leaving replay order ambiguous.
+- A write stamps `at` with `max(now, previous at of this ref + 1)`, a hybrid logical clock per ref. Wall-clock time alone is not enough: calls into a Durable Object can land in the same millisecond, as they do in tests more often than not, and a clock can step back when an object moves. The rule keeps `at` the real time whenever the clock advances and shifts it by a few milliseconds when it does not, so no extra column is needed. It is per ref because replay only compares records of one ref, and imported records keep their own times. The key `(ref, at)` stays as a backstop.
 - `remember`, `revise`, and `forget` each insert one row and then update the in-memory corpus, in the same order as today. The check that a fragment did not change while `revise` hooks ran stays as it is.
 - Load reads every record ordered by `at` and replays it. The in-memory corpus remains the only projection.
 
@@ -99,7 +99,7 @@ A fragment is its latest record, so it exposes that record's `at`, the time its 
 - An agent can no longer erase anything. An agent tricked into forgetting everything costs the user nothing they cannot restore. This extends Invariant 6: destructive power belongs to the user's session, not the agent's credential.
 - **Purge** deletes every record of one ref. It is a user action in the web app, not exposed over MCP or API keys, and it ships with the log so the user never loses the ability to remove text they regret storing.
 - A SQLite Durable Object keeps 30 days of point-in-time recovery, so purged text becomes unrecoverable only after that window. Copy must not promise immediate erasure.
-- Viewing a fragment's history and restoring an earlier version are what this format enables next. The first version of the web app shows neither; they are a separate work item.
+- Viewing a fragment's history and restoring an earlier version are what this format enables next; see [Restore](#restore). The first version of the web app shows neither; they are a separate work item.
 
 ## Export and import
 
@@ -109,6 +109,20 @@ A fragment is its latest record, so it exposes that record's `at`, the time its 
 - Refs this instance already knows follow today's rules: identical current text is skipped, different text is a conflict. A ref forgotten here counts as known with no text, so an old backup cannot silently bring it back.
 - **Plain text** lets anything that can write lines feed a memory. Each non-empty line becomes its own new fragment with a fresh ref, stamped with the import time; blank lines are ignored and text already in this memory is skipped. A fragment that needs a line break has to come in as NDJSON.
 - The file type picks the format: `.txt` or `text/plain` is plain text, `.ndjson` or `application/x-ndjson` is a log. It is never guessed from the content, so a damaged log is rejected rather than imported line by line as text.
+
+## Restore
+
+Planned with the history view; nothing in the format or storage has to change for it.
+
+- **Restore** takes one record, `(ref, at)`, and appends a copy of it stamped now. Bringing back a forgotten fragment, undoing a revision, and undoing a restore are all the same operation; restoring a `null` record forgets.
+- The ref stays the same, so refs an agent already holds keep working.
+- No new key marks a restored record. The history view can tell by the text matching an earlier version; if a marker is ever needed, readers already ignore unknown keys.
+- Restore is a user action, like import: core validation but no write hooks, since the text was accepted once. It is not exposed over MCP.
+- It needs no check against concurrent writes: a revision it lands on top of stays in the history.
+
+## Compaction
+
+Compaction may later collapse a fragment's older records once it has settled. The format allows it as long as compaction keeps each ref's latest record: that record is a complete snapshot, so replay yields the same corpus, and a forgotten ref keeps its `null` record so it is never reused. Which records to drop, and when, is a separate decision; purge is the only deletion until then.
 
 ## Migration
 
@@ -156,11 +170,13 @@ TIDs become worth it when one memory gains concurrent writers, such as offline c
 - Import: both exports, plain text, conflicts, and forgotten refs.
 - `pnpm eval` results are unchanged.
 
-## Decision requested
+## Decision
 
 1. Durable state is an append-only log of complete fragment snapshots; `forget` appends `null`.
 2. The log lives in the memory Durable Object's SQLite; NDJSON is its canonical serialization and export format.
 3. `Fragment` exposes only `at`, the time of its latest record.
 4. Agents can only append; purge is a user action.
 5. Export defaults to current fragments, with full history as an option.
-6. History view and restore in the web app, and moving the log off Durable Objects, are out of scope.
+6. `at` follows a per-ref hybrid logical clock.
+7. Restore appends a copy of an earlier record; it ships with the history view.
+8. History view and restore in the web app, compaction, and moving the log off Durable Objects are out of scope.

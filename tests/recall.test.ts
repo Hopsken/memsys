@@ -5,10 +5,9 @@ import { extractAnchors, recall } from "../worker/memory";
 import { terms } from "../worker/search";
 
 const item = (ref: string, fragment: string, day = "01"): Fragment => ({
-  createdAt: "2026-01-01T00:00:00.000Z",
+  at: `2026-01-${day}T00:00:00.000Z`,
   fragment,
   ref,
-  updatedAt: `2026-01-${day}T00:00:00.000Z`,
 });
 
 const associated = (corpus: Fragment[], cue: string) =>

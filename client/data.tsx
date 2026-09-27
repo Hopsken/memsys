@@ -2,7 +2,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "cn";
 import { Download, Upload } from "lucide-react";
 import { useRef, useState } from "react";
-import * as z from "zod/mini";
 
 import { SessionExpired } from "@/components/session-expired";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -15,25 +14,28 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { api, failure, isExpired } from "@/lib/api";
 
-import type { FragmentExport, ImportResult } from "../contract/memory";
-
-const FORMAT: FragmentExport["format"] = "memsys.fragments";
-
-// Enough to preview a file; the worker validates every item and field.
-const fileSchema = z.looseObject({
-  format: z.literal(FORMAT),
-  fragments: z.array(z.unknown()),
-  version: z.literal(1),
-});
-type ImportFile = z.infer<typeof fileSchema>;
+import type { ImportResult } from "../contract/memory";
 
 interface Picked {
-  body: ImportFile;
-  count: number;
-  name: string;
+  file: File;
+  type: string;
 }
+
+// The file type picks the format; the worker validates every line.
+const mediaType = ({ name, type }: File) => {
+  const lower = name.toLowerCase();
+  if (lower.endsWith(".ndjson") || type === "application/x-ndjson") {
+    return "application/x-ndjson";
+  }
+  if (lower.endsWith(".txt") || type === "text/plain") {
+    return "text/plain";
+  }
+  return null;
+};
 
 const plural = (count: number) =>
   `${count} ${count === 1 ? "memory" : "memories"}`;
@@ -57,39 +59,29 @@ const summary = ({ conflicts, imported, skipped }: ImportResult) =>
 const problem = (error: Error) => {
   const { problem: body, status } = failure(error);
   if (status === 413) {
-    return "Nothing was imported. The file is larger than 5 MB.";
+    return "Nothing was imported. The file is larger than 10 MB.";
   }
   return body.error
     ? `Nothing was imported. Fix these problems in the file and try again:\n${body.error}`
     : "Import failed. Your memories are unchanged.";
 };
 
-const read = async (file: File): Promise<Picked | null> => {
-  try {
-    const parsed = z.safeParse(fileSchema, JSON.parse(await file.text()));
-    return parsed.success
-      ? {
-          body: parsed.data,
-          count: parsed.data.fragments.length,
-          name: file.name,
-        }
-      : null;
-  } catch {
-    return null;
-  }
-};
-
 // Export downloads the whole memory; import merges a file into it.
 export const DataView = () => {
   const queryClient = useQueryClient();
   const input = useRef<HTMLInputElement>(null);
+  const [history, setHistory] = useState(false);
   const [picked, setPicked] = useState<Picked | null>(null);
   const [unreadable, setUnreadable] = useState<string | null>(null);
   const mutation = useMutation({
-    mutationFn: (body: ImportFile) =>
+    mutationFn: ({ file, type }: Picked) =>
       // A large memory can take longer than ky's default ten seconds.
       api
-        .post("/api/import", { json: body, timeout: 60_000 })
+        .post("/api/import", {
+          body: file,
+          headers: { "Content-Type": type },
+          timeout: 60_000,
+        })
         .json<ImportResult>(),
     onSuccess: () => {
       setPicked(null);
@@ -97,14 +89,14 @@ export const DataView = () => {
     },
   });
 
-  const pick = async (file: File | undefined) => {
+  const pick = (file: File | undefined) => {
     if (!file) {
       return;
     }
     mutation.reset();
-    const result = await read(file);
-    setPicked(result);
-    setUnreadable(result ? null : file.name);
+    const type = mediaType(file);
+    setPicked(type ? { file, type } : null);
+    setUnreadable(type ? null : file.name);
   };
 
   if (isExpired(mutation.error)) {
@@ -120,30 +112,38 @@ export const DataView = () => {
         <Card>
           <CardHeader>
             <CardTitle>Export</CardTitle>
-            <CardDescription>
-              Download all your memories as a JSON file.
-            </CardDescription>
+            <CardDescription>Download your memories as a file.</CardDescription>
             <CardAction>
               <a
                 className={cn(
                   buttonVariants({ size: "sm", variant: "outline" })
                 )}
                 download
-                href="/api/export"
+                href={history ? "/api/export?history=true" : "/api/export"}
               >
                 <Download aria-hidden="true" />
                 Export
               </a>
             </CardAction>
           </CardHeader>
+          <CardContent>
+            <Label className="text-muted-foreground font-normal">
+              <Switch
+                checked={history}
+                onCheckedChange={setHistory}
+                size="sm"
+              />
+              Include earlier versions and forgotten memories
+            </Label>
+          </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
             <CardTitle>Import</CardTitle>
             <CardDescription>
-              Add memories from a memsys export file. Memories you already have
-              stay as they are.
+              Add memories from a memsys export, or a text file with one memory
+              per line. Memories you already have stay as they are.
             </CardDescription>
             <CardAction>
               <Button
@@ -156,11 +156,11 @@ export const DataView = () => {
                 Choose file
               </Button>
               <input
-                accept="application/json,.json"
+                accept=".ndjson,.txt,application/x-ndjson,text/plain"
                 aria-label="Import file"
                 className="hidden"
                 onChange={(event) => {
-                  void pick(event.target.files?.[0]);
+                  pick(event.target.files?.[0]);
                   // Picking the same file again should still trigger a change.
                   event.target.value = "";
                 }}
@@ -175,7 +175,7 @@ export const DataView = () => {
               {unreadable ? (
                 <Alert className="bg-amber-50 text-amber-950 ring-amber-300">
                   <AlertDescription className="text-amber-950">
-                    {unreadable} is not a memsys export file.
+                    {unreadable} is not a memsys export or a text file.
                   </AlertDescription>
                 </Alert>
               ) : null}
@@ -183,7 +183,7 @@ export const DataView = () => {
               {picked ? (
                 <Alert className="flex flex-wrap items-center justify-between gap-3">
                   <AlertDescription className="text-foreground">
-                    Import {plural(picked.count)} from {picked.name}?
+                    Import memories from {picked.file.name}?
                   </AlertDescription>
                   <div className="flex gap-2">
                     <Button
@@ -199,7 +199,7 @@ export const DataView = () => {
                     </Button>
                     <Button
                       disabled={mutation.isPending}
-                      onClick={() => mutation.mutate(picked.body)}
+                      onClick={() => mutation.mutate(picked)}
                       size="sm"
                     >
                       {mutation.isPending ? "Importing…" : "Import"}

@@ -10,9 +10,9 @@ To connect an agent, add `https://<hostname>/mcp` as an MCP server and sign in w
 
 ## Web UI
 
-Sign in at `/login` with a one-time code sent to your email. Open `/` to browse your fragments. **Settings** (`/settings`) has a tab each for MCP (connected apps and API keys), plugins, import and export, and your account. Fragments are created, revised, and deleted through your connected agent.
+Sign in at `/login` with a one-time code sent to your email. Open `/` to browse your fragments. **Settings** (`/settings`) has a tab each for MCP (connected apps and API keys), plugins, import and export, and your account. Fragments are created, revised, and forgotten through your connected agent; deleting one for good, history included, is only possible from the web UI (`POST /api/purge`).
 
-To move memory to another instance, use **Export** under **Settings → Data** to download every fragment as JSON (`GET /api/export`), then **Import** that file on the other instance (`POST /api/import`, up to 5 MB). Import keeps each fragment's ref, text, and timestamps. It only adds: a fragment whose ref or text is already in memory is skipped, and a ref that holds different text is reported and left unchanged. Only `fragment` is required per item, so files from other systems can be converted into the same shape. Import runs core validation but not plugin write checks, and stores nothing if any item is invalid. Neither operation is available over MCP.
+Memory is an append-only log: `revise` and `forget` add a record instead of changing or deleting one (see [RFC 0001](docs/rfcs/0001-append-only-fragment-log.md)). To move memory to another instance, use **Export** under **Settings → Data** to download it as NDJSON, one record per line (`GET /api/export`, or `?history=true` for the whole log), then **Import** that file on the other instance (`POST /api/import` with `Content-Type: application/x-ndjson`, up to 10 MB). Import keeps each fragment's ref, text, and times. It only adds: a ref this memory already knows, even a forgotten one, is skipped when its text matches and reported and left unchanged when it does not, and text already in memory is skipped. A plain text file (`Content-Type: text/plain`) imports each non-empty line as a new fragment. Import runs core validation but not plugin write checks, and stores nothing if any line is invalid. Neither operation is available over MCP.
 
 The app uses Vite, React, Tailwind CSS 4, and shadcn/ui in `client/`. Hono, authentication, MCP, and the Durable Object live in `worker/`. The Cloudflare Vite plugin serves both from one origin. The browser keeps its session in an HTTP-only cookie and sends same-origin requests.
 
@@ -33,7 +33,7 @@ Two stores, each with its own Drizzle schema and migrations:
 
 A memory space id names each memory object. For now every user has one default space whose id is their Better Auth user id (`defaultSpace` in `worker/auth.ts`). A session, an OAuth access token, and an API key all resolve to it, so REST and MCP reach the same object. Clients cannot select another user's memory space.
 
-In the memory object, `fragments` holds the memory; `plugin_config` holds per-instance plugin settings. Drizzle migrations run inside `blockConcurrencyWhile` before the object accepts requests. The object then loads all fragments into a map. Writes update SQLite before the map. Object eviction removes only the map; the next instance rebuilds it from SQLite. Anchor and search results are disposable projections.
+In the memory object, `records` holds the fragment log; `plugin_config` holds per-instance plugin settings. Drizzle migrations run inside `blockConcurrencyWhile` before the object accepts requests. The object then replays the log into a map of current fragments. Writes append to SQLite before updating the map. Object eviction removes only the map; the next instance rebuilds it from SQLite. Anchor and search results are disposable projections.
 
 For future schema changes:
 
@@ -81,15 +81,10 @@ Before the first deployment:
 2. Create the database with `pnpm exec wrangler d1 create memsys` and add its `database_id` to `wrangler.jsonc`.
 3. Verify a sending domain in Resend.
 4. Set the Worker's variables in the Cloudflare dashboard (**Workers & Pages → memsys → Settings → Variables and Secrets**); `.dev.vars.example` lists them all. `PUBLIC_URL` is that custom domain's origin (e.g. `https://memsys.example.com`), and `EMAIL_FROM` an address on the Resend domain. Store `BETTER_AUTH_SECRET` (at least 32 random characters, e.g. `openssl rand -base64 32`), `RESEND_API_KEY`, and `AUTH_ALLOWED_EMAILS` as secrets. `wrangler.jsonc` sets `keep_vars`, so deploys leave them alone; nothing instance-specific lives in the repository.
-5. Remove any Cloudflare Access application in front of the hostname. The Worker authenticates every request itself.
-6. Run `pnpm check`, then deploy when approved with `pnpm deploy`.
-7. Connect an MCP client by signing in, and another with an API key. Check every tool, that a read-only grant sees only read tools, and that `/api/*` rejects both credentials.
+5. Run `pnpm check`, then deploy when approved with `pnpm deploy`.
+6. Connect an MCP client by signing in, and another with an API key. Check every tool, that a read-only grant sees only read tools, and that `/api/*` rejects both credentials.
 
 `workers.dev` and preview URLs are disabled.
-
-### Keeping memory from the Access deployment
-
-Earlier versions named memory objects after the Cloudflare Access identity, so a new user starts with empty memory. To keep it, **Export** under **Settings → Data** before deploying this version, then **Import** the file after signing in. That moves fragments only; set plugins again under **Settings → Plugins**.
 
 ## Development and checks
 

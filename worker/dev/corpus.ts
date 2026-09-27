@@ -2,7 +2,7 @@
 
 export interface SeedFragment {
   fragment: string;
-  // Calendar day; createdAt and updatedAt are both noon UTC that day.
+  // Calendar day; the fragment is written at noon UTC that day.
   date: string;
 }
 

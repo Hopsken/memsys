@@ -1,6 +1,11 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
-import { ArrowDown, Layers } from "lucide-react";
+import { ArrowDown, Layers, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router";
 
 import { SessionExpired } from "@/components/session-expired";
@@ -23,6 +28,70 @@ const flatten = (pages: FragmentPage[]) => {
     items.set(item.ref, item);
   }
   return [...items.values()];
+};
+
+// Delete is the user's purge: unlike an agent's forget, it removes the
+// memory's history too.
+const FragmentRow = ({ item }: { item: Fragment }) => {
+  const queryClient = useQueryClient();
+  const [confirming, setConfirming] = useState(false);
+  const purge = useMutation({
+    mutationFn: () => api.post("/api/purge", { json: { ref: item.ref } }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["fragments"] }),
+  });
+  return (
+    <li className="space-y-1 py-3.5">
+      <div className="text-muted-foreground flex min-h-7 flex-wrap items-center justify-between gap-x-4 text-xs">
+        <span className="font-mono">{item.ref}</span>
+        {confirming ? (
+          <div className="flex items-center gap-2">
+            <span className="text-foreground">Delete this memory?</span>
+            <Button
+              disabled={purge.isPending}
+              onClick={() => {
+                setConfirming(false);
+                purge.reset();
+              }}
+              size="sm"
+              variant="ghost"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={purge.isPending}
+              onClick={() => purge.mutate()}
+              size="sm"
+              variant="destructive"
+            >
+              {purge.isPending ? "Deleting…" : "Delete"}
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1">
+            <time dateTime={item.at} title={new Date(item.at).toLocaleString()}>
+              {formatRelativeDate(item.at)}
+            </time>
+            <Button
+              aria-label="Delete memory"
+              onClick={() => setConfirming(true)}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <Trash2 aria-hidden="true" />
+            </Button>
+          </div>
+        )}
+      </div>
+      <p className="text-sm leading-6 [overflow-wrap:anywhere] whitespace-pre-wrap">
+        {item.fragment}
+      </p>
+      {purge.isError ? (
+        <p className="text-destructive text-xs">
+          Couldn’t delete this memory. Try again.
+        </p>
+      ) : null}
+    </li>
+  );
 };
 
 export const FragmentsView = () => {
@@ -105,20 +174,7 @@ export const FragmentsView = () => {
         ) : null}
         <ul className="divide-y">
           {items.map((item) => (
-            <li className="space-y-1 py-3.5" key={item.ref}>
-              <div className="text-muted-foreground flex flex-wrap items-center justify-between gap-x-4 text-xs">
-                <span className="font-mono">{item.ref}</span>
-                <time
-                  dateTime={item.updatedAt}
-                  title={new Date(item.updatedAt).toLocaleString()}
-                >
-                  {formatRelativeDate(item.updatedAt)}
-                </time>
-              </div>
-              <p className="text-sm leading-6 [overflow-wrap:anywhere] whitespace-pre-wrap">
-                {item.fragment}
-              </p>
-            </li>
+            <FragmentRow item={item} key={item.ref} />
           ))}
         </ul>
       </section>

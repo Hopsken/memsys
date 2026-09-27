@@ -42,11 +42,12 @@ app.use("*", (c, next) => {
   return next();
 });
 const requestBody = bodyLimit({ maxSize: 32 * 1024 });
-// A whole memory: roughly ten thousand fragments of a few hundred characters.
-const importBody = bodyLimit({ maxSize: 5 * 1024 * 1024 });
+// A whole memory with its history: tens of thousands of short records.
+const importBody = bodyLimit({ maxSize: 10 * 1024 * 1024 });
 app.use("*", (c, next) =>
   (c.req.path === "/api/import" ? importBody : requestBody)(c, next)
 );
+// Import takes the file as is and checks its own media type.
 app.use("/api/*", (c, next) => {
   const mediaType = c.req
     .header("Content-Type")
@@ -56,6 +57,7 @@ app.use("/api/*", (c, next) => {
   if (
     (c.req.method === "POST" || c.req.method === "PUT") &&
     mediaType !== "application/json" &&
+    c.req.path !== "/api/import" &&
     !isOAuthApp(c.req.path)
   ) {
     return Promise.resolve(

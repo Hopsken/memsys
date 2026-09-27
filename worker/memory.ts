@@ -18,7 +18,7 @@ export const REF_LENGTH = 7;
 const RESULT_LIMIT = 10;
 const PAGE_SIZE = 50;
 
-const fragment = z
+export const fragment = z
   .string()
   .min(1)
   .refine((value) => value.trim().length > 0)
@@ -71,52 +71,18 @@ export const inputs = {
   revise: z.object({ fragment, ref }).strict(),
 };
 
-// Epoch milliseconds, the storage format; any ISO offset is accepted.
-const timestamp = z.iso
-  .datetime({ offset: true })
-  .transform((value) => Date.parse(value));
-
-// Only the text is required, so files from other systems can be imported;
-// missing refs and times are filled in at import.
-export const importInput = z.object({
-  format: z.literal("memsys.fragments"),
-  fragments: z
-    .array(
-      z
-        .object({
-          createdAt: timestamp.optional(),
-          fragment,
-          ref: ref.optional(),
-          updatedAt: timestamp.optional(),
-        })
-        .refine(
-          ({ createdAt, updatedAt }) =>
-            createdAt === undefined ||
-            updatedAt === undefined ||
-            createdAt <= updatedAt,
-          {
-            message: "createdAt must not be after updatedAt",
-            path: ["updatedAt"],
-          }
-        )
-    )
-    .superRefine((items, ctx) => {
-      const seen = new Set<string>();
-      for (const [index, { ref: value }] of items.entries()) {
-        if (value !== undefined && seen.has(value)) {
-          ctx.addIssue({
-            code: "custom",
-            message: `Duplicate ref ${value}`,
-            path: [index, "ref"],
-          });
-        }
-        if (value !== undefined) {
-          seen.add(value);
-        }
-      }
-    }),
-  version: z.literal(1),
+// One log line. Readers drop unknown keys and reject an unknown `v`; `at`
+// becomes epoch milliseconds, the storage format.
+export const logRecord = z.object({
+  at: z.iso.datetime({ precision: 3 }).transform((value) => Date.parse(value)),
+  fragment: fragment.nullable(),
+  ref,
+  v: z.literal(1),
 });
+
+export const importInput = z
+  .object({ content: z.string(), format: z.enum(["ndjson", "text"]) })
+  .strict();
 
 export const listFragments = (
   corpus: Iterable<Fragment>,
@@ -127,21 +93,16 @@ export const listFragments = (
     .filter(
       (item) =>
         !after ||
-        item.updatedAt < after[0] ||
-        (item.updatedAt === after[0] && item.ref > after[1])
+        item.at < after[0] ||
+        (item.at === after[0] && item.ref > after[1])
     )
-    .toSorted(
-      (a, b) =>
-        b.updatedAt.localeCompare(a.updatedAt) || a.ref.localeCompare(b.ref)
-    );
+    .toSorted((a, b) => b.at.localeCompare(a.at) || a.ref.localeCompare(b.ref));
   const fragments = ordered.slice(0, PAGE_SIZE);
   const last = fragments.at(-1);
   return {
     fragments,
     nextCursor:
-      ordered.length > PAGE_SIZE && last
-        ? `${last.updatedAt},${last.ref}`
-        : null,
+      ordered.length > PAGE_SIZE && last ? `${last.at},${last.ref}` : null,
   };
 };
 
@@ -180,8 +141,7 @@ export const recallCandidates = (
   } = inputs.recall.parse(raw);
   const input: RecallInput = { associate, context, cue, limit };
   const ordered = [...corpus].toSorted(
-    (a, b) =>
-      b.updatedAt.localeCompare(a.updatedAt) || a.ref.localeCompare(b.ref)
+    (a, b) => b.at.localeCompare(a.at) || a.ref.localeCompare(b.ref)
   );
   const normalizedCue = normalize(cue);
   const cueTerms = [...new Set(terms(cue))];

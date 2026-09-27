@@ -3,14 +3,10 @@ import { describe, expect, it } from "vitest";
 import type { Fragment } from "../contract/memory";
 import { listFragments } from "../worker/memory";
 
-const item = (
-  ref: string,
-  updatedAt = "2026-01-02T00:00:00.000Z"
-): Fragment => ({
-  createdAt: "2026-01-01T00:00:00.000Z",
+const item = (ref: string, at = "2026-01-02T00:00:00.000Z"): Fragment => ({
+  at,
   fragment: `Fragment ${ref}`,
   ref,
-  updatedAt,
 });
 
 const tied = Array.from({ length: 50 }, (_, index) =>

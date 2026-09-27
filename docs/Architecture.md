@@ -52,10 +52,11 @@ Any future "let's add X" starts here.
 
 ## Durable layer
 
-- A fragment is text plus a `ref` and timestamps. Nothing else.
+- A fragment is text plus a `ref` and the time `at` it was written. Nothing else.
+- The durable state is an append-only log of fragment snapshots; `forget` appends a record with no text. The current corpus is its replay. Only the user can delete records, by purging a fragment.
 - Tags are derived from the text at read time and never stored.
 - Every index — tag counts, IDF tables, virtual directories — is a cache computed from the corpus. Deleting it loses nothing.
-- Export and import move fragments verbatim — ref, text, timestamps — between instances. Import is a user migrating memory, not an agent writing: it runs core validation but no write hooks, only adds, and is not exposed over MCP.
+- Export and import move the log verbatim — ref, text, time — between instances. Import is a user migrating memory, not an agent writing: it runs core validation but no write hooks, only adds, and is not exposed over MCP.
 
 ## Core
 

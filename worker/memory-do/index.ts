@@ -7,13 +7,14 @@ import { z } from "zod";
 
 import type {
   Fragment,
-  FragmentExport,
   ImportResult,
   RecallResult,
 } from "../../contract/memory";
 import type { PluginView, Verdict } from "../../contract/plugin";
 import { plugins } from "../../plugins";
 import type { SeedFragment } from "../dev/corpus";
+import { parseLog, parseText, replay, serializeLog } from "../log";
+import type { Issue, Row } from "../log";
 import {
   importInput,
   inputs,
@@ -34,7 +35,7 @@ import {
   viewPlugin,
 } from "../plugin-host";
 import type { PluginEnv, PluginState, PluginUpdate } from "../plugin-host";
-import { fragments, pluginConfig } from "./db/schema";
+import { pluginConfig, records } from "./db/schema";
 import migrations from "./migrations/migrations.js";
 
 assertRegistry(plugins);
@@ -62,6 +63,16 @@ interface Problem {
 
 type PluginResponse = PluginView | PluginView[] | Problem | { error: string };
 
+// Import problems name the file's line first.
+const fileProblem = (issues: Issue[]): Problem => ({
+  error: issues
+    .map(({ message, path: [line, ...field] }) =>
+      [`Line ${line}`, ...field].join(", ").concat(`: ${message}`)
+    )
+    .join("\n"),
+  issues,
+});
+
 // Validation failures in the shape the client attaches to fields.
 const problem = (error: z.ZodError): Problem => ({
   error: z.prettifyError(error),
@@ -86,6 +97,8 @@ const rejection = ({ rejections }: Verdict) =>
 export class MemoryDO extends DurableObject<Env> {
   private readonly db;
   private readonly corpus = new Map<string, Fragment>();
+  // Every ref in the log, forgotten ones included, with its latest `at`.
+  private heads = new Map<string, number>();
   private plugins: PluginState[] = [];
   private readonly pluginEnv: PluginEnv;
 
@@ -110,16 +123,30 @@ export class MemoryDO extends DurableObject<Env> {
   }
 
   private load() {
+    const { corpus, heads } = replay(this.db.select().from(records).all());
+    // Plugins hold this map, so it is refilled rather than replaced.
     this.corpus.clear();
-    for (const row of this.db.select().from(fragments).all()) {
-      this.corpus.set(row.id, {
-        createdAt: new Date(row.createdAt).toISOString(),
-        fragment: row.content,
-        ref: row.id,
-        updatedAt: new Date(row.updatedAt).toISOString(),
-      });
+    for (const [ref, item] of corpus) {
+      this.corpus.set(ref, item);
     }
+    this.heads = heads;
     this.loadPlugins();
+  }
+
+  // Appends one record. `at` is a per-ref hybrid logical clock: the current
+  // time, or one past the ref's previous record when the clock has not moved.
+  private append(ref: string, fragment: string | null) {
+    const at = Math.max(Date.now(), (this.heads.get(ref) ?? 0) + 1);
+    this.db.insert(records).values({ at, fragment, ref }).run();
+    this.heads.set(ref, at);
+    return at;
+  }
+
+  private write(ref: string, fragment: string): Fragment {
+    const at = this.append(ref, fragment);
+    const item = { at: new Date(at).toISOString(), fragment, ref };
+    this.corpus.set(ref, item);
+    return item;
   }
 
   // Development only: replaces every fragment and plugin setting with the
@@ -129,17 +156,15 @@ export class MemoryDO extends DurableObject<Env> {
       throw new Error("Seeding is available only in development builds");
     }
     this.ctx.storage.transactionSync(() => {
-      this.db.delete(fragments).run();
+      this.db.delete(records).run();
       this.db.delete(pluginConfig).run();
       for (const { date, fragment } of items) {
-        const at = Date.parse(`${date}T12:00:00Z`);
         this.db
-          .insert(fragments)
+          .insert(records)
           .values({
-            content: fragment,
-            createdAt: at,
-            id: newRef(),
-            updatedAt: at,
+            at: Date.parse(`${date}T12:00:00Z`),
+            fragment,
+            ref: newRef(),
           })
           .run();
       }
@@ -166,19 +191,8 @@ export class MemoryDO extends DurableObject<Env> {
     if (rejected) {
       return rejected;
     }
-    const ref = freshRef(this.corpus);
-    const now = Date.now();
-    const item = {
-      createdAt: new Date(now).toISOString(),
-      fragment,
-      ref,
-      updatedAt: new Date(now).toISOString(),
-    };
-    this.db
-      .insert(fragments)
-      .values({ content: fragment, createdAt: now, id: ref, updatedAt: now })
-      .run();
-    this.corpus.set(ref, item);
+    // A ref ever used, even if forgotten, is never handed out again.
+    const item = this.write(freshRef(this.heads), fragment);
     return withWarnings(item, verdict);
   }
 
@@ -199,72 +213,91 @@ export class MemoryDO extends DurableObject<Env> {
     return listFragments(this.corpus.values(), input);
   }
 
-  exportFragments(): FragmentExport {
-    return {
-      exportedAt: new Date().toISOString(),
-      format: "memsys.fragments",
-      fragments: [...this.corpus.values()].toSorted(
-        (a, b) =>
-          a.createdAt.localeCompare(b.createdAt) || a.ref.localeCompare(b.ref)
-      ),
-      version: 1,
-    };
+  // NDJSON: the latest record of each current fragment, or the whole log.
+  exportLog(history: boolean): string {
+    return serializeLog(
+      history
+        ? this.db.select().from(records).all()
+        : [...this.corpus.values()].map(({ at, fragment, ref }) => ({
+            at: Date.parse(at),
+            fragment,
+            ref,
+          }))
+    );
   }
 
   // A user migrating memory, not an agent writing: core validation only, no
   // write hooks, so fragments the old instance accepted are not re-judged.
   // Merge only; existing fragments are never changed. All or nothing.
   importFragments(raw: z.input<typeof importInput>): ImportResult | Problem {
-    const parsed = importInput.safeParse(raw);
-    if (!parsed.success) {
-      return problem(parsed.error);
+    const input = importInput.safeParse(raw);
+    if (!input.success) {
+      return problem(input.error);
     }
-    const items = parsed.data.fragments;
-    const taken = new Set([
-      ...this.corpus.keys(),
-      ...items.flatMap(({ ref }) => (ref ? [ref] : [])),
-    ]);
+    const { content, format } = input.data;
+    const parsed = format === "ndjson" ? parseLog(content) : parseText(content);
+    if ("issues" in parsed) {
+      return fileProblem(parsed.issues);
+    }
     const texts = new Set(
       [...this.corpus.values()].map(({ fragment }) => fragment)
     );
-    const now = Date.now();
-    const rows: (typeof fragments.$inferInsert)[] = [];
+    const rows: Row[] = [];
     const conflicts: string[] = [];
+    let imported = 0;
     let skipped = 0;
-    for (const { createdAt, fragment, ref, updatedAt } of items) {
-      const existing = ref ? this.corpus.get(ref) : undefined;
-      if (ref && existing && existing.fragment !== fragment) {
-        conflicts.push(ref);
-        continue;
+    if ("texts" in parsed) {
+      const at = Date.now();
+      const taken = new Set(this.heads.keys());
+      for (const fragment of parsed.texts) {
+        if (texts.has(fragment)) {
+          skipped += 1;
+          continue;
+        }
+        texts.add(fragment);
+        const ref = freshRef(taken);
+        taken.add(ref);
+        rows.push({ at, fragment, ref });
+        imported += 1;
       }
-      if (existing || texts.has(fragment)) {
-        skipped += 1;
-        continue;
+    } else {
+      const { corpus, heads } = replay(parsed.rows);
+      const history = Map.groupBy(parsed.rows, ({ ref }) => ref);
+      for (const ref of heads.keys()) {
+        const current = corpus.get(ref)?.fragment ?? null;
+        // A ref known here, forgotten or not, is never changed by a file.
+        if (this.heads.has(ref)) {
+          if ((this.corpus.get(ref)?.fragment ?? null) === current) {
+            skipped += 1;
+          } else {
+            conflicts.push(ref);
+          }
+          continue;
+        }
+        if (current !== null && texts.has(current)) {
+          skipped += 1;
+          continue;
+        }
+        rows.push(...(history.get(ref) ?? []));
+        if (current !== null) {
+          texts.add(current);
+          imported += 1;
+        }
       }
-      texts.add(fragment);
-      const id = ref ?? freshRef(taken);
-      taken.add(id);
-      rows.push({
-        content: fragment,
-        createdAt: createdAt ?? updatedAt ?? now,
-        id,
-        updatedAt: updatedAt ?? createdAt ?? now,
-      });
     }
     this.ctx.storage.transactionSync(() => {
       for (const row of rows) {
-        this.db.insert(fragments).values(row).run();
+        this.db.insert(records).values(row).run();
       }
     });
-    for (const row of rows) {
-      this.corpus.set(row.id, {
-        createdAt: new Date(row.createdAt).toISOString(),
-        fragment: row.content,
-        ref: row.id,
-        updatedAt: new Date(row.updatedAt).toISOString(),
-      });
+    const { corpus, heads } = replay(rows);
+    for (const [ref, at] of heads) {
+      this.heads.set(ref, at);
     }
-    return { conflicts, imported: rows.length, skipped };
+    for (const [ref, item] of corpus) {
+      this.corpus.set(ref, item);
+    }
+    return { conflicts, imported, skipped };
   }
 
   async revise(
@@ -290,18 +323,7 @@ export class MemoryDO extends DurableObject<Env> {
         error: "Fragment changed while revising. Recall it and try again.",
       };
     }
-    const now = Date.now();
-    const item = {
-      ...existing,
-      fragment,
-      updatedAt: new Date(now).toISOString(),
-    };
-    this.db
-      .update(fragments)
-      .set({ content: fragment, updatedAt: now })
-      .where(eq(fragments.id, ref))
-      .run();
-    this.corpus.set(ref, item);
+    const item = this.write(ref, fragment);
     return withWarnings(item, verdict);
   }
 
@@ -310,7 +332,21 @@ export class MemoryDO extends DurableObject<Env> {
     if (!this.corpus.has(ref)) {
       return null;
     }
-    this.db.delete(fragments).where(eq(fragments.id, ref)).run();
+    // The text stays in the log; only purge removes it.
+    this.append(ref, null);
+    this.corpus.delete(ref);
+    return { ref };
+  }
+
+  // The user's own action, never an agent's: deletes every record of a ref,
+  // forgotten or not, as if it never existed.
+  purge(input: { ref: string }): { ref: string } | null {
+    const { ref } = inputs.forget.parse(input);
+    if (!this.heads.has(ref)) {
+      return null;
+    }
+    this.db.delete(records).where(eq(records.ref, ref)).run();
+    this.heads.delete(ref);
     this.corpus.delete(ref);
     return { ref };
   }

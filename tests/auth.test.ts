@@ -107,16 +107,11 @@ describe("Authentication", () => {
       asToken.flatMap((headers) => [
         get("/api/fragments", headers),
         get("/api/export", headers),
-        post(
-          "/api/import",
-          {
-            format: "memsys.fragments",
-            fragments: [{ fragment: "Injected" }],
-            version: 1,
-          },
-          null,
-          headers
-        ),
+        post("/api/import", "Injected", null, {
+          ...headers,
+          "Content-Type": "text/plain",
+        }),
+        post("/api/purge", { ref: "2222222" }, null, headers),
         get("/api/plugins", headers),
         post(
           "/api/plugins/size-limit",
