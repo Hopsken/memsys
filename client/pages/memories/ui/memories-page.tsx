@@ -49,7 +49,7 @@ const FragmentRow = ({ item }: { item: ListedFragment }) => {
       <div
         className={cn(
           card,
-          "cursor-pointer transition-shadow duration-200 hover:shadow-md"
+          "cursor-pointer transition-shadow duration-200 hover:shadow-md hover:shadow-black/5"
         )}
         onClick={open(to)}
       >
