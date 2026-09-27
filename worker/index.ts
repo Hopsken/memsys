@@ -95,9 +95,14 @@ app.onError((cause, c) => {
 
 export default {
   // Start Better Auth here, so its setup outlives this request if needed.
+  // Requests in an isolate also share work in flight, such as fetching an
+  // app's client metadata document; if the request doing it is canceled,
+  // every request waiting on it hangs. So each request runs to the end.
   fetch: (request: Request, env: Env, ctx?: ExecutionContext) => {
     getAuth(env, ctx);
-    return app.fetch(request, env, ctx);
+    const response = Promise.resolve(app.fetch(request, env, ctx));
+    ctx?.waitUntil(response);
+    return response;
   },
 };
 
