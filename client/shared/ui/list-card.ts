@@ -8,5 +8,5 @@ export const listCard =
 // A card that opens something lifts a little when hovered.
 export const listCardLink = cn(
   listCard,
-  "cursor-pointer transition-shadow duration-200 hover:shadow-md hover:shadow-black/5"
+  "cursor-pointer transition-shadow duration-200 hover:shadow-xs"
 );
