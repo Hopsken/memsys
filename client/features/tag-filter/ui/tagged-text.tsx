@@ -9,7 +9,7 @@ import { filteredList, useTags } from "../lib/tags";
 // A tag in the filter, in the text and in the filter bar alike. Opaque, so
 // text scrolling under the header doesn't show through.
 export const selectedTag =
-  "bg-[color-mix(in_oklab,var(--background),var(--color-blue-500)_12%)] font-medium text-blue-700 hover:bg-[color-mix(in_oklab,var(--background),var(--color-blue-500)_18%)]";
+  "bg-[color-mix(in_oklab,var(--background),var(--color-blue-500)_12%)] font-medium text-blue-700 hover:bg-[color-mix(in_oklab,var(--background),var(--color-blue-500)_24%)]";
 
 // Memory text with its #tags as links. A tag adds itself to the list's
 // filter, or takes itself out when already there. `start` and `end` render a
