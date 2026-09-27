@@ -215,14 +215,17 @@ export class MemoryDO extends DurableObject<Env> {
   async recall(
     raw: z.input<typeof inputs.recall>
   ): Promise<RecallResult | { error: string }> {
-    const { candidates, input } = recallCandidates(this.corpus.values(), raw);
+    const { candidates, input, warnings } = recallCandidates(
+      this.corpus.values(),
+      raw
+    );
     const ranked = await runAfterRecall(
       this.plugins,
       this.pluginEnv,
       candidates,
       input
     );
-    return "error" in ranked ? ranked : truncate(ranked, input.limit);
+    return "error" in ranked ? ranked : truncate(ranked, input.limit, warnings);
   }
 
   list(input: { cursor?: string }): FragmentPage {

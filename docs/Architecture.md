@@ -64,7 +64,7 @@ Four tools, the minimal complete operation set of a memory: write, change, forge
 
 - **The contract** — tool names, input schemas, output shape, field meanings — is meant to hold for years. New fields are additive, with defaults that reproduce prior behavior.
 - **`recall` has two stages.** _Candidate generation_ finds cue matches and one-hop associations. The _terminal_ orders, filters, and truncates. Plugins attach only at the terminal.
-- **`recall` returns one list**: cue matches first, then associations. An item's `via` (the shared anchors) is both its kind and the reason it was associated. `hasMore` means a higher `limit` would return more.
+- **`recall` returns one list**: cue matches first, then associations. An item's `via` (the shared anchors) is both its kind and the reason it was associated. `hasMore` means more fragments survived than were returned.
 - **Core carries information it does not use.** `context` (what the agent is doing) is accepted and ignored by core, so read-path plugins can judge relevance against the situation. Carrying is core; using is policy.
 - **Core keeps an absolute safety ceiling; policy lives in plugins.** A disabled or failing plugin can never let an unbounded fragment in. Tool descriptions carry no instance-specific numbers; warnings and rejections do.
 

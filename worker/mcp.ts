@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/server";
 import type { CallToolResult } from "@modelcontextprotocol/server";
 
 import type { RecallResult } from "../contract/memory";
+import { RECALL_LIMIT_MAX } from "../lib/recall";
 import { plugins } from "../plugins";
 import { MEMORY_READ, MEMORY_WRITE } from "./auth";
 import type { Scope } from "./auth";
@@ -42,7 +43,7 @@ Store durable information as small, atomic, self-contained fragments rather than
 
 Use #anchors for stable entities or concepts that should link related fragments. Fragments with similar anchors are considered as associated and will be returned when recall.
 
-Recall with short textual cues such as distinctive phrases, names, projects, or concepts. Try multiple cues when needed.`,
+Recall with short textual cues such as distinctive phrases, names, projects, concepts, or #anchors. A cue is free text and may combine several words, but every word must appear in a match, so extra words narrow the results. To search more broadly, call recall again with a different cue.`,
     }
   );
   if (canWrite) {
@@ -61,8 +62,7 @@ Recall with short textual cues such as distinctive phrases, names, projects, or 
       "recall",
       {
         annotations: { readOnlyHint: true },
-        description:
-          "Recall memories using a short textual cue. Prefer distinctive phrases, entities, or concepts. Fragments matching the cue come first; fragments with `via` were associated through the listed shared #anchors.",
+        description: `Recall memories using a short textual cue. Prefer distinctive phrases, entities, concepts, or #anchors. Fragments matching the cue come first; fragments with \`via\` were associated through the listed shared #anchors. Returns at most ${RECALL_LIMIT_MAX} fragments per call. \`hasMore\` means more fragments matched: raise \`limit\`, or use a narrower cue once at ${RECALL_LIMIT_MAX}.`,
         inputSchema: inputs.recall,
       },
       async (input) => result(await memory.recall(input))

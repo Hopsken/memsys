@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "../contract/memory";
+import { RECALL_LIMIT_MAX } from "../lib/recall";
 import { extractAnchors, recall } from "../worker/memory";
 import { terms } from "../worker/search";
 
@@ -207,6 +208,21 @@ describe("Recall", () => {
       }).toStrictEqual({ hasMore, refs });
     }
   );
+
+  it("caps limit at the maximum and warns", () => {
+    const corpus = Array.from({ length: RECALL_LIMIT_MAX + 5 }, (_, index) =>
+      item(`m-${index}`, "cue")
+    );
+    const result = recall(corpus, { cue: "cue", limit: 100 });
+    expect(result.fragments).toHaveLength(RECALL_LIMIT_MAX);
+    expect(result.hasMore).toBeTruthy();
+    expect(result.warnings).toStrictEqual([
+      `limit 100 is above the maximum of ${RECALL_LIMIT_MAX}; returned at most ${RECALL_LIMIT_MAX} fragments.`,
+    ]);
+    expect(
+      recall(corpus, { cue: "cue", limit: RECALL_LIMIT_MAX })
+    ).not.toHaveProperty("warnings");
+  });
 
   it("skips association when disabled", () => {
     const corpus = [item("a", "cue #shared"), item("b", "neighbor #shared")];
