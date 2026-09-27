@@ -107,6 +107,7 @@ A fragment is its latest record, so it exposes that record's `at`, the time its 
 - **Import** accepts either export. The current `memsys.fragments` JSON is not accepted; it is replaced, not kept alongside.
 - Refs unknown to this instance arrive with their full history and original `at`. A file that repeats an `at` within one ref is rejected.
 - Refs this instance already knows follow today's rules: identical current text is skipped, different text is a conflict. A ref forgotten here counts as known with no text, so an old backup cannot silently bring it back.
+- A line may be just `{"fragment":"..."}`, so other tools can produce a file without knowing memsys. Each such line becomes its own new fragment with a fresh ref, stamped with the import time; text already in this memory is skipped. A line that has a `ref` must also have an `at`, and a line without a `ref` must have text.
 
 ## Migration
 
@@ -151,7 +152,7 @@ TIDs become worth it when one memory gains concurrent writers, such as offline c
 - Durable Object: each write appends one row; a restart replays to the same corpus; forgotten refs are never reused; purge removes every row of a ref.
 - Migration: an existing table yields the same current corpus, with `at` equal to the old `updatedAt`.
 - Export: current-only and full history, each importing back to the same current corpus.
-- Import: both exports, conflicts, and forgotten refs.
+- Import: both exports, text-only lines, conflicts, and forgotten refs.
 - `pnpm eval` results are unchanged.
 
 ## Decision requested
