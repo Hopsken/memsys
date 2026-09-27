@@ -217,22 +217,64 @@ const createAuth = (env: Env) =>
         metadataProfile: "mcp-2026-07-28",
       }),
     ],
-    rateLimit: { enabled: true, storage: "database" },
+    rateLimit: {
+      // Reading the session only answers who is signed in; limiting it would
+      // cost a D1 read and write on every page load.
+      customRules: { "/get-session": false },
+      enabled: true,
+      storage: "database",
+    },
     secret: env.BETTER_AUTH_SECRET,
     session: { cookieCache: { enabled: true, maxAge: 5 * 60 } },
     telemetry: { enabled: false },
   });
 
-// Bindings are fixed per deployment; reuse one instance per env object.
-const instances = new WeakMap<Env, ReturnType<typeof createAuth>>();
+interface Instance {
+  auth: ReturnType<typeof createAuth>;
+  createdAt: number;
+  ready: boolean;
+}
 
-export const getAuth = (env: Env) => {
-  let auth = instances.get(env);
-  if (!auth) {
-    auth = createAuth(env);
-    instances.set(env, auth);
+// Better Auth sets itself up with D1 queries as soon as it is created.
+const SETUP_TIMEOUT_MS = 10_000;
+
+// Bindings are fixed per deployment; reuse one instance per env object.
+const instances = new WeakMap<Env, Instance>();
+
+// A failed setup is dropped, so the next request starts over.
+const settle = async (env: Env, instance: Instance) => {
+  try {
+    await instance.auth.$context;
+    instance.ready = true;
+  } catch {
+    if (instances.get(env) === instance) {
+      instances.delete(env);
+    }
   }
-  return auth;
+};
+
+// Every request in an isolate waits on the shared instance's setup. That
+// setup's I/O belongs to the request that started it: if that request is
+// canceled, the setup never finishes and every later request hangs. So the
+// starting request keeps it alive with waitUntil, and an instance still not
+// ready after the timeout is replaced.
+export const getAuth = (env: Env, ctx?: ExecutionContext) => {
+  const cached = instances.get(env);
+  if (
+    cached &&
+    (cached.ready || Date.now() - cached.createdAt < SETUP_TIMEOUT_MS)
+  ) {
+    return cached.auth;
+  }
+  const instance: Instance = {
+    auth: createAuth(env),
+    createdAt: Date.now(),
+    ready: false,
+  };
+  const setup = settle(env, instance);
+  ctx?.waitUntil(setup);
+  instances.set(env, instance);
+  return instance.auth;
 };
 
 // A memory space id names one memory object. Each user has a default space
