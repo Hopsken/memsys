@@ -1,14 +1,18 @@
 import { DurableObject } from "cloudflare:workers";
-import { eq } from "drizzle-orm";
+import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/durable-sqlite";
 import { migrate } from "drizzle-orm/durable-sqlite/migrator";
 import { customAlphabet } from "nanoid";
 import { z } from "zod";
 
 import type {
+  ForgottenList,
   Fragment,
+  FragmentPage,
+  History,
   ImportResult,
   RecallResult,
+  Restored,
 } from "../../contract/memory";
 import type { PluginView, Verdict } from "../../contract/plugin";
 import { plugins } from "../../plugins";
@@ -99,6 +103,8 @@ export class MemoryDO extends DurableObject<Env> {
   private readonly corpus = new Map<string, Fragment>();
   // Every ref in the log, forgotten ones included, with its latest `at`.
   private heads = new Map<string, number>();
+  // How many records each ref in the log has.
+  private readonly versions = new Map<string, number>();
   private plugins: PluginState[] = [];
   private readonly pluginEnv: PluginEnv;
 
@@ -123,14 +129,23 @@ export class MemoryDO extends DurableObject<Env> {
   }
 
   private load() {
-    const { corpus, heads } = replay(this.db.select().from(records).all());
+    const rows = this.db.select().from(records).all();
+    const { corpus, heads } = replay(rows);
     // Plugins hold this map, so it is refilled rather than replaced.
     this.corpus.clear();
     for (const [ref, item] of corpus) {
       this.corpus.set(ref, item);
     }
     this.heads = heads;
+    this.versions.clear();
+    this.count(rows);
     this.loadPlugins();
+  }
+
+  private count(rows: Iterable<Row>) {
+    for (const { ref } of rows) {
+      this.versions.set(ref, (this.versions.get(ref) ?? 0) + 1);
+    }
   }
 
   // Appends one record. `at` is a per-ref hybrid logical clock: the current
@@ -139,6 +154,7 @@ export class MemoryDO extends DurableObject<Env> {
     const at = Math.max(Date.now(), (this.heads.get(ref) ?? 0) + 1);
     this.db.insert(records).values({ at, fragment, ref }).run();
     this.heads.set(ref, at);
+    this.versions.set(ref, (this.versions.get(ref) ?? 0) + 1);
     return at;
   }
 
@@ -209,8 +225,92 @@ export class MemoryDO extends DurableObject<Env> {
     return "error" in ranked ? ranked : truncate(ranked, input.limit);
   }
 
-  list(input: { cursor?: string }) {
-    return listFragments(this.corpus.values(), input);
+  list(input: { cursor?: string }): FragmentPage {
+    return listFragments(
+      [...this.corpus.values()].map((item) => ({
+        ...item,
+        versions: this.versions.get(item.ref) ?? 1,
+      })),
+      input
+    );
+  }
+
+  // Every record of one ref, newest first; null for a ref never written or
+  // purged.
+  history(input: { ref: string }): History | null {
+    const { ref } = inputs.forget.parse(input);
+    if (!this.heads.has(ref)) {
+      return null;
+    }
+    const rows = this.db
+      .select()
+      .from(records)
+      .where(eq(records.ref, ref))
+      .orderBy(desc(records.at))
+      .all();
+    return {
+      versions: rows.map(({ at, fragment }) => ({
+        at: new Date(at).toISOString(),
+        fragment,
+        ref,
+      })),
+    };
+  }
+
+  // Forgotten refs with their last text, newest forgotten first. Low
+  // traffic, so each ref's text is one indexed lookup rather than a cache.
+  listForgotten(): ForgottenList {
+    const fragments = [];
+    for (const [ref, forgottenAt] of this.heads) {
+      if (this.corpus.has(ref)) {
+        continue;
+      }
+      const last = this.db
+        .select()
+        .from(records)
+        .where(and(eq(records.ref, ref), isNotNull(records.fragment)))
+        .orderBy(desc(records.at))
+        .limit(1)
+        .get();
+      // A ref imported as only a forget has no text to bring back.
+      if (last?.fragment) {
+        fragments.push({
+          at: new Date(last.at).toISOString(),
+          forgottenAt: new Date(forgottenAt).toISOString(),
+          fragment: last.fragment,
+          ref,
+        });
+      }
+    }
+    fragments.sort(
+      (a, b) =>
+        b.forgottenAt.localeCompare(a.forgottenAt) || a.ref.localeCompare(b.ref)
+    );
+    return { fragments };
+  }
+
+  // The user's own action, never an agent's: appends a copy of one record,
+  // stamped now. Core validation only and no write hooks, since the text was
+  // accepted once; a revision it lands on stays in the history.
+  restore({ at, ref }: { at: number; ref: string }): Restored | null {
+    const row = this.db
+      .select()
+      .from(records)
+      .where(and(eq(records.ref, ref), eq(records.at, at)))
+      .get();
+    if (!row) {
+      return null;
+    }
+    const restored =
+      row.fragment === null
+        ? this.remove(ref)
+        : Date.parse(this.write(ref, row.fragment).at);
+    return {
+      at: new Date(restored).toISOString(),
+      fragment: row.fragment,
+      ref,
+      versions: this.versions.get(ref) ?? 1,
+    };
   }
 
   // NDJSON: the latest record of each current fragment, or the whole log.
@@ -290,6 +390,7 @@ export class MemoryDO extends DurableObject<Env> {
         this.db.insert(records).values(row).run();
       }
     });
+    this.count(rows);
     const { corpus, heads } = replay(rows);
     for (const [ref, at] of heads) {
       this.heads.set(ref, at);
@@ -332,10 +433,15 @@ export class MemoryDO extends DurableObject<Env> {
     if (!this.corpus.has(ref)) {
       return null;
     }
-    // The text stays in the log; only purge removes it.
-    this.append(ref, null);
-    this.corpus.delete(ref);
+    this.remove(ref);
     return { ref };
+  }
+
+  // The text stays in the log; only purge removes it.
+  private remove(ref: string) {
+    const at = this.append(ref, null);
+    this.corpus.delete(ref);
+    return at;
   }
 
   // The user's own action, never an agent's: deletes every record of a ref,
@@ -347,6 +453,7 @@ export class MemoryDO extends DurableObject<Env> {
     }
     this.db.delete(records).where(eq(records.ref, ref)).run();
     this.heads.delete(ref);
+    this.versions.delete(ref);
     this.corpus.delete(ref);
     return { ref };
   }

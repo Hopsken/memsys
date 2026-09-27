@@ -88,7 +88,11 @@ describe("Fragment export and import", () => {
       skipped: 0,
     });
     const [before, after] = await Promise.all([list(source), list(target)]);
-    expect(after).toStrictEqual(before);
+    // Current fragments only: each arrives as a single version.
+    expect(after).toStrictEqual({
+      ...before,
+      fragments: before.fragments.map((item) => ({ ...item, versions: 1 })),
+    });
   });
 
   it("moves the whole history, forgotten fragments included", async () => {

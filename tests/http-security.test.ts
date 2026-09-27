@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "../contract/memory";
 import worker from "../worker/index";
-import { list, post, useAuth } from "./helpers";
+import { list, post, useAuth, withVersions } from "./helpers";
 
 describe("HTTP request safety", () => {
   const signIn = useAuth();
@@ -49,7 +49,7 @@ describe("HTTP request safety", () => {
       });
       expect(response.status).toBe(403);
       await expect(list(user)).resolves.toStrictEqual({
-        fragments: [item],
+        fragments: [withVersions(item)],
         nextCursor: null,
       });
     }

@@ -23,10 +23,39 @@ export interface RecallResult {
   hasMore: boolean;
 }
 
+// A listed fragment also counts the records in its history, so a list can
+// tell edited fragments apart without loading each history.
+export type ListedFragment = Fragment & { versions: number };
+
 export interface FragmentPage {
-  fragments: Fragment[];
+  fragments: ListedFragment[];
   nextCursor: string | null;
 }
+
+// One record of a fragment's history. A null `fragment` means it was
+// forgotten at `at`.
+export interface Version {
+  ref: string;
+  fragment: string | null;
+  at: string;
+}
+
+// Every record of one fragment, newest first.
+export interface History {
+  versions: Version[];
+}
+
+// A forgotten fragment: its last text, written at `at`, and when it was
+// forgotten. Restoring the record `(ref, at)` brings it back.
+export type ForgottenFragment = Fragment & { forgottenAt: string };
+
+// Newest forgotten first.
+export interface ForgottenList {
+  fragments: ForgottenFragment[];
+}
+
+// A restore appends a copy of the chosen record; this is the new record.
+export type Restored = Version & { versions: number };
 
 // One line of the fragment log, its export, and its import. A null
 // `fragment` means the fragment was forgotten.

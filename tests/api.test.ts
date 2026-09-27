@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Fragment, FragmentPage } from "../contract/memory";
 import worker from "../worker/index";
-import { getList, list, post, useAuth } from "./helpers";
+import { getList, list, post, useAuth, withVersions } from "./helpers";
 
 describe("Fragment HTTP API", () => {
   const signIn = useAuth();
@@ -113,7 +113,11 @@ describe("Fragment HTTP API", () => {
       [...first.fragments, ...last.fragments].toSorted((a, b) =>
         a.ref.localeCompare(b.ref)
       )
-    ).toStrictEqual(saved.toSorted((a, b) => a.ref.localeCompare(b.ref)));
+    ).toStrictEqual(
+      saved
+        .toSorted((a, b) => a.ref.localeCompare(b.ref))
+        .map((item) => withVersions(item))
+    );
   });
 
   it.each([

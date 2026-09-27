@@ -11,6 +11,7 @@ import {
   post,
   sentCode,
   useAuth,
+  withVersions,
 } from "./helpers";
 import type { User } from "./helpers";
 
@@ -92,7 +93,7 @@ describe("Authentication", () => {
     const again = await signIn(user.email);
     expect(again.id).toBe(user.id);
     await expect(list(again)).resolves.toStrictEqual({
-      fragments: [await saved.json<Fragment>()],
+      fragments: [withVersions(await saved.json<Fragment>())],
       nextCursor: null,
     });
   });
@@ -203,7 +204,7 @@ describe("Authentication", () => {
       call(bob, "revise", { fragment: "stolen", ref: item.ref })
     ).resolves.toMatchObject({ isError: true });
     await expect(list(alice)).resolves.toStrictEqual({
-      fragments: [item],
+      fragments: [withVersions(item)],
       nextCursor: null,
     });
   });

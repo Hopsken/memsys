@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "../contract/memory";
-import { call, content, list, post, useAuth } from "./helpers";
+import { call, content, list, post, useAuth, withVersions } from "./helpers";
 
 describe("Revise", () => {
   const signIn = useAuth();
@@ -31,7 +31,7 @@ describe("Revise", () => {
       });
       expect(Date.parse(revised.at)).toBeGreaterThan(Date.parse(item.at));
       await expect(list(user)).resolves.toStrictEqual({
-        fragments: [revised],
+        fragments: [withVersions(revised, 2)],
         nextCursor: null,
       });
     }
@@ -52,7 +52,7 @@ describe("Revise", () => {
       const result = await call(user, "revise", { ...args, ref: item.ref });
       expect(result.isError).toBeTruthy();
       await expect(list(user)).resolves.toStrictEqual({
-        fragments: [item],
+        fragments: [withVersions(item)],
         nextCursor: null,
       });
     }

@@ -1,12 +1,7 @@
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
-import { ArrowDown, Layers, Trash2 } from "lucide-react";
-import { useState } from "react";
-import { Link } from "react-router";
+import { ArrowDown, Layers } from "lucide-react";
+import { Link, Outlet } from "react-router";
 
 import { SessionExpired } from "@/components/session-expired";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -14,15 +9,16 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, isExpired } from "@/lib/api";
 
-import type { Fragment, FragmentPage } from "../contract/memory";
-import { formatRelativeDate } from "../lib/date";
+import type { FragmentPage, ListedFragment } from "../contract/memory";
+import { formatRelativeDate, formatRelativeDateInline } from "../lib/date";
+import { memoryId, useOpenHistory, useReturnFocus } from "./history";
 
 const linkClass =
   "text-foreground underline underline-offset-4 hover:text-foreground/80";
 
 // A fragment revised between page loads can appear twice; keep its latest copy.
 const flatten = (pages: FragmentPage[]) => {
-  const items = new Map<string, Fragment>();
+  const items = new Map<string, ListedFragment>();
   for (const item of pages.flatMap((page) => page.fragments)) {
     items.delete(item.ref);
     items.set(item.ref, item);
@@ -30,66 +26,34 @@ const flatten = (pages: FragmentPage[]) => {
   return [...items.values()];
 };
 
-// Delete is the user's purge: unlike an agent's forget, it removes the
-// memory's history too.
-const FragmentRow = ({ item }: { item: Fragment }) => {
-  const queryClient = useQueryClient();
-  const [confirming, setConfirming] = useState(false);
-  const purge = useMutation({
-    mutationFn: () => api.post("/api/purge", { json: { ref: item.ref } }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["fragments"] }),
-  });
+// A row only shows the memory; clicking it opens the history, where it can
+// be restored or forgotten.
+const FragmentRow = ({ item }: { item: ListedFragment }) => {
+  const open = useOpenHistory();
   return (
-    <li className="space-y-1 py-3.5">
-      <div className="text-muted-foreground flex min-h-7 flex-wrap items-center justify-between gap-x-4 text-xs">
-        <span className="font-mono">{item.ref}</span>
-        {confirming ? (
-          <div className="flex items-center gap-2">
-            <span className="text-foreground">Delete this memory?</span>
-            <Button
-              disabled={purge.isPending}
-              onClick={() => {
-                setConfirming(false);
-                purge.reset();
-              }}
-              size="sm"
-              variant="ghost"
-            >
-              Cancel
-            </Button>
-            <Button
-              disabled={purge.isPending}
-              onClick={() => purge.mutate()}
-              size="sm"
-              variant="destructive"
-            >
-              {purge.isPending ? "Deleting…" : "Delete"}
-            </Button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-1">
-            <time dateTime={item.at} title={new Date(item.at).toLocaleString()}>
-              {formatRelativeDate(item.at)}
-            </time>
-            <Button
-              aria-label="Delete memory"
-              onClick={() => setConfirming(true)}
-              size="icon-sm"
-              variant="ghost"
-            >
-              <Trash2 aria-hidden="true" />
-            </Button>
-          </div>
-        )}
-      </div>
-      <p className="text-sm leading-6 [overflow-wrap:anywhere] whitespace-pre-wrap">
-        {item.fragment}
-      </p>
-      {purge.isError ? (
-        <p className="text-destructive text-xs">
-          Couldn’t delete this memory. Try again.
+    <li>
+      <div
+        className="hover:bg-foreground/5 -mx-3 my-1 cursor-pointer space-y-1 rounded-lg px-3 py-2.5 transition-colors"
+        onClick={open(`memories/${item.ref}`)}
+      >
+        <div className="text-muted-foreground flex min-h-7 flex-wrap items-center justify-between gap-x-4 text-xs">
+          <Link
+            className="hover:text-foreground focus-visible:ring-ring/50 rounded-sm font-mono outline-none focus-visible:ring-3"
+            id={memoryId(item.ref)}
+            to={`memories/${item.ref}`}
+          >
+            {item.ref}
+          </Link>
+          <time dateTime={item.at} title={new Date(item.at).toLocaleString()}>
+            {item.versions > 1
+              ? `Edited ${formatRelativeDateInline(item.at)}`
+              : formatRelativeDate(item.at)}
+          </time>
+        </div>
+        <p className="text-sm leading-6 [overflow-wrap:anywhere] whitespace-pre-wrap">
+          {item.fragment}
         </p>
-      ) : null}
+      </div>
     </li>
   );
 };
@@ -114,6 +78,7 @@ export const FragmentsView = () => {
     queryKey: ["fragments"],
   });
   const items = flatten(query.data?.pages ?? []);
+  useReturnFocus();
 
   if (isExpired(query.error)) {
     return <SessionExpired />;
@@ -192,6 +157,7 @@ export const FragmentsView = () => {
           </Button>
         </footer>
       ) : null}
+      <Outlet />
     </>
   );
 };

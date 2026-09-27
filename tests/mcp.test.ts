@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "../contract/memory";
 import worker from "../worker/index";
-import { call, content, list, post, useAuth } from "./helpers";
+import { call, content, list, post, useAuth, withVersions } from "./helpers";
 import type { User } from "./helpers";
 
 const tags = async (user: User) =>
@@ -145,7 +145,7 @@ describe("Stateless MCP", () => {
     );
     expect(item.fragment).toBe("MCP memory #test");
     await expect(list(user)).resolves.toStrictEqual({
-      fragments: [item],
+      fragments: [withVersions(item)],
       nextCursor: null,
     });
     const found = await call(user, "recall", { cue: "MCP memory" });

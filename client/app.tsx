@@ -1,5 +1,5 @@
 import { cn } from "cn";
-import { Layers, Settings } from "lucide-react";
+import { Archive, Layers, Settings } from "lucide-react";
 import { Navigate, NavLink, Outlet } from "react-router";
 
 import { buttonVariants } from "@/components/ui/button";
@@ -34,7 +34,15 @@ export const App = () => {
               memsys
             </NavLink>
           </h1>
-          <nav>
+          <nav className="flex items-center gap-1">
+            <NavLink
+              aria-label="Forgotten memories"
+              className={navClass}
+              title="Forgotten memories"
+              to="/forgotten"
+            >
+              <Archive aria-hidden="true" />
+            </NavLink>
             <NavLink
               aria-label="Settings"
               className={navClass}
