@@ -136,6 +136,14 @@ Two tables that must agree are two sources of truth. The log makes the current s
 
 Records such as `replace old with new` are smaller but tie history to the write tools' shape and require replaying every step to read any version.
 
+### TIDs as record IDs
+
+AT Protocol orders records with [TIDs](https://atproto.com/specs/tid): 53 bits of microseconds and a 10-bit random clock ID, encoded as 13 sortable characters, generated monotonically. They give many writers unique, ordered IDs without a shared sequence.
+
+A memory has one writer, and `(ref, at)` already identifies and orders every version. Workers clocks have millisecond resolution, so the microseconds would carry nothing. A TID is also opaque where `at` reads at a glance, and as a `ref` it would cost agents six more characters to read and type.
+
+TIDs become worth it when one memory gains concurrent writers, such as offline clients that sync or merging the full histories of two instances. A TID field can then be added to records without changing how existing ones replay.
+
 ## Testing
 
 - Codec round trips: Unicode, line breaks in text, `FRAGMENT_MAX`-length fragments, unknown keys, unknown `v`.
