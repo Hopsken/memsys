@@ -99,11 +99,13 @@ pnpm dev         # Apply local D1 migrations, then Vite frontend and local Worke
 pnpm eval        # Score recall on eval/dataset.ts; JEV=1 adds Jev (bills Workers AI)
 ```
 
-`pnpm dev` uses local D1 and Durable Object storage. Copy `.dev.vars.example` to the ignored `.dev.vars`: it sets a development `BETTER_AUTH_SECRET` and `PUBLIC_URL`; put your address in `AUTH_ALLOWED_EMAILS`. With `RESEND_API_KEY` or `EMAIL_FROM` empty, a dev build prints sign-in codes in the dev server log instead of emailing them; a production build refuses to sign in without both. Open `/` on the development server and sign in.
+`pnpm dev` uses local D1 and Durable Object storage. Copy `.dev.vars.example` to the ignored `.dev.vars`: it sets a development `BETTER_AUTH_SECRET` and `PUBLIC_URL`, and allows `dev@memsys.test` plus an address you replace with yours in `AUTH_ALLOWED_EMAILS`. With `RESEND_API_KEY` or `EMAIL_FROM` empty, a dev build prints sign-in codes in the dev server log instead of emailing them; a production build refuses to sign in without both. Open `/` on the development server and sign in.
 
-With the dev server running and after signing in once, `SEED_EMAIL=you@example.com pnpm db:seed` replaces that user's memory with a fixed eight-fragment corpus (`worker/dev/corpus.ts`) so the UI and recall have something to show. Set `SEED_URL` if the server is not on `http://localhost:5173`. The seed route skips sign-in, so anyone with access to the dev server can use it; do not store sensitive data there.
+The sign-in page on the dev server also offers **Sign in as dev@memsys.test**, which opens `/__dev/log-me-in/<email>?returnTo=<path>`. That route signs the browser in as any allowed address without a code, creating the account the first time, and returns to `returnTo` when it is a path on the same origin, otherwise to `/`. A new account starts with a fixed eight-fragment corpus (`worker/dev/corpus.ts`) so the UI and recall have something to show.
 
-The printed codes and everything under `worker/dev/` exist only in dev builds: they sit behind `import.meta.env.DEV`, which `vite build` replaces with `false`, so the deployed bundle contains neither.
+With the dev server running, `pnpm db:seed` replaces `dev@memsys.test`'s memory with that corpus again; set `SEED_EMAIL` for another user who has signed in, and `SEED_URL` if the server is not on `http://localhost:5173`. These routes skip sign-in, so anyone with access to the dev server can use them; do not store sensitive data there.
+
+The printed codes and everything under `worker/dev/` exist only in dev builds: they sit behind `import.meta.env.DEV`, which `vite build` replaces with `false`, so the deployed bundle contains neither and `/__dev/*` answers 404.
 
 `.dev.vars` is not deployed. `pnpm typegen` reads `.dev.vars.example` to type the Worker's secrets, so add new secrets there too.
 

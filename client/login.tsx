@@ -1,10 +1,11 @@
 import { useMutation } from "@tanstack/react-query";
+import { cn } from "cn";
 import { Layers } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -51,6 +52,20 @@ const check = async (
 
 // Seconds before another code may be requested.
 const RESEND_DELAY = 60;
+
+// The development account; .dev.vars.example allows it to sign in.
+const DEV_EMAIL = "dev@memsys.test";
+
+// Dev builds only: signs in without a code.
+const DevSignIn = () =>
+  import.meta.env.DEV ? (
+    <a
+      className={cn(buttonVariants({ variant: "outline" }), "w-full")}
+      href={`/__dev/log-me-in/${DEV_EMAIL}?returnTo=/`}
+    >
+      Sign in as {DEV_EMAIL}
+    </a>
+  ) : null;
 
 const Problem = ({ text }: { text: string }) => (
   <Alert className="bg-amber-50 text-amber-950 ring-amber-300">
@@ -205,6 +220,7 @@ export const LoginView = () => {
               >
                 {send.isPending ? "Sending…" : "Email me a code"}
               </Button>
+              {forApp ? null : <DevSignIn />}
             </form>
           )}
         </CardContent>

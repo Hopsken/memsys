@@ -73,8 +73,8 @@ app.on(["GET", "POST"], ["/api/auth/*", "/.well-known/*"], (c) =>
   getAuth(c.env).handler(c.req.raw)
 );
 // Replaced with `false` in production builds, which then drop worker/dev.
-if (import.meta.env.DEV) {
-  app.route("/api/dev", dev);
+if (import.meta.env.DEV && process.env.NODE_ENV !== "production") {
+  app.route("/", dev);
 }
 // Agents hold API keys or OAuth tokens; only a signed-in user reaches the rest of /api.
 app.use("/mcp", requireToken);
