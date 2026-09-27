@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import type { JSONValue } from "hono/utils/types";
 import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "../contract/memory";
@@ -8,6 +9,37 @@ import type { User } from "./helpers";
 
 const tags = async (user: User) =>
   content<string[]>(await call(user, "list_tags", {}));
+
+// A 2026-07-28 request: no initialize, the protocol version travels on every
+// request in `_meta` and the MCP-Protocol-Version header.
+const modern = (
+  user: User,
+  method: string,
+  params: Record<string, JSONValue> = {},
+  { name, version = "2026-07-28" }: { name?: string; version?: string } = {}
+) =>
+  post(
+    "/mcp",
+    {
+      id: 1,
+      jsonrpc: "2.0",
+      method,
+      params: {
+        ...params,
+        _meta: {
+          "io.modelcontextprotocol/clientCapabilities": {},
+          "io.modelcontextprotocol/clientInfo": { name: "test", version: "1" },
+          "io.modelcontextprotocol/protocolVersion": version,
+        },
+      },
+    },
+    user,
+    {
+      "MCP-Protocol-Version": version,
+      "Mcp-Method": method,
+      ...(name && { "Mcp-Name": name }),
+    }
+  );
 
 describe("Stateless MCP", () => {
   const signIn = useAuth();
@@ -56,6 +88,54 @@ describe("Stateless MCP", () => {
         .map((tool) => tool.name)
         .toSorted()
     ).toStrictEqual(["list_tags", "recall"]);
+  });
+
+  it("serves the 2026-07-28 protocol without a handshake", async () => {
+    const user = await signIn();
+    const discover = await modern(user, "server/discover");
+    expect(discover.status).toBe(200);
+    await expect(discover.json()).resolves.toMatchObject({
+      result: {
+        capabilities: { tools: {} },
+        supportedVersions: expect.arrayContaining(["2026-07-28"]),
+      },
+    });
+    const listed = await modern(user, "tools/list");
+    const { result } = await listed.json<{
+      result: { tools: { name: string }[] };
+    }>();
+    expect(result.tools.map((tool) => tool.name)).toContain("remember");
+    const remembered = await modern(
+      user,
+      "tools/call",
+      {
+        arguments: { fragment: "Modern MCP #test" },
+        name: "remember",
+      },
+      { name: "remember" }
+    );
+    const { result: tool } = await remembered.json<{
+      result: { content: { text: string }[] };
+    }>();
+    expect(content<Fragment>(tool).fragment).toBe("Modern MCP #test");
+  });
+
+  // Clients probe with their newest version and fall back to initialize only
+  // on a 400.
+  it("rejects an unsupported protocol version with 400", async () => {
+    const user = await signIn();
+    const response = await modern(
+      user,
+      "server/discover",
+      {},
+      {
+        version: "2099-01-01",
+      }
+    );
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { data: { supported: expect.arrayContaining(["2026-07-28"]) } },
+    });
   });
 
   it("shares writes, recall, and deletion with REST without initialization", async () => {
