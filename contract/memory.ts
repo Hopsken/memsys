@@ -18,9 +18,11 @@ export interface RecallInput {
   limit: number;
 }
 
+// `warnings` explains an adjusted request, such as a capped `limit`.
 export interface RecallResult {
   fragments: RecallItem[];
   hasMore: boolean;
+  warnings?: string[];
 }
 
 // A listed fragment also counts the records in its history, so a list can

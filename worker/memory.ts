@@ -55,14 +55,20 @@ export const inputs = {
         .max(1000)
         .optional()
         .describe("Optional: what you are doing right now."),
-      cue: z.string().trim().min(1).max(256),
+      cue: z
+        .string()
+        .trim()
+        .min(1)
+        .max(256)
+        .describe(
+          "Free text, not a single tag: one or a few words, a phrase, or #anchors. Matches contain every word; a cue of three or more words may miss one."
+        ),
       limit: z
         .int()
         .min(1)
-        .max(RECALL_LIMIT_MAX)
         .optional()
         .describe(
-          `Maximum fragments to return, 1–${RECALL_LIMIT_MAX}. Defaults to ${RESULT_LIMIT}.`
+          `Maximum fragments to return, at most ${RECALL_LIMIT_MAX}; larger values are capped with a warning. Defaults to ${RESULT_LIMIT}. Raise it when a result has \`hasMore\`.`
         ),
     })
     .strict(),
@@ -146,8 +152,16 @@ export const recallCandidates = (
     associate = true,
     context = null,
     cue,
-    limit = RESULT_LIMIT,
+    limit: requested = RESULT_LIMIT,
   } = inputs.recall.parse(raw);
+  // A limit past the cap is lowered rather than rejected, and said so.
+  const limit = Math.min(requested, RECALL_LIMIT_MAX);
+  const warnings =
+    requested > limit
+      ? [
+          `limit ${requested} is above the maximum of ${RECALL_LIMIT_MAX}; returned at most ${RECALL_LIMIT_MAX} fragments.`,
+        ]
+      : [];
   const input: RecallInput = { associate, context, cue, limit };
   const ordered = [...corpus].toSorted(
     (a, b) => b.at.localeCompare(a.at) || a.ref.localeCompare(b.ref)
@@ -199,17 +213,19 @@ export const recallCandidates = (
     }))
     .filter((item) => item.via.length > 0);
   const candidates: RecallItem[] = [...matches, ...associated];
-  return { candidates, input };
+  return { candidates, input, warnings };
 };
 
 // Terminal truncation. Plugins saw every candidate, so `hasMore` counts what
-// survived them: a higher `limit` would return more.
+// survived them.
 export const truncate = (
   ranked: readonly RecallItem[],
-  limit: number
+  limit: number,
+  warnings: string[] = []
 ): RecallResult => ({
   fragments: ranked.slice(0, limit),
   hasMore: ranked.length > limit,
+  ...(warnings.length > 0 && { warnings }),
 });
 
 // Core recall without plugins.
@@ -217,6 +233,6 @@ export const recall = (
   corpus: Iterable<Fragment>,
   raw: z.input<typeof inputs.recall>
 ): RecallResult => {
-  const { candidates, input } = recallCandidates(corpus, raw);
-  return truncate(candidates, input.limit);
+  const { candidates, input, warnings } = recallCandidates(corpus, raw);
+  return truncate(candidates, input.limit, warnings);
 };
