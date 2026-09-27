@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { PluginView } from "../contract/plugin";
 import worker from "../worker/index";
-import { call, memoryOf, post, useAuth } from "./helpers";
+import { memoryOf, post, useAuth } from "./helpers";
 import type { User } from "./helpers";
 
 interface Limits {
@@ -144,15 +144,24 @@ describe("Plugin configuration", () => {
       enabled: false,
       updatedAt: null,
     });
-    const listed = await call(user, "list_tags", {});
+    const listed = await post(
+      "/mcp",
+      {
+        id: 1,
+        jsonrpc: "2.0",
+        method: "tools/call",
+        params: { arguments: {}, name: "list_tags" },
+      },
+      user
+    );
     expect({
       after: await toolNames(user),
       before,
-      call: listed.isError,
-    }).toStrictEqual({
+      call: await listed.json(),
+    }).toMatchObject({
       after: ["forget", "recall", "remember", "revise"],
       before: ["forget", "list_tags", "recall", "remember", "revise"],
-      call: true,
+      call: { error: { code: -32_602 } },
     });
   });
 
