@@ -104,10 +104,11 @@ A fragment is its latest record, so it exposes that record's `at`, the time its 
 ## Export and import
 
 - **Export** writes NDJSON in the same record format. By default it holds current fragments only: one record per live ref, its latest. Optionally it holds the whole log, full history included, enough to rebuild the instance. Both are logs, so both import.
-- **Import** accepts either export. The current `memsys.fragments` JSON is not accepted; it is replaced, not kept alongside.
+- **Import** accepts either export or a plain text file. The current `memsys.fragments` JSON is not accepted; it is replaced, not kept alongside.
 - Refs unknown to this instance arrive with their full history and original `at`. A file that repeats an `at` within one ref is rejected.
 - Refs this instance already knows follow today's rules: identical current text is skipped, different text is a conflict. A ref forgotten here counts as known with no text, so an old backup cannot silently bring it back.
-- A line may be just `{"fragment":"..."}`, so other tools can produce a file without knowing memsys. Each such line becomes its own new fragment with a fresh ref, stamped with the import time; text already in this memory is skipped. A line that has a `ref` must also have an `at`, and a line without a `ref` must have text.
+- **Plain text** lets anything that can write lines feed a memory. Each non-empty line becomes its own new fragment with a fresh ref, stamped with the import time; blank lines are ignored and text already in this memory is skipped. A fragment that needs a line break has to come in as NDJSON.
+- The file type picks the format: `.txt` or `text/plain` is plain text, `.ndjson` or `application/x-ndjson` is a log. It is never guessed from the content, so a damaged log is rejected rather than imported line by line as text.
 
 ## Migration
 
@@ -152,7 +153,7 @@ TIDs become worth it when one memory gains concurrent writers, such as offline c
 - Durable Object: each write appends one row; a restart replays to the same corpus; forgotten refs are never reused; purge removes every row of a ref.
 - Migration: an existing table yields the same current corpus, with `at` equal to the old `updatedAt`.
 - Export: current-only and full history, each importing back to the same current corpus.
-- Import: both exports, text-only lines, conflicts, and forgotten refs.
+- Import: both exports, plain text, conflicts, and forgotten refs.
 - `pnpm eval` results are unchanged.
 
 ## Decision requested
