@@ -11,17 +11,28 @@ describe("Fragment log", () => {
     const rows: Row[] = [
       {
         at: at(22),
+        by: "agent:Claude Code",
         fragment: 'Line one\nline two 😀 "quoted"',
+        op: "remember",
         ref: "abcdefg",
       },
-      { at: at(21), fragment: "é".repeat(FRAGMENT_MAX), ref: "hjkmnpq" },
-      { at: at(23), fragment: null, ref: "hjkmnpq" },
+      {
+        at: at(21),
+        by: null,
+        fragment: "é".repeat(FRAGMENT_MAX),
+        op: "remember",
+        ref: "hjkmnpq",
+      },
+      { at: at(23), by: "user", fragment: null, op: "forget", ref: "hjkmnpq" },
     ];
     const text = serializeLog(rows);
     expect(text).toMatch(/\n$/u);
     expect(text.split("\n")).toHaveLength(4);
     expect(text.split("\n")[0]).toBe(
-      `{"v":1,"ref":"hjkmnpq","fragment":"${"é".repeat(FRAGMENT_MAX)}","at":"2026-09-21T08:00:00.000Z"}`
+      `{"v":1,"ref":"hjkmnpq","fragment":"${"é".repeat(FRAGMENT_MAX)}","at":"2026-09-21T08:00:00.000Z","op":"remember"}`
+    );
+    expect(text.split("\n")[2]).toBe(
+      '{"v":1,"ref":"hjkmnpq","fragment":null,"at":"2026-09-23T08:00:00.000Z","op":"forget","by":"user"}'
     );
     expect(parseLog(text)).toStrictEqual({
       rows: rows.toSorted((a, b) => a.at - b.at),
@@ -31,11 +42,42 @@ describe("Fragment log", () => {
   it("ignores unknown keys and a missing final line break", () => {
     expect(
       parseLog(
-        '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","by":"x"}'
+        '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","note":"x"}'
       )
     ).toStrictEqual({
-      rows: [{ at: at(21), fragment: "Hi", ref: "abcdefg" }],
+      rows: [
+        {
+          at: at(21),
+          by: null,
+          fragment: "Hi",
+          op: "remember",
+          ref: "abcdefg",
+        },
+      ],
     });
+  });
+
+  it("gives records without an op the one their place in the log implies", () => {
+    const line = (day: number, fragment: string | null, ref = "abcdefg") =>
+      `${JSON.stringify({ at: new Date(at(day)).toISOString(), fragment, ref, v: 1 })}\n`;
+    const parsed = parseLog(
+      [
+        line(24, "Back"),
+        line(21, "First"),
+        line(22, "Second"),
+        line(23, null),
+        line(22, "Other", "hjkmnpq"),
+      ].join("")
+    );
+    expect(
+      "rows" in parsed && parsed.rows.map(({ op, ref }) => `${ref} ${op}`)
+    ).toStrictEqual([
+      "abcdefg remember",
+      "abcdefg revise",
+      "hjkmnpq remember",
+      "abcdefg forget",
+      "abcdefg restore",
+    ]);
   });
 
   it.each([
@@ -48,6 +90,18 @@ describe("Fragment log", () => {
       "at",
     ],
     ['{"v":1,"ref":"abcdefg","fragment":"Hi"}', "at"],
+    [
+      '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","op":"forget"}',
+      "op",
+    ],
+    [
+      '{"v":1,"ref":"abcdefg","fragment":null,"at":"2026-09-21T08:00:00.000Z","op":"revise"}',
+      "op",
+    ],
+    [
+      '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","by":"You"}',
+      "by",
+    ],
     [
       '{"v":1,"ref":"0000000","fragment":"Hi","at":"2026-09-21T08:00:00.000Z"}',
       "ref",
@@ -74,7 +128,7 @@ describe("Fragment log", () => {
   });
 
   it("replays the latest record of each ref in any order", () => {
-    const rows: Row[] = [
+    const rows = [
       { at: at(24), fragment: "Back again", ref: "abcdefg" },
       { at: at(21), fragment: "First", ref: "abcdefg" },
       { at: at(23), fragment: null, ref: "abcdefg" },

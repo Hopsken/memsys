@@ -8,7 +8,7 @@ describe("Memory persistence", () => {
   it("preserves writes, edits, and deletion after eviction without changing memory on recall", async () => {
     const memory = env.MEMORY.getByName("persistence");
     const remember = async (fragment: string): Promise<Fragment> => {
-      const result = await memory.remember({ fragment });
+      const result = await memory.remember({ fragment }, "user");
       if ("error" in result) {
         throw new Error(result.error);
       }
@@ -23,10 +23,10 @@ describe("Memory persistence", () => {
       fragments: [seed, { ...neighbor, via: ["program"] }],
       hasMore: false,
     });
-    const revised = await memory.revise({
-      fragment: "Workers #changed",
-      ref: neighbor.ref,
-    });
+    const revised = await memory.revise(
+      { fragment: "Workers #changed", ref: neighbor.ref },
+      "user"
+    );
     await evictDurableObject(memory);
     await expect(
       memory.recall({ cue: "Durable objects" })
@@ -34,7 +34,7 @@ describe("Memory persistence", () => {
     await expect(memory.recall({ cue: "Workers" })).resolves.toMatchObject({
       fragments: [{ ...revised, fragment: "Workers #changed" }],
     });
-    await memory.forget({ ref: seed.ref });
+    await memory.forget({ ref: seed.ref }, "user");
     await evictDurableObject(memory);
     await expect(
       memory.recall({ cue: "Durable objects" })
@@ -67,7 +67,7 @@ describe("Memory persistence", () => {
         second
       );
       sql.exec(
-        "DELETE FROM __drizzle_migrations WHERE name = '20260927062704_fragment_log'"
+        "DELETE FROM __drizzle_migrations WHERE name IN ('20260927062704_fragment_log', '20260927110735_activity_ops')"
       );
     });
     await evictDurableObject(memory);
@@ -90,23 +90,54 @@ describe("Memory persistence", () => {
     });
     await expect(memory.exportLog(true)).resolves.toBe(
       [
-        '{"v":1,"ref":"abcdefg","fragment":"Old #memsys","at":"2026-01-01T00:00:00.000Z"}',
-        '{"v":1,"ref":"hjkmnpq","fragment":"Revised","at":"2026-02-01T00:00:00.000Z"}',
+        '{"v":1,"ref":"abcdefg","fragment":"Old #memsys","at":"2026-01-01T00:00:00.000Z","op":"remember"}',
+        '{"v":1,"ref":"hjkmnpq","fragment":"Revised","at":"2026-02-01T00:00:00.000Z","op":"remember"}',
         "",
       ].join("\n")
     );
   });
 
+  it("gives each earlier record the op its place in the log implies", async () => {
+    const memory = env.MEMORY.getByName("op-migration");
+    await memory.list({});
+    // Roll the object back to the log before ops were kept.
+    await runInDurableObject(memory, (_, state) => {
+      const { sql } = state.storage;
+      sql.exec("DROP TABLE records");
+      sql.exec(
+        "CREATE TABLE records (at integer NOT NULL, fragment text, ref text NOT NULL, PRIMARY KEY (ref, at))"
+      );
+      sql.exec(
+        "INSERT INTO records VALUES (1, 'First', 'abcdefg'), (2, 'Second', 'abcdefg'), (3, NULL, 'abcdefg'), (4, 'First', 'abcdefg'), (5, 'Second', 'abcdefg'), (2, 'Other', 'hjkmnpq')"
+      );
+      sql.exec(
+        "DELETE FROM __drizzle_migrations WHERE name = '20260927110735_activity_ops'"
+      );
+    });
+    await evictDurableObject(memory);
+    const history = await memory.history({ ref: "abcdefg" });
+    expect(history?.versions.map(({ by, op }) => [op, by])).toStrictEqual([
+      ["revise", null],
+      ["restore", null],
+      ["forget", null],
+      ["revise", null],
+      ["remember", null],
+    ]);
+    await expect(memory.history({ ref: "hjkmnpq" })).resolves.toMatchObject({
+      versions: [{ op: "remember" }],
+    });
+  });
+
   it("appends one record per write, each later than the last", async () => {
     const memory = env.MEMORY.getByName("append");
-    const saved = await memory.remember({ fragment: "One" });
+    const saved = await memory.remember({ fragment: "One" }, "user");
     if ("error" in saved) {
       throw new Error(saved.error);
     }
     // Back to back, these usually land in the same millisecond.
-    await memory.revise({ fragment: "Two", ref: saved.ref });
-    await memory.forget({ ref: saved.ref });
-    await memory.revise({ fragment: "Three", ref: saved.ref });
+    await memory.revise({ fragment: "Two", ref: saved.ref }, "user");
+    await memory.forget({ ref: saved.ref }, "user");
+    await memory.revise({ fragment: "Three", ref: saved.ref }, "user");
     const log = await memory.exportLog(true);
     const lines = log.trimEnd().split("\n");
     const records = lines.map((line) => JSON.parse(line));

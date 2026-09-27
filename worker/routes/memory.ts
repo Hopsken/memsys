@@ -2,7 +2,7 @@ import { Hono } from "hono";
 
 import type { ImportFormat } from "../../contract/memory";
 import type { AppEnv } from "../auth";
-import { inputs, listInput, restoreInput } from "../memory";
+import { activityInput, inputs, listInput, restoreInput } from "../memory";
 
 // The file's media type picks how it is read; the content is never sniffed.
 const IMPORT_FORMATS = new Map<string, ImportFormat>([
@@ -10,9 +10,18 @@ const IMPORT_FORMATS = new Map<string, ImportFormat>([
   ["text/plain", "text"],
 ]);
 
-// The four memory operations plus paging, migration, history, and purge,
-// mounted at /api.
+// The four memory operations plus paging, activity, migration, history, and
+// purge, mounted at /api.
 export const memory = new Hono<AppEnv>()
+  .get("/activity", async (c) => {
+    c.header("Cache-Control", "no-store");
+    const query = c.req.query();
+    if (!activityInput.safeParse(query).success) {
+      return c.json({ error: "Invalid activity query" }, 400);
+    }
+    // Hono's query object has a null prototype; RPC requires a plain object.
+    return c.json(await c.get("memory").activity({ ...query }));
+  })
   .get("/fragments", async (c) => {
     c.header("Cache-Control", "no-store");
     // Hono's query object has a null prototype; RPC requires a plain object.
@@ -47,7 +56,7 @@ export const memory = new Hono<AppEnv>()
   .post("/remember", async (c) => {
     const result = await c
       .get("memory")
-      .remember(inputs.remember.parse(await c.req.json()));
+      .remember(inputs.remember.parse(await c.req.json()), c.get("by"));
     return "error" in result ? c.json(result, 422) : c.json(result, 201);
   })
   .post("/recall", async (c) => {
@@ -59,7 +68,7 @@ export const memory = new Hono<AppEnv>()
   .post("/revise", async (c) => {
     const result = await c
       .get("memory")
-      .revise(inputs.revise.parse(await c.req.json()));
+      .revise(inputs.revise.parse(await c.req.json()), c.get("by"));
     if (!result) {
       return c.json({ error: "Fragment not found" }, 404);
     }
@@ -106,7 +115,7 @@ export const memory = new Hono<AppEnv>()
   .post("/forget", async (c) => {
     const result = await c
       .get("memory")
-      .forget(inputs.forget.parse(await c.req.json()));
+      .forget(inputs.forget.parse(await c.req.json()), c.get("by"));
     return result
       ? c.json(result)
       : c.json({ error: "Fragment not found" }, 404);

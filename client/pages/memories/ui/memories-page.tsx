@@ -10,6 +10,7 @@ import { TaggedText, useTags } from "@/features/tag-filter";
 import { api, isExpired } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
+import { listCard, listCardLink } from "@/shared/ui/list-card";
 import { Skeleton } from "@/shared/ui/skeleton";
 import {
   memoryId,
@@ -34,18 +35,15 @@ const flatten = (pages: FragmentPage[]) => {
   return [...items.values()];
 };
 
-// A row only shows the memory; clicking it opens the history, where it can
-// be restored or forgotten. The history keeps the list's filter in its URL,
-// so closing it returns to the same list.
+// A row only shows the memory; clicking it opens the history, where it can be restored or forgotten. The
+// history keeps the list's filter in its URL, so closing it returns to the
+// same list.
 const FragmentRow = ({ item }: { item: ListedFragment }) => {
   const open = useOpenHistory();
-  const to = `memories/${item.ref}${useLocation().search}`;
+  const to = `${item.ref}${useLocation().search}`;
   return (
     <li>
-      <div
-        className="hover:bg-foreground/5 -mx-3 my-1 cursor-pointer space-y-1 rounded-lg px-3 py-2.5 transition-colors"
-        onClick={open(to)}
-      >
+      <div className={listCardLink} onClick={open(to)}>
         <div className="text-muted-foreground flex min-h-7 flex-wrap items-center justify-between gap-x-4 text-xs">
           <Link
             className="hover:text-foreground focus-visible:ring-ring/50 rounded-sm font-mono outline-none focus-visible:ring-3"
@@ -137,10 +135,10 @@ export const FragmentsView = () => {
         )}
       >
         {query.isPending ? (
-          <div className="divide-y" role="status">
+          <div className="space-y-2" role="status">
             <span className="sr-only">Loading memories</span>
             {[1, 2, 3].map((key) => (
-              <div className="space-y-2 py-3.5" key={key}>
+              <div className={cn(listCard, "space-y-2 py-3.5")} key={key}>
                 <Skeleton className="h-3 w-24" />
                 <Skeleton className="h-4 w-2/3" />
               </div>
@@ -180,7 +178,7 @@ export const FragmentsView = () => {
             </p>
           </div>
         ) : null}
-        <ul className="divide-y">
+        <ul className="space-y-2">
           {items.map((item) => (
             <FragmentRow item={item} key={item.ref} />
           ))}

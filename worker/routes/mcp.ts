@@ -17,7 +17,8 @@ export const mcp = new Hono<AppEnv>().all("/", async (c) => {
   }
   const memory = c.get("memory");
   const scopes = c.get("scopes");
-  const factory = () => createMcpServer(memory, scopes);
+  const by = c.get("by");
+  const factory = () => createMcpServer(memory, scopes, by);
   if (!(await isLegacyRequest(c.req.raw))) {
     return await createMcpHandler(factory, { legacy: "reject" }).fetch(
       c.req.raw

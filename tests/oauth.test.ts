@@ -201,6 +201,13 @@ describe("OAuth for MCP", () => {
     await expect(list.json()).resolves.toMatchObject({
       fragments: [{ fragment: "Signed in with OAuth #oauth" }],
     });
+    // Recorded under the name the app registered.
+    const activity = await request("/api/activity", {
+      headers: { Cookie: user.cookie },
+    });
+    await expect(activity.json()).resolves.toMatchObject({
+      entries: [{ by: "agent:Test agent", op: "remember" }],
+    });
   });
 
   it("disconnects an app at once", async () => {

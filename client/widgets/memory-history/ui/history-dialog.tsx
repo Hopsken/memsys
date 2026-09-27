@@ -2,14 +2,22 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "cn";
 import { Archive, Trash2, XIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router";
+import {
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router";
 
-import { removeFromList, restoreVersion, useRestore } from "@/entities/memory";
+import {
+  byline,
+  OpBadge,
+  removeFromList,
+  restoreVersion,
+  useRestore,
+} from "@/entities/memory";
 import { SessionExpired } from "@/features/auth";
-import { TaggedText } from "@/features/tag-filter";
 import { api, failure, isExpired } from "@/shared/api";
-import { diffWords } from "@/shared/lib/diff";
-import type { Part } from "@/shared/lib/diff";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import {
   AlertDialog,
@@ -35,48 +43,7 @@ import { toasts } from "@/shared/ui/toaster";
 import type { ForgottenList, History, Version } from "@contract/memory";
 import { formatRelativeDate } from "@lib/date";
 
-type Label = "Edited" | "Forgotten" | "New" | "Restored";
-
-// Edited is the usual step, so it stays plain; the rest stand out. Red and
-// green belong to the diff.
-const BADGES = {
-  Edited: null,
-  Forgotten: "bg-amber-500/15 text-amber-800 dark:text-amber-300",
-  New: "bg-sky-500/15 text-sky-800 dark:text-sky-300",
-  Restored: "bg-violet-500/15 text-violet-800 dark:text-violet-300",
-} satisfies Record<Label, string | null>;
-
-interface Entry {
-  diff: Part[] | null;
-  label: Label;
-  version: Version;
-}
-
-// The log does not record why a version was written, so the label comes from
-// its text: a text seen before was restored.
-const entries = (versions: Version[]): Entry[] => {
-  const seen = new Set<string>();
-  let previous: string | null = null;
-  return versions
-    .toReversed()
-    .map((version): Entry => {
-      const text = version.fragment;
-      if (text === null) {
-        return { diff: null, label: "Forgotten", version };
-      }
-      const before = previous;
-      const restored = seen.has(text);
-      seen.add(text);
-      previous = text;
-      if (restored) {
-        return { diff: null, label: "Restored", version };
-      }
-      return before === null
-        ? { diff: null, label: "New", version }
-        : { diff: diffWords(before, text), label: "Edited", version };
-    })
-    .toReversed();
-};
+import { MemoryText } from "./memory-text";
 
 const stamp = (at: string) =>
   `${formatRelativeDate(at)}, ${new Date(at).toLocaleTimeString([], {
@@ -94,6 +61,7 @@ const useForget = (onForgotten: () => void) => {
     onSuccess: (_, current) => {
       const positions = removeFromList(queryClient, current.ref);
       void queryClient.invalidateQueries({ queryKey: ["forgotten"] });
+      void queryClient.invalidateQueries({ queryKey: ["activity"] });
       void queryClient.invalidateQueries({
         queryKey: ["history", current.ref],
       });
@@ -139,6 +107,7 @@ const DeleteMemory = ({
             fragments: data.fragments.filter(({ ref }) => ref !== target),
           }
       );
+      void queryClient.invalidateQueries({ queryKey: ["activity"] });
       onDeleted();
     },
   });
@@ -183,60 +152,12 @@ const DeleteMemory = ({
   );
 };
 
-const Text = ({ entry }: { entry: Entry }) => {
-  const className =
-    "text-sm leading-6 [overflow-wrap:anywhere] whitespace-pre-wrap";
-  if (!entry.diff) {
-    return (
-      <p className={className}>
-        <TaggedText text={entry.version.fragment ?? ""} />
-      </p>
-    );
-  }
-  // Tags link where this version has them: in its unchanged and added text.
-  const after = entry.diff
-    .filter(({ kind }) => kind !== "removed")
-    .map(({ text }) => text)
-    .join("");
-  let start = 0;
-  return (
-    <p className={className}>
-      {entry.diff.map(({ kind, text }, index) => {
-        const key = `${index}-${kind}`;
-        if (kind === "removed") {
-          return (
-            <del
-              className="bg-destructive/10 text-destructive decoration-destructive/60 rounded-sm"
-              key={key}
-            >
-              {text}
-            </del>
-          );
-        }
-        const tagged = (
-          <TaggedText end={start + text.length} start={start} text={after} />
-        );
-        start += text.length;
-        if (kind === "added") {
-          return (
-            <ins
-              className="rounded-sm bg-emerald-500/15 text-emerald-800 decoration-emerald-600/60 underline-offset-2 dark:text-emerald-300"
-              key={key}
-            >
-              {tagged}
-            </ins>
-          );
-        }
-        return <span key={key}>{tagged}</span>;
-      })}
-    </p>
-  );
-};
-
 const Timeline = ({ versions }: { versions: Version[] }) => {
   const restore = useRestore();
-  const [fresh, setFresh] = useState<string | null>(null);
-  const newest = useRef<HTMLLIElement>(null);
+  // A link can point at one version, as Activity does; show it first.
+  const [searchParams] = useSearchParams();
+  const [fresh, setFresh] = useState(searchParams.get("at"));
+  const highlighted = useRef<HTMLLIElement>(null);
   const current = versions[0]?.fragment ?? null;
 
   // A restore lands at the top, maybe out of view: show it and point it out.
@@ -245,11 +166,11 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
       return;
     }
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
-    newest.current?.scrollIntoView({
+    highlighted.current?.scrollIntoView({
       behavior: reduce.matches ? "auto" : "smooth",
       block: "nearest",
     });
-    newest.current?.focus({ preventScroll: true });
+    highlighted.current?.focus({ preventScroll: true });
     const timer = setTimeout(() => setFresh(null), 2000);
     return () => clearTimeout(timer);
   }, [fresh]);
@@ -258,20 +179,24 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
     <>
       {restore.isError ? (
         <p className="text-destructive mb-3 text-xs" role="alert">
-          Couldn’t restore. Try again.
+          {current === null
+            ? "Couldn’t restore. Try again."
+            : "Couldn’t use this version. Try again."}
         </p>
       ) : null}
       <ol>
-        {entries(versions).map((entry, index) => {
-          const { fragment, at } = entry.version;
+        {versions.map((version, index) => {
+          const { at, by, fragment, op } = version;
           const isCurrent = index === 0 && fragment !== null;
           const canRestore = fragment !== null && fragment !== current;
+          const before =
+            op === "revise" ? (versions[index + 1]?.fragment ?? null) : null;
           return (
             <li
               className="group relative pb-5 pl-6 outline-none last:pb-0"
               key={at}
-              ref={index === 0 ? newest : undefined}
-              tabIndex={index === 0 ? -1 : undefined}
+              ref={fresh === at ? highlighted : undefined}
+              tabIndex={fresh === at ? -1 : undefined}
             >
               <span
                 aria-hidden="true"
@@ -291,16 +216,9 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
                 )}
               >
                 <div className="text-muted-foreground flex min-h-7 items-center justify-between gap-3 text-xs">
-                  <span className="flex items-center gap-1.5">
-                    <span
-                      className={cn(
-                        "text-foreground font-medium",
-                        BADGES[entry.label] &&
-                          cn("rounded-md px-1.5 py-0.5", BADGES[entry.label])
-                      )}
-                    >
-                      {entry.label}
-                    </span>
+                  <span className="flex flex-wrap items-center gap-x-1.5">
+                    <OpBadge op={op} />
+                    {byline(by)}
                     <span aria-hidden="true">·</span>
                     <time dateTime={at} title={new Date(at).toLocaleString()}>
                       {stamp(at)}
@@ -312,18 +230,20 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
                       disabled={restore.isPending}
                       onClick={() =>
                         restore.mutate(
-                          { at, ref: entry.version.ref },
+                          { at, ref: version.ref },
                           { onSuccess: (restored) => setFresh(restored.at) }
                         )
                       }
                       size="sm"
                       variant="outline"
                     >
-                      Restore
+                      {current === null ? "Restore" : "Use"}
                     </Button>
                   ) : null}
                 </div>
-                {fragment === null ? null : <Text entry={entry} />}
+                {fragment === null ? null : (
+                  <MemoryText before={before} text={fragment} />
+                )}
                 {fragment === null && index === 0 ? (
                   <p className="text-muted-foreground text-sm">
                     Your AI can’t recall this.

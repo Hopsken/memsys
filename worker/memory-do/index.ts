@@ -1,18 +1,22 @@
 import { DurableObject } from "cloudflare:workers";
-import { and, desc, eq, isNotNull } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNotNull, lt, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/durable-sqlite";
 import { migrate } from "drizzle-orm/durable-sqlite/migrator";
 import { customAlphabet } from "nanoid";
 import { z } from "zod";
 
 import type {
+  ActivityPage,
+  Author,
   ForgottenList,
   Fragment,
   FragmentPage,
   History,
   ImportResult,
+  Op,
   RecallResult,
   Restored,
+  Version,
 } from "../../contract/memory";
 import type { PluginView, Verdict } from "../../contract/plugin";
 import { plugins } from "../../plugins";
@@ -20,9 +24,11 @@ import type { SeedFragment } from "../dev/corpus";
 import { parseLog, parseText, replay, serializeLog } from "../log";
 import type { Issue, Row } from "../log";
 import {
+  activityInput,
   importInput,
   inputs,
   listFragments,
+  PAGE_SIZE,
   recallCandidates,
   REF_ALPHABET,
   REF_LENGTH,
@@ -93,6 +99,14 @@ const json = (body: PluginResponse, init?: ResponseInit) =>
     headers: { "Cache-Control": "no-store" },
   });
 
+const toVersion = ({ at, by, fragment, op, ref }: Row): Version => ({
+  at: new Date(at).toISOString(),
+  by,
+  fragment,
+  op,
+  ref,
+});
+
 const withWarnings = (item: Fragment, { warnings }: Verdict) =>
   warnings.length > 0 ? { ...item, warnings } : item;
 
@@ -151,16 +165,16 @@ export class MemoryDO extends DurableObject<Env> {
 
   // Appends one record. `at` is a per-ref hybrid logical clock: the current
   // time, or one past the ref's previous record when the clock has not moved.
-  private append(ref: string, fragment: string | null) {
+  private append(ref: string, fragment: string | null, op: Op, by: Author) {
     const at = Math.max(Date.now(), (this.heads.get(ref) ?? 0) + 1);
-    this.db.insert(records).values({ at, fragment, ref }).run();
+    this.db.insert(records).values({ at, by, fragment, op, ref }).run();
     this.heads.set(ref, at);
     this.versions.set(ref, (this.versions.get(ref) ?? 0) + 1);
     return at;
   }
 
-  private write(ref: string, fragment: string): Fragment {
-    const at = this.append(ref, fragment);
+  private write(ref: string, fragment: string, op: Op, by: Author): Fragment {
+    const at = this.append(ref, fragment, op, by);
     const item = { at: new Date(at).toISOString(), fragment, ref };
     this.corpus.set(ref, item);
     return item;
@@ -181,6 +195,7 @@ export class MemoryDO extends DurableObject<Env> {
           .values({
             at: Date.parse(`${date}T12:00:00Z`),
             fragment,
+            op: "remember",
             ref: newRef(),
           })
           .run();
@@ -197,7 +212,10 @@ export class MemoryDO extends DurableObject<Env> {
     );
   }
 
-  async remember(input: { fragment: string }): Promise<WriteResult> {
+  async remember(
+    input: { fragment: string },
+    by: Author
+  ): Promise<WriteResult> {
     const { fragment } = inputs.remember.parse(input);
     const verdict = await runVerdicts(
       this.plugins,
@@ -209,7 +227,7 @@ export class MemoryDO extends DurableObject<Env> {
       return rejected;
     }
     // A ref ever used, even if forgotten, is never handed out again.
-    const item = this.write(freshRef(this.heads), fragment);
+    const item = this.write(freshRef(this.heads), fragment, "remember", by);
     return withWarnings(item, verdict);
   }
 
@@ -252,12 +270,45 @@ export class MemoryDO extends DurableObject<Env> {
       .where(eq(records.ref, ref))
       .orderBy(desc(records.at))
       .all();
+    return { versions: rows.map(toVersion) };
+  }
+
+  // Every record across refs, newest first, paged like the fragment list.
+  // Each revise or forget carries the text before it: one indexed lookup
+  // per entry, cheaper than a cache for a page at a time.
+  activity(input: { cursor?: string }): ActivityPage {
+    const { cursor: after } = activityInput.parse(input);
+    const rows = this.db
+      .select()
+      .from(records)
+      .where(
+        after &&
+          or(
+            lt(records.at, Date.parse(after[0])),
+            and(eq(records.at, Date.parse(after[0])), gt(records.ref, after[1]))
+          )
+      )
+      .orderBy(desc(records.at), asc(records.ref))
+      .limit(PAGE_SIZE + 1)
+      .all();
+    const entries = rows.slice(0, PAGE_SIZE).map((row) => ({
+      ...toVersion(row),
+      previous:
+        row.op === "revise" || row.op === "forget"
+          ? (this.db
+              .select({ fragment: records.fragment })
+              .from(records)
+              .where(and(eq(records.ref, row.ref), lt(records.at, row.at)))
+              .orderBy(desc(records.at))
+              .limit(1)
+              .get()?.fragment ?? null)
+          : null,
+    }));
+    const last = entries.at(-1);
     return {
-      versions: rows.map(({ at, fragment }) => ({
-        at: new Date(at).toISOString(),
-        fragment,
-        ref,
-      })),
+      entries,
+      nextCursor:
+        rows.length > PAGE_SIZE && last ? `${last.at},${last.ref}` : null,
     };
   }
 
@@ -295,7 +346,8 @@ export class MemoryDO extends DurableObject<Env> {
 
   // The user's own action, never an agent's: appends a copy of one record,
   // stamped now. Core validation only and no write hooks, since the text was
-  // accepted once; a revision it lands on stays in the history.
+  // accepted once; a revision it lands on stays in the history. On a live
+  // fragment the copy is a revise; only a forgotten one is restored.
   restore({ at, ref }: { at: number; ref: string }): Restored | null {
     const row = this.db
       .select()
@@ -305,19 +357,23 @@ export class MemoryDO extends DurableObject<Env> {
     if (!row) {
       return null;
     }
+    const op = this.corpus.has(ref) ? "revise" : "restore";
     const restored =
       row.fragment === null
-        ? this.remove(ref)
-        : Date.parse(this.write(ref, row.fragment).at);
+        ? this.remove(ref, "user")
+        : Date.parse(this.write(ref, row.fragment, op, "user").at);
     return {
       at: new Date(restored).toISOString(),
+      by: "user",
       fragment: row.fragment,
+      op: row.fragment === null ? "forget" : op,
       ref,
       versions: this.versions.get(ref) ?? 1,
     };
   }
 
   // NDJSON: the latest record of each current fragment, or the whole log.
+  // Current fragments alone have no history, so they carry no op or author.
   exportLog(history: boolean): string {
     return serializeLog(
       history
@@ -361,7 +417,7 @@ export class MemoryDO extends DurableObject<Env> {
         texts.add(fragment);
         const ref = freshRef(taken);
         taken.add(ref);
-        rows.push({ at, fragment, ref });
+        rows.push({ at, by: "user", fragment, op: "remember", ref });
         imported += 1;
       }
     } else {
@@ -406,7 +462,8 @@ export class MemoryDO extends DurableObject<Env> {
   }
 
   async revise(
-    input: z.input<typeof inputs.revise>
+    input: z.input<typeof inputs.revise>,
+    by: Author
   ): Promise<WriteResult | null> {
     const { fragment, ref } = inputs.revise.parse(input);
     const existing = this.corpus.get(ref);
@@ -428,22 +485,22 @@ export class MemoryDO extends DurableObject<Env> {
         error: "Fragment changed while revising. Recall it and try again.",
       };
     }
-    const item = this.write(ref, fragment);
+    const item = this.write(ref, fragment, "revise", by);
     return withWarnings(item, verdict);
   }
 
-  forget(input: { ref: string }): { ref: string } | null {
+  forget(input: { ref: string }, by: Author): { ref: string } | null {
     const { ref } = inputs.forget.parse(input);
     if (!this.corpus.has(ref)) {
       return null;
     }
-    this.remove(ref);
+    this.remove(ref, by);
     return { ref };
   }
 
   // The text stays in the log; only purge removes it.
-  private remove(ref: string) {
-    const at = this.append(ref, null);
+  private remove(ref: string, by: Author) {
+    const at = this.append(ref, null, "forget", by);
     this.corpus.delete(ref);
     return at;
   }

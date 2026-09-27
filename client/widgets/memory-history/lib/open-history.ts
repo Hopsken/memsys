@@ -1,9 +1,11 @@
 import { useEffect, useRef } from "react";
 import type { MouseEvent } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 
-// Row links carry this id so focus can return to them.
-export const memoryId = (ref: string) => `memory-${ref}`;
+// Row links carry this id so focus can return to them. A list that shows a
+// memory more than once, as Activity does, tells its rows apart by `at`.
+export const memoryId = (ref: string, at?: string | null) =>
+  at ? `memory-${ref}-${Date.parse(at)}` : `memory-${ref}`;
 
 // A row opens its history when clicked anywhere, unless the click selected
 // text or landed on one of the row's own controls. Menus render in a portal,
@@ -28,15 +30,15 @@ export const useOpenHistory = () => {
 // that opened it.
 export const useReturnFocus = () => {
   const { ref } = useParams();
+  const [searchParams] = useSearchParams();
+  const at = searchParams.get("at");
   const opened = useRef<string | null>(null);
   useEffect(() => {
     if (ref) {
-      opened.current = ref;
+      opened.current = memoryId(ref, at);
     } else if (opened.current) {
-      document
-        .querySelector<HTMLElement>(`#${memoryId(opened.current)}`)
-        ?.focus();
+      document.querySelector<HTMLElement>(`#${opened.current}`)?.focus();
       opened.current = null;
     }
-  }, [ref]);
+  }, [ref, at]);
 };

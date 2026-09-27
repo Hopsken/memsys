@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { cn } from "cn";
 import { Link, Outlet } from "react-router";
 
 import { useRestore } from "@/entities/memory";
@@ -6,9 +7,11 @@ import { SessionExpired } from "@/features/auth";
 import { api, isExpired } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
+import { listCard, listCardLink } from "@/shared/ui/list-card";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { toasts } from "@/shared/ui/toaster";
 import {
+  MemoryText,
   memoryId,
   useOpenHistory,
   useReturnFocus,
@@ -21,10 +24,7 @@ const ForgottenRow = ({ item }: { item: ForgottenFragment }) => {
   const restore = useRestore();
   return (
     <li>
-      <div
-        className="hover:bg-foreground/5 -mx-3 my-1 cursor-pointer space-y-1 rounded-lg px-3 py-2.5 transition-colors"
-        onClick={open(item.ref)}
-      >
+      <div className={listCardLink} onClick={open(item.ref)}>
         <div className="text-muted-foreground flex min-h-7 flex-wrap items-center gap-x-2 text-xs">
           <Link
             className="hover:text-foreground focus-visible:ring-ring/50 rounded-sm font-mono outline-none focus-visible:ring-3"
@@ -42,7 +42,7 @@ const ForgottenRow = ({ item }: { item: ForgottenFragment }) => {
             Forgotten {formatRelativeDateInline(item.forgottenAt)}
           </time>
           <Button
-            className="text-foreground"
+            className="text-foreground -mr-2"
             disabled={restore.isPending}
             onClick={() =>
               restore.mutate(
@@ -56,9 +56,7 @@ const ForgottenRow = ({ item }: { item: ForgottenFragment }) => {
             Restore
           </Button>
         </div>
-        <p className="text-sm leading-6 [overflow-wrap:anywhere] whitespace-pre-wrap">
-          {item.fragment}
-        </p>
+        <MemoryText text={item.fragment} />
         {restore.isError ? (
           <p className="text-destructive text-xs">
             Couldn’t restore. Try again.
@@ -110,10 +108,10 @@ export const ForgottenView = () => {
 
       <section aria-busy={query.isFetching} aria-label="Forgotten memories">
         {query.isPending ? (
-          <div className="divide-y" role="status">
+          <div className="space-y-2" role="status">
             <span className="sr-only">Loading forgotten memories</span>
             {[1, 2].map((key) => (
-              <div className="space-y-2 py-3.5" key={key}>
+              <div className={cn(listCard, "space-y-2 py-3.5")} key={key}>
                 <Skeleton className="h-3 w-24" />
                 <Skeleton className="h-4 w-2/3" />
               </div>
@@ -125,7 +123,7 @@ export const ForgottenView = () => {
             Nothing forgotten.
           </p>
         ) : null}
-        <ul className="divide-y">
+        <ul className="space-y-2">
           {query.data?.fragments.map((item) => (
             <ForgottenRow item={item} key={item.ref} />
           ))}

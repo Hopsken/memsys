@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from "react-router";
 
+import { ActivityView } from "@/pages/activity";
 import { ConsentView } from "@/pages/consent";
 import { ForgottenView } from "@/pages/forgotten";
 import { LoginView } from "@/pages/login";
@@ -19,11 +20,17 @@ export const router = createBrowserRouter([
   {
     // App sends visitors without a session to /login.
     children: [
+      { element: <Navigate replace to="activity" />, index: true },
       // History opens as a dialog over the list that links to it.
       {
-        children: [{ element: <HistoryDialog />, path: "memories/:ref" }],
+        children: [{ element: <HistoryDialog />, path: ":ref" }],
+        element: <ActivityView />,
+        path: "activity",
+      },
+      {
+        children: [{ element: <HistoryDialog />, path: ":ref" }],
         element: <FragmentsView />,
-        path: "/",
+        path: "memories",
       },
       {
         children: [{ element: <HistoryDialog />, path: ":ref" }],

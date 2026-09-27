@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import type { CallToolResult } from "@modelcontextprotocol/server";
 
-import type { RecallResult } from "../contract/memory";
+import type { Author, RecallResult } from "../contract/memory";
 import { RECALL_LIMIT_MAX } from "../lib/recall";
 import { plugins } from "../plugins";
 import { MEMORY_READ, MEMORY_WRITE } from "./auth";
@@ -27,10 +27,12 @@ const result = (
 };
 
 // Tools follow the caller's scopes: read-only tools need memory:read, the
-// rest memory:write. A caller never sees a tool it cannot use.
+// rest memory:write. A caller never sees a tool it cannot use. Writes are
+// recorded as the caller's.
 export const createMcpServer = async (
   memory: DurableObjectStub<MemoryDO>,
-  scopes: ReadonlySet<Scope>
+  scopes: ReadonlySet<Scope>,
+  by: Author
 ) => {
   const canRead = scopes.has(MEMORY_READ);
   const canWrite = scopes.has(MEMORY_WRITE);
@@ -54,7 +56,7 @@ Recall with short textual cues such as distinctive phrases, names, projects, con
           "Store one durable, independently recallable memory fragment. Keep it atomic, self-contained, and concise. Split multiple ideas into separate fragments. Use #anchors to link related memories.",
         inputSchema: inputs.remember,
       },
-      async (input) => result(await memory.remember(input))
+      async (input) => result(await memory.remember(input, by))
     );
   }
   if (canRead) {
@@ -76,7 +78,7 @@ Recall with short textual cues such as distinctive phrases, names, projects, con
           "Replace the full text of a known memory when its information has changed or needs correction. Keep the replacement atomic and self-contained.",
         inputSchema: inputs.revise,
       },
-      async (input) => result(await memory.revise(input))
+      async (input) => result(await memory.revise(input, by))
     );
     server.registerTool(
       "forget",
@@ -86,7 +88,7 @@ Recall with short textual cues such as distinctive phrases, names, projects, con
           "Delete a known memory that is obsolete, incorrect, duplicated, or explicitly requested to be forgotten.",
         inputSchema: inputs.forget,
       },
-      async (input) => result(await memory.forget(input))
+      async (input) => result(await memory.forget(input, by))
     );
   }
   // Tool plugins enabled for this instance, within the caller's scopes.

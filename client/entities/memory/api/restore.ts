@@ -99,18 +99,14 @@ export const restoreVersion = async (
   const restored = await api
     .post(`/api/fragments/${ref}/restore`, { json: { at } })
     .json<Restored>();
+  const { versions: _, ...version } = restored;
   queryClient.setQueryData<History>(
     ["history", ref],
-    (data) =>
-      data && {
-        versions: [
-          { at: restored.at, fragment: restored.fragment, ref },
-          ...data.versions,
-        ],
-      }
+    (data) => data && { versions: [version, ...data.versions] }
   );
   showInList(queryClient, restored, positions);
   void queryClient.invalidateQueries({ queryKey: ["forgotten"] });
+  void queryClient.invalidateQueries({ queryKey: ["activity"] });
   return restored;
 };
 

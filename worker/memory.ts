@@ -2,7 +2,9 @@ import { stem } from "porter2";
 import { z } from "zod";
 
 import type {
+  Author,
   Fragment,
+  Op,
   RecallInput,
   RecallItem,
   RecallResult,
@@ -16,7 +18,7 @@ import { bm25, terms } from "./search";
 export const REF_ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz";
 export const REF_LENGTH = 7;
 const RESULT_LIMIT = 10;
-const PAGE_SIZE = 50;
+export const PAGE_SIZE = 50;
 
 export const fragment = z
   .string()
@@ -49,6 +51,9 @@ const tag = z
 export const listInput = z
   .object({ cursor: cursor.optional(), tag: z.array(tag).max(10).optional() })
   .strict();
+
+// Activity pages like the list but has no filter.
+export const activityInput = z.object({ cursor: cursor.optional() }).strict();
 
 export const inputs = {
   forget: z.object({ ref }).strict(),
@@ -86,14 +91,38 @@ export const inputs = {
   revise: z.object({ fragment, ref }).strict(),
 };
 
+const op = z.enum([
+  "remember",
+  "revise",
+  "forget",
+  "restore",
+] as const satisfies readonly Op[]);
+
+const author = z.union([
+  z.literal("user"),
+  z.templateLiteral(["agent:", z.string().max(256)]),
+]) satisfies z.ZodType<Author>;
+
 // One log line. Readers drop unknown keys and reject an unknown `v`; `at`
-// becomes epoch milliseconds, the storage format.
-export const logRecord = z.object({
-  at: z.iso.datetime({ precision: 3 }).transform((value) => Date.parse(value)),
-  fragment: fragment.nullable(),
-  ref,
-  v: z.literal(1),
-});
+// becomes epoch milliseconds, the storage format. Only a forget clears the
+// text.
+export const logRecord = z
+  .object({
+    at: z.iso
+      .datetime({ precision: 3 })
+      .transform((value) => Date.parse(value)),
+    by: author.optional(),
+    fragment: fragment.nullable(),
+    op: op.optional(),
+    ref,
+    v: z.literal(1),
+  })
+  .refine(
+    (record) =>
+      record.op === undefined ||
+      (record.op === "forget") === (record.fragment === null),
+    { message: "Only a forget has no fragment", path: ["op"] }
+  );
 
 export const importInput = z
   .object({ content: z.string(), format: z.enum(["ndjson", "text"]) })
