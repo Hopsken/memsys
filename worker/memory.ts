@@ -3,7 +3,6 @@ import { z } from "zod";
 
 import type {
   Fragment,
-  FragmentPage,
   RecallInput,
   RecallItem,
   RecallResult,
@@ -84,10 +83,20 @@ export const importInput = z
   .object({ content: z.string(), format: z.enum(["ndjson", "text"]) })
   .strict();
 
-export const listFragments = (
-  corpus: Iterable<Fragment>,
+// A user action on one record of the log; not exposed over MCP.
+export const restoreInput = z
+  .object({
+    at: z.iso
+      .datetime({ precision: 3 })
+      .transform((value) => Date.parse(value)),
+    ref,
+  })
+  .strict();
+
+export const listFragments = <T extends Fragment>(
+  corpus: Iterable<T>,
   input: { cursor?: string }
-): FragmentPage => {
+) => {
   const { cursor: after } = listInput.parse(input);
   const ordered = [...corpus]
     .filter(

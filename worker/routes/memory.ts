@@ -2,7 +2,7 @@ import { Hono } from "hono";
 
 import type { ImportFormat } from "../../contract/memory";
 import type { AppEnv } from "../auth";
-import { inputs, listInput } from "../memory";
+import { inputs, listInput, restoreInput } from "../memory";
 
 // The file's media type picks how it is read; the content is never sniffed.
 const IMPORT_FORMATS = new Map<string, ImportFormat>([
@@ -10,7 +10,8 @@ const IMPORT_FORMATS = new Map<string, ImportFormat>([
   ["text/plain", "text"],
 ]);
 
-// The four memory operations plus paging, migration, and purge, mounted at /api.
+// The four memory operations plus paging, migration, history, and purge,
+// mounted at /api.
 export const memory = new Hono<AppEnv>()
   .get("/fragments", async (c) => {
     c.header("Cache-Control", "no-store");
@@ -20,6 +21,27 @@ export const memory = new Hono<AppEnv>()
     }
     // Hono's query object has a null prototype; RPC requires a plain object.
     return c.json(await c.get("memory").list({ ...query }));
+  })
+  .get("/fragments/:ref/history", async (c) => {
+    c.header("Cache-Control", "no-store");
+    const result = await c
+      .get("memory")
+      .history(inputs.forget.parse({ ref: c.req.param("ref") }));
+    return result
+      ? c.json(result)
+      : c.json({ error: "Fragment not found" }, 404);
+  })
+  .get("/forgotten", async (c) => {
+    c.header("Cache-Control", "no-store");
+    return c.json(await c.get("memory").listForgotten());
+  })
+  .post("/restore", async (c) => {
+    const result = await c
+      .get("memory")
+      .restore(restoreInput.parse(await c.req.json()));
+    return result
+      ? c.json(result)
+      : c.json({ error: "Version not found" }, 404);
   })
   .post("/remember", async (c) => {
     const result = await c

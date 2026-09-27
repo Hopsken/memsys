@@ -3,7 +3,11 @@ import type { JSONValue } from "hono/utils/types";
 import { afterAll, beforeAll, vi } from "vitest";
 import { z } from "zod";
 
-import type { FragmentPage } from "../contract/memory";
+import type {
+  Fragment,
+  FragmentPage,
+  ListedFragment,
+} from "../contract/memory";
 import { defaultSpace, memoryOf as memoryOfSpace } from "../worker/auth";
 import worker from "../worker/index";
 
@@ -122,6 +126,12 @@ export const getList = (user: User | null, query = "") =>
     }),
     env
   );
+
+// A fragment as the list shows it, with the records in its history.
+export const withVersions = (item: Fragment, versions = 1): ListedFragment => ({
+  ...item,
+  versions,
+});
 
 export const list = async (user: User) => {
   const response = await getList(user);

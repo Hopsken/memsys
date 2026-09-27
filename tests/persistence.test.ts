@@ -40,7 +40,7 @@ describe("Memory persistence", () => {
       memory.recall({ cue: "Durable objects" })
     ).resolves.toStrictEqual({ fragments: [], hasMore: false });
     await expect(memory.list({})).resolves.toStrictEqual({
-      fragments: [revised],
+      fragments: [{ ...revised, versions: 2 }],
       nextCursor: null,
     });
   });
@@ -73,11 +73,17 @@ describe("Memory persistence", () => {
     await evictDurableObject(memory);
     await expect(memory.list({})).resolves.toStrictEqual({
       fragments: [
-        { at: "2026-02-01T00:00:00.000Z", fragment: "Revised", ref: "hjkmnpq" },
+        {
+          at: "2026-02-01T00:00:00.000Z",
+          fragment: "Revised",
+          ref: "hjkmnpq",
+          versions: 1,
+        },
         {
           at: "2026-01-01T00:00:00.000Z",
           fragment: "Old #memsys",
           ref: "abcdefg",
+          versions: 1,
         },
       ],
       nextCursor: null,
