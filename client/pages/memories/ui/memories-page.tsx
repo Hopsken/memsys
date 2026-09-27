@@ -39,7 +39,7 @@ const flatten = (pages: FragmentPage[]) => {
 // so closing it returns to the same list.
 const FragmentRow = ({ item }: { item: ListedFragment }) => {
   const open = useOpenHistory();
-  const to = `memories/${item.ref}${useLocation().search}`;
+  const to = `${item.ref}${useLocation().search}`;
   return (
     <li>
       <div

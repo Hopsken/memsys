@@ -35,7 +35,7 @@ export const TagFilterBar = () => {
         {tags.length > 1 ? (
           <Link
             className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 rounded-md px-1.5 text-xs outline-none focus-visible:ring-3"
-            to="/"
+            to={filteredList([])}
           >
             Clear
           </Link>

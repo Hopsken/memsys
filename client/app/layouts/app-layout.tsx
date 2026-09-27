@@ -1,14 +1,28 @@
 import { cn } from "cn";
-import { Archive, Layers, Settings } from "lucide-react";
+import { Activity, Archive, Layers, Library, Settings } from "lucide-react";
 import { Navigate, NavLink, Outlet } from "react-router";
 
 import { authClient } from "@/shared/api";
 import { buttonVariants } from "@/shared/ui/button";
 
+const current =
+  "text-muted-foreground aria-[current=page]:bg-muted aria-[current=page]:text-foreground";
 const navClass = cn(
   buttonVariants({ size: "icon", variant: "ghost" }),
-  "text-muted-foreground aria-[current=page]:bg-muted aria-[current=page]:text-foreground"
+  current
 );
+// The two main views keep their names beside the icon; on a narrow screen
+// only the icon fits.
+const viewClass = cn(
+  buttonVariants({ variant: "ghost" }),
+  current,
+  "max-sm:w-8 max-sm:px-0"
+);
+
+const VIEWS = [
+  { icon: Activity, label: "Activity", to: "/activity" },
+  { icon: Library, label: "Memories", to: "/memories" },
+];
 
 export const App = () => {
   const session = authClient.useSession();
@@ -35,6 +49,13 @@ export const App = () => {
             </NavLink>
           </h1>
           <nav className="flex items-center gap-1">
+            {VIEWS.map(({ icon: Icon, label, to }) => (
+              <NavLink className={viewClass} key={to} title={label} to={to}>
+                <Icon aria-hidden="true" />
+                <span className="max-sm:sr-only">{label}</span>
+              </NavLink>
+            ))}
+            <span aria-hidden="true" className="bg-border mx-1 h-5 w-px" />
             <NavLink
               aria-label="Forgotten memories"
               className={navClass}
