@@ -23,7 +23,7 @@ export const App = () => {
   return (
     <>
       <header className="bg-background/85 sticky top-0 z-10 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-5 py-4 sm:px-8 sm:py-6">
+        <div className="mx-auto flex h-(--header-height) max-w-3xl items-center justify-between gap-4 px-5 sm:px-8">
           <h1>
             <NavLink
               className="focus-visible:ring-ring/50 flex items-center gap-3 rounded-md text-3xl font-semibold tracking-tight outline-none focus-visible:ring-3"

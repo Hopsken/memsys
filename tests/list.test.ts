@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 import type { Fragment } from "../contract/memory";
 import { listFragments } from "../worker/memory";
 
-const item = (ref: string, at = "2026-01-02T00:00:00.000Z"): Fragment => ({
-  at,
-  fragment: `Fragment ${ref}`,
-  ref,
-});
+const item = (
+  ref: string,
+  at = "2026-01-02T00:00:00.000Z",
+  fragment = `Fragment ${ref}`
+): Fragment => ({ at, fragment, ref });
 
 const tied = Array.from({ length: 50 }, (_, index) =>
   item(
@@ -44,5 +44,21 @@ describe("Fragment pages", () => {
       fragments: [],
       nextCursor: null,
     });
+  });
+
+  it("keeps fragments carrying every tag, namespaces included", () => {
+    const corpus = [
+      item("2222222", undefined, "Plain #Project"),
+      item("3333333", undefined, "Nested #project/memsys #idea"),
+      item("4444444", undefined, "Lookalike #projects #project-x"),
+      item("5555555", undefined, "Deeper #project/memsys/ui"),
+    ];
+    const refs = (tag: string[]) =>
+      listFragments(corpus, { tag }).fragments.map(({ ref }) => ref);
+    expect(refs(["project"])).toStrictEqual(["2222222", "3333333", "5555555"]);
+    expect(refs(["project/memsys"])).toStrictEqual(["3333333", "5555555"]);
+    expect(refs(["PROJECT", "idea"])).toStrictEqual(["3333333"]);
+    expect(refs(["project", "projects"])).toStrictEqual([]);
+    expect(refs([])).toHaveLength(4);
   });
 });

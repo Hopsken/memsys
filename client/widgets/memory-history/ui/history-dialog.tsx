@@ -6,6 +6,7 @@ import { useLocation, useNavigate, useParams } from "react-router";
 
 import { removeFromList, restoreVersion, useRestore } from "@/entities/memory";
 import { SessionExpired } from "@/features/auth";
+import { TaggedText } from "@/features/tag-filter";
 import { api, failure, isExpired } from "@/shared/api";
 import { diffWords } from "@/shared/lib/diff";
 import type { Part } from "@/shared/lib/diff";
@@ -91,7 +92,7 @@ const useForget = (onForgotten: () => void) => {
     mutationFn: ({ ref }: Version) =>
       api.post("/api/forget", { json: { ref } }),
     onSuccess: (_, current) => {
-      const position = removeFromList(queryClient, current.ref);
+      const positions = removeFromList(queryClient, current.ref);
       void queryClient.invalidateQueries({ queryKey: ["forgotten"] });
       void queryClient.invalidateQueries({
         queryKey: ["history", current.ref],
@@ -103,7 +104,7 @@ const useForget = (onForgotten: () => void) => {
           onClick: async () => {
             toasts.close(id);
             try {
-              await restoreVersion(queryClient, current, position);
+              await restoreVersion(queryClient, current, positions);
             } catch {
               toasts.add({
                 title: "Couldn’t restore. It’s in Forgotten memories.",
@@ -186,8 +187,18 @@ const Text = ({ entry }: { entry: Entry }) => {
   const className =
     "text-sm leading-6 [overflow-wrap:anywhere] whitespace-pre-wrap";
   if (!entry.diff) {
-    return <p className={className}>{entry.version.fragment}</p>;
+    return (
+      <p className={className}>
+        <TaggedText text={entry.version.fragment ?? ""} />
+      </p>
+    );
   }
+  // Tags link where this version has them: in its unchanged and added text.
+  const after = entry.diff
+    .filter(({ kind }) => kind !== "removed")
+    .map(({ text }) => text)
+    .join("");
+  let start = 0;
   return (
     <p className={className}>
       {entry.diff.map(({ kind, text }, index) => {
@@ -202,17 +213,21 @@ const Text = ({ entry }: { entry: Entry }) => {
             </del>
           );
         }
+        const tagged = (
+          <TaggedText end={start + text.length} start={start} text={after} />
+        );
+        start += text.length;
         if (kind === "added") {
           return (
             <ins
               className="rounded-sm bg-emerald-500/15 text-emerald-800 decoration-emerald-600/60 underline-offset-2 dark:text-emerald-300"
               key={key}
             >
-              {text}
+              {tagged}
             </ins>
           );
         }
-        return <span key={key}>{text}</span>;
+        return <span key={key}>{tagged}</span>;
       })}
     </p>
   );

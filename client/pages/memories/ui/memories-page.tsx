@@ -1,9 +1,12 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
-import { ArrowDown, Layers } from "lucide-react";
-import { Link, Outlet } from "react-router";
+import { cn } from "cn";
+import { ArrowDown, Hash, Layers } from "lucide-react";
+import { useEffect } from "react";
+import { Link, Outlet, useLocation } from "react-router";
 
 import { SessionExpired } from "@/features/auth";
+import { TaggedText, useTags } from "@/features/tag-filter";
 import { api, isExpired } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
@@ -15,6 +18,8 @@ import {
 } from "@/widgets/memory-history";
 import type { FragmentPage, ListedFragment } from "@contract/memory";
 import { formatRelativeDate, formatRelativeDateInline } from "@lib/date";
+
+import { TagFilterBar } from "./tag-filter-bar";
 
 const linkClass =
   "text-foreground underline underline-offset-4 hover:text-foreground/80";
@@ -30,20 +35,22 @@ const flatten = (pages: FragmentPage[]) => {
 };
 
 // A row only shows the memory; clicking it opens the history, where it can
-// be restored or forgotten.
+// be restored or forgotten. The history keeps the list's filter in its URL,
+// so closing it returns to the same list.
 const FragmentRow = ({ item }: { item: ListedFragment }) => {
   const open = useOpenHistory();
+  const to = `memories/${item.ref}${useLocation().search}`;
   return (
     <li>
       <div
         className="hover:bg-foreground/5 -mx-3 my-1 cursor-pointer space-y-1 rounded-lg px-3 py-2.5 transition-colors"
-        onClick={open(`memories/${item.ref}`)}
+        onClick={open(to)}
       >
         <div className="text-muted-foreground flex min-h-7 flex-wrap items-center justify-between gap-x-4 text-xs">
           <Link
             className="hover:text-foreground focus-visible:ring-ring/50 rounded-sm font-mono outline-none focus-visible:ring-3"
             id={memoryId(item.ref)}
-            to={`memories/${item.ref}`}
+            to={to}
           >
             {item.ref}
           </Link>
@@ -54,7 +61,7 @@ const FragmentRow = ({ item }: { item: ListedFragment }) => {
           </time>
         </div>
         <p className="text-sm leading-6 [overflow-wrap:anywhere] whitespace-pre-wrap">
-          {item.fragment}
+          <TaggedText text={item.fragment} />
         </p>
       </div>
     </li>
@@ -62,26 +69,38 @@ const FragmentRow = ({ item }: { item: ListedFragment }) => {
 };
 
 export const FragmentsView = () => {
+  const tags = useTags();
   const query = useInfiniteQuery<
     FragmentPage,
     Error,
     InfiniteData<FragmentPage>,
-    string[],
+    (string | { tag: string[] })[],
     string | null
   >({
     getNextPageParam: (page) => page.nextCursor,
     initialPageParam: null,
+    // Switching filters keeps the current list, dimmed, until the next one
+    // arrives, instead of flashing the skeleton.
+    placeholderData: keepPreviousData,
     queryFn: ({ pageParam, signal }) =>
       api
         .get("/api/fragments", {
-          searchParams: pageParam ? { cursor: pageParam } : {},
+          searchParams: [
+            ...(pageParam ? [["cursor", pageParam]] : []),
+            ...tags.map((tag) => ["tag", tag]),
+          ],
           signal,
         })
         .json<FragmentPage>(),
-    queryKey: ["fragments"],
+    queryKey: ["fragments", { tag: tags }],
   });
   const items = flatten(query.data?.pages ?? []);
   useReturnFocus();
+  // A new filter is a new list, so it starts from the top.
+  const filter = tags.join(" ");
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [filter]);
 
   if (isExpired(query.error)) {
     return <SessionExpired />;
@@ -89,6 +108,7 @@ export const FragmentsView = () => {
 
   return (
     <>
+      <TagFilterBar />
       {query.isError ? (
         <Alert className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <AlertDescription className="text-foreground">
@@ -108,7 +128,14 @@ export const FragmentsView = () => {
         </Alert>
       ) : null}
 
-      <section aria-busy={query.isFetching} aria-label="Memories">
+      <section
+        aria-busy={query.isFetching}
+        aria-label="Memories"
+        className={cn(
+          "transition-opacity",
+          query.isPlaceholderData && "opacity-50"
+        )}
+      >
         {query.isPending ? (
           <div className="divide-y" role="status">
             <span className="sr-only">Loading memories</span>
@@ -120,7 +147,20 @@ export const FragmentsView = () => {
             ))}
           </div>
         ) : null}
-        {query.isSuccess && items.length === 0 ? (
+        {query.isSuccess && items.length === 0 && tags.length > 0 ? (
+          <div className="mt-4 rounded-xl border border-dashed px-6 py-16 text-center">
+            <Hash
+              aria-hidden="true"
+              className="text-muted-foreground mx-auto mb-4 size-6"
+            />
+            <h2 className="font-medium">
+              {tags.length === 1
+                ? `No memories tagged #${tags[0]}`
+                : "No memories have all these tags"}
+            </h2>
+          </div>
+        ) : null}
+        {query.isSuccess && items.length === 0 && tags.length === 0 ? (
           <div className="rounded-xl border border-dashed px-6 py-16 text-center">
             <Layers
               aria-hidden="true"
