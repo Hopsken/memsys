@@ -241,10 +241,13 @@ const SETUP_TIMEOUT_MS = 10_000;
 // Bindings are fixed per deployment; reuse one instance per env object.
 const instances = new WeakMap<Env, Instance>();
 
-// A failed setup is dropped, so the next request starts over.
+// A failed setup is dropped, so the next request starts over. Setup ends
+// with a schema check that Better Auth starts but does not wait for, and
+// every request waits on it; so it is part of setup too.
 const settle = async (env: Env, instance: Instance) => {
   try {
-    await instance.auth.$context;
+    const context = await instance.auth.$context;
+    await context.checkSchema?.();
     instance.ready = true;
   } catch {
     if (instances.get(env) === instance) {
