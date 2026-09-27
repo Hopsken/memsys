@@ -7,7 +7,7 @@
 
 ## Summary
 
-Make a memory's durable state an append-only log of fragment records. `remember` and `revise` append a complete snapshot of the fragment; `forget` appends a record with no text. Replaying the log in order, last record per ref wins, yields the current corpus. Every index stays a derived cache, as today.
+Make a memory's durable state an append-only log of fragment records. `remember` and `revise` append a complete snapshot of the fragment; `forget` appends a record with no text. Replaying each ref's records by `at`, latest wins, yields the current corpus. Every index stays a derived cache, as today.
 
 The log lives where fragments live now: in the memory Durable Object's SQLite, one row per record. Its canonical serialization is NDJSON, which is also the export format. Moving the log to another store is a separate decision the format does not depend on.
 
@@ -34,7 +34,7 @@ The canonical serialization is UTF-8 NDJSON, one record per line:
 
 - Every record has exactly these keys. `v` is the record schema version, starting at `1`. `at` is ISO 8601 UTC with milliseconds.
 - A string `fragment` is the complete text at that point: a snapshot, never a patch. `null` means the fragment was forgotten.
-- Line order is the only order. `at` is for display; it never reorders or breaks ties.
+- `at` is the order. Within one ref it strictly increases, so a ref's records never tie; records of different refs may share an `at`, because replay never compares them. Export writes lines sorted by `at`.
 - An LF follows every record, including the last. Line breaks inside text are JSON-escaped.
 - Readers ignore unknown keys and reject an unknown `v`.
 
@@ -43,7 +43,7 @@ Snapshots rather than operations keep every line readable on its own and keep hi
 ## Replay
 
 ```text
-for each record, in log order:
+for each record, ordered by at:
   fragment is null  → remove ref from the corpus
   otherwise         → corpus[ref] = { ref, fragment, at }
 ```
@@ -57,17 +57,21 @@ A ref that has ever appeared in the log is never handed out again by `remember`;
 The memory Durable Object replaces its `fragments` table with a `records` table:
 
 ```ts
-export const records = sqliteTable("records", {
-  at: integer().notNull(),
-  fragment: text(), // null: forgotten
-  ref: text().notNull(),
-  seq: integer().primaryKey(),
-});
+export const records = sqliteTable(
+  "records",
+  {
+    at: integer().notNull(),
+    fragment: text(), // null: forgotten
+    ref: text().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.ref, table.at] })]
+);
 ```
 
-- `seq` is SQLite's rowid and is the log order. `v` is not stored; the table is versioned by migrations, and `v` is added when serializing.
+- There is no sequence column: `at`, in epoch milliseconds, is the order, and the key `(ref, at)` enforces that a ref's records never tie. `v` is not stored; the table is versioned by migrations, and `v` is added when serializing.
+- A write stamps `at` with `max(now, the ref's latest at + 1)`. Two writes to one ref in the same millisecond, or a clock that steps back when the Durable Object moves, still produce increasing times.
 - `remember`, `revise`, and `forget` each insert one row and then update the in-memory corpus, in the same order as today. The check that a fragment did not change while `revise` hooks ran stays as it is.
-- Load reads every record ordered by `seq` and replays it. The in-memory corpus remains the only projection.
+- Load reads every record ordered by `at` and replays it. The in-memory corpus remains the only projection.
 
 The Durable Object already provides what an append-only log needs: one writer per memory, transactional writes, and no partial records. An append is one `INSERT`.
 
@@ -86,8 +90,7 @@ export interface Fragment {
 A fragment is its latest record, so it exposes that record's `at`, the time its current text was written. `createdAt` and `updatedAt` disappear from the contract: records are immutable and carry a single time, and when a fragment was first or last changed can always be read from its history.
 
 - **Ordering is unchanged.** Recall ties and the fragment list already order by the time of the current text (`updatedAt` today); they now read `at`. The list cursor becomes `at,ref`.
-- **Agent-facing output is compact.** Recall items were carrying two ISO timestamps, the largest per-item cost after the text. MCP results render `at` with `formatRelativeDate` from `lib/date.ts` ("Today", "Yesterday", "Sep 21", "Apr 1, 2025") in the instance's time zone. REST and export keep ISO.
-- **The time zone is a user setting.** It belongs to per-instance configuration, stored in the memory Durable Object and editable only from the user's session. Until the user picks one it is UTC; the web app suggests the browser's zone. A person's zone rarely changes, so a stored setting is more reliable than guessing per request.
+- **Agent-facing output is compact.** Recall items were carrying two ISO timestamps, about 25 tokens, the largest per-item cost after the text. What an agent needs from the time is how recent a fragment is, so MCP results render `at` as its age: `"at":"3d ago"`, in the largest whole unit (`just now` under an hour, then `5h ago`, `3d ago`, `2w ago`, `4mo ago`, `1y ago`), a few tokens per item. An age is elapsed time, so it needs no time zone and no user setting. REST and export keep ISO.
 - **This is a breaking change** to `contract/memory.ts`. It ships together with the log migration, not before.
 
 ## Forget and purge
@@ -141,14 +144,14 @@ Records such as `replace old with new` are smaller but tie history to the write 
 - Migration: an existing table yields the same current corpus, with `at` equal to the old `updatedAt`.
 - Export: current-only and full history, each importing back to the same current corpus.
 - Import: all formats, conflicts, and forgotten refs.
-- MCP dates across a day boundary in a non-UTC time zone.
+- MCP ages at each unit boundary.
 - `pnpm eval` results are unchanged.
 
 ## Decision requested
 
 1. Durable state is an append-only log of complete fragment snapshots; `forget` appends `null`.
 2. The log lives in the memory Durable Object's SQLite; NDJSON is its canonical serialization and export format.
-3. `Fragment` exposes only `at`, the time of its latest record; MCP renders it as a relative date in the user's configured time zone.
+3. `Fragment` exposes only `at`, the time of its latest record; MCP renders it as an age such as `3d ago`.
 4. Agents can only append; purge is a user action.
 5. Export defaults to current fragments, with full history as an option.
 6. History view and restore in the web app, and moving the log off Durable Objects, are out of scope.
