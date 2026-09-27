@@ -1,4 +1,4 @@
-import { evictDurableObject } from "cloudflare:test";
+import { evictDurableObject, runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
@@ -43,5 +43,74 @@ describe("Memory persistence", () => {
       fragments: [revised],
       nextCursor: null,
     });
+  });
+
+  it("migrates each fragment to one record written at its last update", async () => {
+    const memory = env.MEMORY.getByName("migration");
+    await memory.list({});
+    const [first, second] = [
+      Date.parse("2026-01-01T00:00:00.000Z"),
+      Date.parse("2026-02-01T00:00:00.000Z"),
+    ];
+    // Roll the object back to the schema before the log.
+    await runInDurableObject(memory, (_, state) => {
+      const { sql } = state.storage;
+      sql.exec("DROP TABLE records");
+      sql.exec(
+        "CREATE TABLE fragments (id text PRIMARY KEY, content text NOT NULL, created_at integer NOT NULL, updated_at integer NOT NULL)"
+      );
+      sql.exec(
+        "INSERT INTO fragments VALUES ('abcdefg', 'Old #memsys', ?, ?), ('hjkmnpq', 'Revised', ?, ?)",
+        first,
+        first,
+        first,
+        second
+      );
+      sql.exec(
+        "DELETE FROM __drizzle_migrations WHERE name = '20260927062704_fragment_log'"
+      );
+    });
+    await evictDurableObject(memory);
+    await expect(memory.list({})).resolves.toStrictEqual({
+      fragments: [
+        { at: "2026-02-01T00:00:00.000Z", fragment: "Revised", ref: "hjkmnpq" },
+        {
+          at: "2026-01-01T00:00:00.000Z",
+          fragment: "Old #memsys",
+          ref: "abcdefg",
+        },
+      ],
+      nextCursor: null,
+    });
+    await expect(memory.exportLog(true)).resolves.toBe(
+      [
+        '{"v":1,"ref":"abcdefg","fragment":"Old #memsys","at":"2026-01-01T00:00:00.000Z"}',
+        '{"v":1,"ref":"hjkmnpq","fragment":"Revised","at":"2026-02-01T00:00:00.000Z"}',
+        "",
+      ].join("\n")
+    );
+  });
+
+  it("appends one record per write, each later than the last", async () => {
+    const memory = env.MEMORY.getByName("append");
+    const saved = await memory.remember({ fragment: "One" });
+    if ("error" in saved) {
+      throw new Error(saved.error);
+    }
+    // Back to back, these usually land in the same millisecond.
+    await memory.revise({ fragment: "Two", ref: saved.ref });
+    await memory.forget({ ref: saved.ref });
+    await memory.revise({ fragment: "Three", ref: saved.ref });
+    const log = await memory.exportLog(true);
+    const lines = log.trimEnd().split("\n");
+    const records = lines.map((line) => JSON.parse(line));
+    expect(records.map(({ fragment }) => fragment)).toStrictEqual([
+      "One",
+      "Two",
+      null,
+    ]);
+    const times = records.map(({ at }) => Date.parse(at));
+    expect(new Set(times).size).toBe(3);
+    expect(times).toStrictEqual(times.toSorted((a, b) => a - b));
   });
 });

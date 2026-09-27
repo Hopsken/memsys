@@ -12,6 +12,7 @@ describe("HTTP request safety", () => {
     "/api/remember",
     "/api/revise",
     "/api/forget",
+    "/api/purge",
     "/api/import",
     "/mcp",
   ] as const)(
@@ -26,11 +27,8 @@ describe("HTTP request safety", () => {
       const item = await saved.json<Fragment>();
       const bodies = {
         "/api/forget": { ref: item.ref },
-        "/api/import": {
-          format: "memsys.fragments",
-          fragments: [{ fragment: "Injected memory" }],
-          version: 1,
-        },
+        "/api/import": "Injected memory",
+        "/api/purge": { ref: item.ref },
         "/api/remember": { fragment: "Injected memory" },
         "/api/revise": { fragment: "Injected memory", ref: item.ref },
         "/mcp": {
@@ -45,6 +43,7 @@ describe("HTTP request safety", () => {
       };
       const body = bodies[path];
       const response = await post(path, body, user, {
+        ...(path === "/api/import" && { "Content-Type": "text/plain" }),
         Origin: "https://attacker.test",
         "Sec-Fetch-Site": "same-origin",
       });

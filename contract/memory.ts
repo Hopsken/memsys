@@ -1,10 +1,10 @@
 // Shapes shared by the worker, plugins, and client. Types only; no local imports.
 
+// A fragment is its latest record; `at` is when its current text was written.
 export interface Fragment {
   ref: string;
   fragment: string;
-  createdAt: string;
-  updatedAt: string;
+  at: string;
 }
 
 // Items without `via` matched the cue; `via` lists the anchors that associated the rest.
@@ -28,13 +28,17 @@ export interface FragmentPage {
   nextCursor: string | null;
 }
 
-// A whole memory as a file, for moving it between instances.
-export interface FragmentExport {
-  format: "memsys.fragments";
-  version: 1;
-  exportedAt: string;
-  fragments: Fragment[];
+// One line of the fragment log, its export, and its import. A null
+// `fragment` means the fragment was forgotten.
+export interface LogRecord {
+  v: 1;
+  ref: string;
+  fragment: string | null;
+  at: string;
 }
+
+// Import takes a log (NDJSON) or plain text with one fragment per line.
+export type ImportFormat = "ndjson" | "text";
 
 // `conflicts` lists refs that already hold different text; they were not changed.
 export interface ImportResult {

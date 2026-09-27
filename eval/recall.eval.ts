@@ -27,12 +27,7 @@ const CONCURRENCY = 4;
 const corpus = new Map<string, Fragment>(
   fragments.map(({ date, fragment, id }) => [
     id,
-    {
-      createdAt: `${date}T12:00:00.000Z`,
-      fragment,
-      ref: id,
-      updatedAt: `${date}T12:00:00.000Z`,
-    },
+    { at: `${date}T12:00:00.000Z`, fragment, ref: id },
   ])
 );
 

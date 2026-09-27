@@ -26,10 +26,10 @@ describe("Revise", () => {
       };
       const revised = await revise();
       expect(revised).toMatchObject({
-        createdAt: item.createdAt,
         fragment: "$& $1 $` $' #new",
         ref: item.ref,
       });
+      expect(Date.parse(revised.at)).toBeGreaterThan(Date.parse(item.at));
       await expect(list(user)).resolves.toStrictEqual({
         fragments: [revised],
         nextCursor: null,

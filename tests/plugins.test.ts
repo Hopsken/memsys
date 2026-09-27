@@ -21,10 +21,7 @@ const corpus = new Map<string, Fragment>(
   [
     ["a", "First #Zeta #PROJECT/One"],
     ["b", "Second #zeta #记忆"],
-  ].map(([ref = "", fragment = ""]) => [
-    ref,
-    { createdAt: "", fragment, ref, updatedAt: "" },
-  ])
+  ].map(([ref = "", fragment = ""]) => [ref, { at: "", fragment, ref }])
 );
 
 const offline = { run: () => Promise.reject(new Error("offline")) };
@@ -54,10 +51,9 @@ const reorder = (
   });
 
 const recallRow = (ref: string, fragment: string, via?: string[]) => ({
-  createdAt: "",
+  at: "",
   fragment,
   ref,
-  updatedAt: "",
   ...(via && { via }),
 });
 
@@ -205,7 +201,7 @@ describe("Plugin host", () => {
           reorder("invent", (rows) =>
             Promise.resolve([
               ...rows.map((row) => ({ ...row, fragment: "rewritten" })),
-              { createdAt: "", fragment: "fake", ref: "zz", updatedAt: "" },
+              { at: "", fragment: "fake", ref: "zz" },
             ])
           )
         ),

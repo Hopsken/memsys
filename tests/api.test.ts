@@ -9,7 +9,7 @@ import { getList, list, post, useAuth } from "./helpers";
 describe("Fragment HTTP API", () => {
   const signIn = useAuth();
 
-  it("creates and replaces text while preserving identity and creation time", async () => {
+  it("creates and replaces text while preserving identity", async () => {
     const user = await signIn();
     const saved = await post("/api/remember", { fragment: "Original" }, user);
     expect(saved.status).toBe(201);
@@ -20,11 +20,12 @@ describe("Fragment HTTP API", () => {
       user
     );
     expect(revised.status).toBe(200);
-    await expect(revised.json()).resolves.toMatchObject({
-      createdAt: item.createdAt,
+    const next = await revised.json<Fragment>();
+    expect(next).toMatchObject({
       fragment: "Changed design #project/b",
       ref: item.ref,
     });
+    expect(Date.parse(next.at)).toBeGreaterThan(Date.parse(item.at));
     const found = await post("/api/recall", { cue: "changed design" }, user);
     await expect(found.json()).resolves.toMatchObject({
       fragments: [{ fragment: "Changed design #project/b", ref: item.ref }],
@@ -53,6 +54,37 @@ describe("Fragment HTTP API", () => {
       fragments: [],
       nextCursor: null,
     });
+  });
+
+  it("purges every version of a fragment, forgotten or not", async () => {
+    const user = await signIn();
+    const saved = await post("/api/remember", { fragment: "Secret" }, user);
+    const { ref } = await saved.json<Fragment>();
+    await post("/api/revise", { fragment: "Secret, revised", ref }, user);
+    const other = await post("/api/remember", { fragment: "Forgotten" }, user);
+    const forgotten = await other.json<Fragment>();
+    await post("/api/forget", { ref: forgotten.ref }, user);
+    const purged = await Promise.all(
+      [ref, forgotten.ref].map(async (target) => {
+        const response = await post("/api/purge", { ref: target }, user);
+        return response.json();
+      })
+    );
+    expect(purged).toStrictEqual([{ ref }, { ref: forgotten.ref }]);
+    await expect(post("/api/purge", { ref }, user)).resolves.toMatchObject({
+      status: 404,
+    });
+    await expect(list(user)).resolves.toStrictEqual({
+      fragments: [],
+      nextCursor: null,
+    });
+    const history = await worker.fetch(
+      new Request("https://memsys.test/api/export?history=true", {
+        headers: { Cookie: user.cookie },
+      }),
+      env
+    );
+    expect(new TextDecoder().decode(await history.arrayBuffer())).toBe("");
   });
 
   it("follows the returned page cursor without caching or changing fragments", async () => {

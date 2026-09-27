@@ -7,10 +7,9 @@ import { JEV_MODEL, JEV_TIMEOUT_MS, jev } from "../plugins/jev";
 import { createCtx, runAfterRecall } from "../worker/plugin-host";
 
 const item = (ref: string, fragment: string, via?: string[]): RecallItem => ({
-  createdAt: "",
+  at: "",
   fragment,
   ref,
-  updatedAt: "",
   ...(via && { via }),
 });
 
