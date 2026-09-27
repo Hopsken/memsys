@@ -11,7 +11,7 @@ Make a memory's durable state an append-only log of fragment records. `remember`
 
 The log lives where fragments live now: in the memory Durable Object's SQLite, one row per record. Its canonical serialization is NDJSON, which is also the export format. Moving the log to another store is a separate decision the format does not depend on.
 
-The public `Fragment` carries one timestamp, `createdAt`: when its current text was written.
+The public `Fragment` carries one timestamp, `at`: the time of its latest record. Creation and update times are not stored; the history holds them.
 
 ## Motivation
 
@@ -45,7 +45,7 @@ Snapshots rather than operations keep every line readable on its own and keep hi
 ```text
 for each record, in log order:
   fragment is null  → remove ref from the corpus
-  otherwise         → corpus[ref] = { ref, fragment, createdAt: at }
+  otherwise         → corpus[ref] = { ref, fragment, at }
 ```
 
 Replay is a pure function with no Cloudflare imports. The Durable Object uses it on load, import uses it to read a file, and any other tool can reuse it.
@@ -79,14 +79,15 @@ Cold start now reads every record instead of only the live fragments. A personal
 export interface Fragment {
   ref: string;
   fragment: string;
-  createdAt: string;
+  at: string;
 }
 ```
 
-`createdAt` is the `at` of the ref's latest record. Records are immutable, so a revision is a new version with its own creation time. The timestamp describes the text the caller is reading; a first-written date on revised text would claim the text is older than it is. When a fragment was first written stays in the history.
+A fragment is its latest record, so it exposes that record's `at`, the time its current text was written. `createdAt` and `updatedAt` disappear from the contract: records are immutable and carry a single time, and when a fragment was first or last changed can always be read from its history.
 
-- **Ordering is unchanged.** Recall ties and the fragment list already order by the time of the current text (`updatedAt` today); they now read `createdAt`. The list cursor becomes `createdAt,ref`.
-- **Agent-facing output is compact.** Recall items were carrying two ISO timestamps, the largest per-item cost after the text. MCP results render `createdAt` with `formatRelativeDate` from `lib/date.ts` ("Today", "Yesterday", "Sep 21", "Apr 1, 2025"). REST and export keep ISO.
+- **Ordering is unchanged.** Recall ties and the fragment list already order by the time of the current text (`updatedAt` today); they now read `at`. The list cursor becomes `at,ref`.
+- **Agent-facing output is compact.** Recall items were carrying two ISO timestamps, the largest per-item cost after the text. MCP results render `at` with `formatRelativeDate` from `lib/date.ts` ("Today", "Yesterday", "Sep 21", "Apr 1, 2025") in the instance's time zone. REST and export keep ISO.
+- **The time zone is a user setting.** It belongs to per-instance configuration, stored in the memory Durable Object and editable only from the user's session. Until the user picks one it is UTC; the web app suggests the browser's zone. A person's zone rarely changes, so a stored setting is more reliable than guessing per request.
 - **This is a breaking change** to `contract/memory.ts`. It ships together with the log migration, not before.
 
 ## Forget and purge
@@ -95,12 +96,12 @@ export interface Fragment {
 - An agent can no longer erase anything. An agent tricked into forgetting everything costs the user nothing they cannot restore. This extends Invariant 6: destructive power belongs to the user's session, not the agent's credential.
 - **Purge** deletes every record of one ref. It is a user action in the web app, not exposed over MCP or API keys, and it ships with the log so the user never loses the ability to remove text they regret storing.
 - A SQLite Durable Object keeps 30 days of point-in-time recovery, so purged text becomes unrecoverable only after that window. Copy must not promise immediate erasure.
-- Viewing a fragment's history and restoring an earlier version are what this format enables next; they are not part of this RFC.
+- Viewing a fragment's history and restoring an earlier version are what this format enables next. The first version of the web app shows neither; they are a separate work item.
 
 ## Export and import
 
-- **Export** writes the whole log as NDJSON: full history, enough to rebuild the instance.
-- **Import** accepts that NDJSON and the existing `memsys.fragments` v1 JSON. A v1 item becomes one record at `updatedAt ?? createdAt ?? now`.
+- **Export** writes NDJSON in the same record format. By default it holds current fragments only: one record per live ref, its latest. Optionally it holds the whole log, full history included, enough to rebuild the instance. Both are logs, so both import.
+- **Import** accepts either export and the existing `memsys.fragments` v1 JSON. A v1 item becomes one record at `updatedAt ?? createdAt ?? now`.
 - Refs unknown to this instance arrive with their full history, appended in file order with their original `at`.
 - Refs this instance already knows follow today's rules: identical current text is skipped, different text is a conflict. A ref forgotten here counts as known with no text, so an old backup cannot silently bring it back.
 
@@ -114,7 +115,7 @@ INSERT INTO records (ref, fragment, at)
 DROP TABLE fragments;
 ```
 
-It runs in `blockConcurrencyWhile` with the other migrations, so it is atomic and needs no paused writes or dual-write window. Existing `created_at` values are dropped: under the new contract, the time that matters is when the current text was written, which is `updated_at`. Point-in-time recovery is the rollback path.
+It runs in `blockConcurrencyWhile` with the other migrations, so it is atomic and needs no paused writes or dual-write window. Existing `created_at` values are dropped: each fragment's current text was written at `updated_at`, and the log starts there. Point-in-time recovery is the rollback path.
 
 ## Alternatives considered
 
@@ -137,20 +138,17 @@ Records such as `replace old with new` are smaller but tie history to the write 
 - Codec round trips: Unicode, line breaks in text, `FRAGMENT_MAX`-length fragments, unknown keys, unknown `v`.
 - Replay: remember, several revisions, forget, and a ref that returns after being forgotten.
 - Durable Object: each write appends one row; a restart replays to the same corpus; forgotten refs are never reused; purge removes every row of a ref.
-- Migration: an existing table yields the same current corpus, with `createdAt` equal to the old `updatedAt`.
-- Import: both formats, conflicts, and forgotten refs.
+- Migration: an existing table yields the same current corpus, with `at` equal to the old `updatedAt`.
+- Export: current-only and full history, each importing back to the same current corpus.
+- Import: all formats, conflicts, and forgotten refs.
+- MCP dates across a day boundary in a non-UTC time zone.
 - `pnpm eval` results are unchanged.
-
-## Open questions
-
-1. MCP dates are computed in UTC, so "Today" can be off by one for the user. Acceptable, or should the instance have a time zone?
-2. Should the first version of the web app show history and offer restore, or only purge?
-3. Should export offer a current-fragments-only option alongside the full log?
 
 ## Decision requested
 
 1. Durable state is an append-only log of complete fragment snapshots; `forget` appends `null`.
 2. The log lives in the memory Durable Object's SQLite; NDJSON is its canonical serialization and export format.
-3. `Fragment` exposes only `createdAt`, the time of its current text; MCP renders it as a relative date.
+3. `Fragment` exposes only `at`, the time of its latest record; MCP renders it as a relative date in the user's configured time zone.
 4. Agents can only append; purge is a user action.
-5. Moving the log off Durable Objects is out of scope.
+5. Export defaults to current fragments, with full history as an option.
+6. History view and restore in the web app, and moving the log off Durable Objects, are out of scope.
