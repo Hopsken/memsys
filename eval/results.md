@@ -1,6 +1,6 @@
 # Recall evaluation
 
-65 fragments, 46 cues, limit 10. Commit `e3f6612`; Jev strictness `medium`. Regenerate with `pnpm eval` (`JEV=1 pnpm eval` for Jev; it bills Workers AI).
+65 fragments, 46 cues, limit 10. Commit `73c2d26`; Jev strictness `medium`. Regenerate with `pnpm eval` (`JEV=1 pnpm eval` for Jev; it bills Workers AI).
 
 ## Summary
 
@@ -18,11 +18,11 @@ Recall, nDCG, and MRR average over cues with hits; noise counts returned items t
 | Kind (cues) | core | idf | idf+jev | idf+jev(matches) |
 | --- | --- | --- | --- | --- |
 | exact (5) | 1.00 / 8.2 | 1.00 / 8.2 | 1.00 / 0.2 | 1.00 / 0.0 |
-| scattered (9) | 1.00 / 7.9 | 1.00 / 7.9 | 1.00 / 1.7 | 1.00 / 0.9 |
+| scattered (9) | 1.00 / 7.9 | 1.00 / 7.9 | 1.00 / 1.6 | 1.00 / 1.0 |
 | morphology (7) | 1.00 / 7.9 | 1.00 / 7.9 | 1.00 / 1.1 | 1.00 / 1.0 |
 | partial (6) | 0.83 / 7.5 | 0.83 / 7.5 | 0.83 / 0.5 | 0.83 / 0.2 |
 | association (5) | 1.00 / 7.2 | 1.00 / 7.0 | 1.00 / 0.6 | 1.00 / 0.4 |
-| multi (5) | 1.00 / 7.2 | 1.00 / 7.2 | 1.00 / 1.8 | 1.00 / 1.8 |
+| multi (5) | 1.00 / 7.2 | 1.00 / 7.2 | 1.00 / 2.0 | 1.00 / 2.0 |
 | semantic (4) | 0.00 / 0.0 | 0.00 / 0.0 | 0.00 / 0.0 | 0.00 / 0.0 |
 | abstain (5) | — / 0.0 | — / 0.0 | — / 0.0 | — / 0.0 |
 
@@ -37,13 +37,13 @@ Recall, nDCG, and MRR average over cues with hits; noise counts returned items t
 | c05 | exact | `presigned URLs` | 1/1 +5 | 1/1 +5 | 1/1 +0 | 1/1 +0 |
 | c06 | scattered | `D1 region` | 1/1 +9 | 1/1 +9 | 1/1 +0 | 1/1 +0 |
 | c07 | scattered | `vite 403` | 1/1 +9 | 1/1 +9 | 1/1 +2 | 1/1 +0 |
-| c08 | scattered | `test expects` | 1/1 +9 | 1/1 +9 | 1/1 +7 | 1/1 +5 |
+| c08 | scattered | `test expects` | 1/1 +9 | 1/1 +9 | 1/1 +7 | 1/1 +6 |
 | c09 | scattered | `ledger SwiftUI` | 1/1 +6 | 1/1 +6 | 1/1 +3 | 1/1 +2 |
 | c10 | scattered | `restic retention` | 1/1 +4 | 1/1 +4 | 1/1 +0 | 1/1 +0 |
 | c11 | scattered | `staging database Sunday` | 1/1 +9 | 1/1 +9 | 1/1 +0 | 1/1 +0 |
 | c12 | scattered | `Java payments SDK` | 1/1 +9 | 1/1 +9 | 1/1 +0 | 1/1 +0 |
 | c13 | scattered | `Astro AVIF` | 1/1 +9 | 1/1 +9 | 1/1 +0 | 1/1 +0 |
-| c14 | scattered | `Japan passport` | 1/1 +7 | 1/1 +7 | 1/1 +3 | 1/1 +1 |
+| c14 | scattered | `Japan passport` | 1/1 +7 | 1/1 +7 | 1/1 +2 | 1/1 +1 |
 | c15 | morphology | `evicted Durable Object` | 1/1 +9 | 1/1 +9 | 1/1 +2 | 1/1 +2 |
 | c16 | morphology | `eviction` | 1/1 +9 | 1/1 +9 | 1/1 +1 | 1/1 +2 |
 | c17 | morphology | `refresh staging` | 1/1 +9 | 1/1 +9 | 1/1 +0 | 1/1 +0 |
@@ -62,11 +62,11 @@ Recall, nDCG, and MRR average over cues with hits; noise counts returned items t
 | c30 | association | `gateway envelope` | 1/1 +7 | 1/1 +7 | 1/1 +1 | 1/1 +0 |
 | c31 | association | `OrderTimeoutTest` | 1/1 +8 | 1/1 +8 | 1/1 +0 | 1/1 +0 |
 | c32 | association | `Durable Object alarms` | 1/1 +7 | 1/1 +7 | 1/1 +0 | 1/1 +0 |
-| c33 | multi | `pnpm` | 2/2 +8 | 2/2 +8 | 2/2 +7 | 2/2 +4 |
+| c33 | multi | `pnpm` | 2/2 +8 | 2/2 +8 | 2/2 +8 | 2/2 +4 |
 | c34 | multi | `Japan` | 3/3 +5 | 3/3 +5 | 3/3 +0 | 3/3 +0 |
 | c35 | multi | `SwiftData` | 2/2 +8 | 2/2 +8 | 2/2 +2 | 2/2 +2 |
 | c36 | multi | `Workers AI` | 2/2 +8 | 2/2 +8 | 2/2 +0 | 2/2 +0 |
-| c37 | multi | `Durable Objects` | 3/3 +7 | 3/3 +7 | 3/3 +0 | 3/3 +3 |
+| c37 | multi | `Durable Objects` | 3/3 +7 | 3/3 +7 | 3/3 +0 | 3/3 +4 |
 | c38 | semantic | `package manager` | 0/1 +0 | 0/1 +0 | 0/1 +0 | 0/1 +0 |
 | c39 | semantic | `antibiotics` | 0/1 +0 | 0/1 +0 | 0/1 +0 | 0/1 +0 |
 | c40 | semantic | `evening coffee` | 0/1 +0 | 0/1 +0 | 0/1 +0 | 0/1 +0 |
