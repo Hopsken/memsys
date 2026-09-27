@@ -5,7 +5,11 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "paths": { "@/*": ["./client/*"] },
+    "paths": {
+      "@/*": ["./client/*"],
+      "@contract/*": ["./contract/*"],
+      "@lib/*": ["./lib/*"]
+    },
     "module": "Preserve",
     "moduleDetection": "force",
     "moduleResolution": "Bundler",
