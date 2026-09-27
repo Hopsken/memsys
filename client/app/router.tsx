@@ -23,6 +23,7 @@ export const router = createBrowserRouter([
       {
         children: [{ element: <HistoryDialog />, path: "memories/:ref" }],
         element: <FragmentsView />,
+        id: "memories",
         path: "/",
       },
       {

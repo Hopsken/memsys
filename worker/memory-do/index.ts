@@ -28,6 +28,7 @@ import {
   REF_LENGTH,
   truncate,
 } from "../memory";
+import type { listInput } from "../memory";
 import {
   assertRegistry,
   createCtx,
@@ -228,7 +229,7 @@ export class MemoryDO extends DurableObject<Env> {
     return "error" in ranked ? ranked : truncate(ranked, input.limit, warnings);
   }
 
-  list(input: { cursor?: string }): FragmentPage {
+  list(input: z.input<typeof listInput>): FragmentPage {
     return listFragments(
       [...this.corpus.values()].map((item) => ({
         ...item,

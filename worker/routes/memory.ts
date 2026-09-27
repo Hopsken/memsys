@@ -15,12 +15,13 @@ const IMPORT_FORMATS = new Map<string, ImportFormat>([
 export const memory = new Hono<AppEnv>()
   .get("/fragments", async (c) => {
     c.header("Cache-Control", "no-store");
-    const query = c.req.query();
+    // Hono's query object has a null prototype; RPC requires a plain object.
+    // `tag` may repeat, so it is read as a list.
+    const query = { ...c.req.query(), tag: c.req.queries("tag") };
     if (!listInput.safeParse(query).success) {
       return c.json({ error: "Invalid list query" }, 400);
     }
-    // Hono's query object has a null prototype; RPC requires a plain object.
-    return c.json(await c.get("memory").list({ ...query }));
+    return c.json(await c.get("memory").list(query));
   })
   .get("/fragments/:ref/history", async (c) => {
     c.header("Cache-Control", "no-store");

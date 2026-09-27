@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { hashKey, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { InfiniteData, QueryClient } from "@tanstack/react-query";
 
 import { api } from "@/shared/api";
@@ -6,87 +6,95 @@ import type { FragmentPage, History, Restored } from "@contract/memory";
 
 type ListData = InfiniteData<FragmentPage>;
 
-// Where a memory sat in the loaded list, so Undo can put it back there.
-interface Position {
-  index: number;
-  page: number;
-}
+// Where a memory sat in each loaded list, whole or filtered, keyed by the
+// list's query hash, so Undo can put it back there.
+type Positions = Map<string, { index: number; page: number }>;
+
+const lists = (queryClient: QueryClient) =>
+  queryClient.getQueriesData<ListData>({ queryKey: ["fragments"] });
 
 export const removeFromList = (
   queryClient: QueryClient,
   ref: string
-): Position | null => {
-  const pages = queryClient.getQueryData<ListData>(["fragments"])?.pages ?? [];
-  for (const [page, { fragments }] of pages.entries()) {
-    const index = fragments.findIndex((item) => item.ref === ref);
-    if (index !== -1) {
+): Positions => {
+  const positions: Positions = new Map();
+  for (const [key, data] of lists(queryClient)) {
+    const pages = data?.pages ?? [];
+    const page = pages.findIndex(({ fragments }) =>
+      fragments.some((item) => item.ref === ref)
+    );
+    if (page !== -1) {
+      const index =
+        pages[page]?.fragments.findIndex((item) => item.ref === ref) ?? -1;
+      positions.set(hashKey(key), { index, page });
       queryClient.setQueryData<ListData>(
-        ["fragments"],
-        (data) =>
-          data && {
-            ...data,
-            pages: data.pages.map((each) => ({
+        key,
+        (current) =>
+          current && {
+            ...current,
+            pages: current.pages.map((each) => ({
               ...each,
               fragments: each.fragments.filter((item) => item.ref !== ref),
             })),
           }
       );
-      return { index, page };
     }
   }
-  return null;
+  return positions;
 };
 
-// A restored memory keeps its place in the loaded list, or returns to the
+// A restored memory keeps its place in each loaded list, or returns to the
 // place it was forgotten from, until the list reloads; restoring never makes
-// a row jump out of view.
+// a row jump out of view. A list it was in neither way reloads.
 const showInList = (
   queryClient: QueryClient,
   restored: Restored,
-  position: Position | null
+  positions: Positions
 ) => {
   const { at, fragment, ref, versions } = restored;
   if (fragment === null) {
     return;
   }
   const item = { at, fragment, ref, versions };
-  const pages = queryClient.getQueryData<ListData>(["fragments"])?.pages;
-  const listed = pages?.some(({ fragments }) =>
-    fragments.some((each) => each.ref === ref)
-  );
-  if (!listed && !(position && pages?.[position.page])) {
-    void queryClient.invalidateQueries({ queryKey: ["fragments"] });
-    return;
-  }
-  queryClient.setQueryData<ListData>(
-    ["fragments"],
-    (data) =>
-      data && {
-        ...data,
-        pages: data.pages.map((page, index) => {
-          if (listed) {
-            return {
-              ...page,
-              fragments: page.fragments.map((each) =>
-                each.ref === ref ? item : each
-              ),
-            };
-          }
-          return position && index === position.page
-            ? {
+  for (const [key, data] of lists(queryClient)) {
+    const position = positions.get(hashKey(key));
+    const listed = data?.pages.some(({ fragments }) =>
+      fragments.some((each) => each.ref === ref)
+    );
+    if (!listed && !(position && data?.pages[position.page])) {
+      void queryClient.invalidateQueries({ exact: true, queryKey: key });
+      continue;
+    }
+    queryClient.setQueryData<ListData>(
+      key,
+      (current) =>
+        current && {
+          ...current,
+          pages: current.pages.map((page, index) => {
+            if (listed) {
+              return {
                 ...page,
-                fragments: page.fragments.toSpliced(position.index, 0, item),
-              }
-            : page;
-        }),
-      }
-  );
+                fragments: page.fragments.map((each) =>
+                  each.ref === ref ? item : each
+                ),
+              };
+            }
+            return position && index === position.page
+              ? {
+                  ...page,
+                  fragments: page.fragments.toSpliced(position.index, 0, item),
+                }
+              : page;
+          }),
+        }
+    );
+  }
 };
 
 export const restoreVersion = async (
   queryClient: QueryClient,
   { at, ref }: { at: string; ref: string },
-  position: Position | null = null
+  positions: Positions = new Map()
 ) => {
   const restored = await api
     .post(`/api/fragments/${ref}/restore`, { json: { at } })
@@ -101,7 +109,7 @@ export const restoreVersion = async (
         ],
       }
   );
-  showInList(queryClient, restored, position);
+  showInList(queryClient, restored, positions);
   void queryClient.invalidateQueries({ queryKey: ["forgotten"] });
   return restored;
 };

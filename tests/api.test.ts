@@ -120,8 +120,25 @@ describe("Fragment HTTP API", () => {
     );
   });
 
+  it("filters the list by every repeated tag", async () => {
+    const user = await signIn();
+    await Promise.all(
+      ["Only #a", "Both #a #b/c", "Other #b"].map((fragment) =>
+        post("/api/remember", { fragment }, user)
+      )
+    );
+    const response = await getList(user, "?tag=a&tag=b");
+    const page = await response.json<FragmentPage>();
+    expect(page.fragments.map(({ fragment }) => fragment)).toStrictEqual([
+      "Both #a #b/c",
+    ]);
+  });
+
   it.each([
     "?cursor=",
+    "?tag=",
+    "?tag=%23a",
+    "?tag=a%20b",
     "?cursor=invalid",
     "?cursor=2026-02-30T00:00:00.000Z,aaaaaaa",
     "?cursor=2026-01-01T00:00:00.000Z,invalid",

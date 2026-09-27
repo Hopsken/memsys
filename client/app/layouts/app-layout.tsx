@@ -1,7 +1,8 @@
 import { cn } from "cn";
 import { Archive, Layers, Settings } from "lucide-react";
-import { Navigate, NavLink, Outlet } from "react-router";
+import { Navigate, NavLink, Outlet, useMatches } from "react-router";
 
+import { TagFilterBar } from "@/pages/memories";
 import { authClient } from "@/shared/api";
 import { buttonVariants } from "@/shared/ui/button";
 
@@ -12,6 +13,9 @@ const navClass = cn(
 
 export const App = () => {
   const session = authClient.useSession();
+  // The memory list's tag filter extends the header, so it stays in view on
+  // a long list.
+  const onList = useMatches().some(({ id }) => id === "memories");
 
   if (session.isPending) {
     return null;
@@ -53,6 +57,7 @@ export const App = () => {
             </NavLink>
           </nav>
         </div>
+        {onList ? <TagFilterBar /> : null}
       </header>
       <main className="mx-auto max-w-3xl px-5 pt-2 pb-10 sm:px-8 sm:pb-16">
         <Outlet />

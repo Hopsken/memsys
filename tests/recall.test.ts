@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "../contract/memory";
+import { extractAnchors } from "../lib/anchor";
 import { RECALL_LIMIT_MAX } from "../lib/recall";
-import { extractAnchors, recall } from "../worker/memory";
+import { recall } from "../worker/memory";
 import { terms } from "../worker/search";
 
 const item = (ref: string, fragment: string, day = "01"): Fragment => ({

@@ -9,7 +9,8 @@ import type {
   PluginView,
   Verdict,
 } from "../contract/plugin";
-import { extractAnchors, inputs } from "./memory";
+import { extractAnchors } from "../lib/anchor";
+import { inputs } from "./memory";
 
 export interface StoredConfig {
   name: string;

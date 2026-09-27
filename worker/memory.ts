@@ -7,6 +7,7 @@ import type {
   RecallItem,
   RecallResult,
 } from "../contract/memory";
+import { extractAnchors, withinTag } from "../lib/anchor";
 import { FRAGMENT_MAX, fragmentLength } from "../lib/fragment";
 import { RECALL_LIMIT_MAX } from "../lib/recall";
 import { bm25, terms } from "./search";
@@ -38,7 +39,16 @@ const cursor = z
   .transform((value) => value.split(","))
   .pipe(z.tuple([z.iso.datetime({ precision: 3 }), ref]));
 
-export const listInput = z.object({ cursor: cursor.optional() }).strict();
+// An anchor name without its `#`; the list keeps fragments carrying every tag.
+const tag = z
+  .string()
+  .max(256)
+  .regex(/^[\p{L}\p{N}_/-]+$/u)
+  .transform((value) => value.toLowerCase());
+
+export const listInput = z
+  .object({ cursor: cursor.optional(), tag: z.array(tag).max(10).optional() })
+  .strict();
 
 export const inputs = {
   forget: z.object({ ref }).strict(),
@@ -101,9 +111,9 @@ export const restoreInput = z
 
 export const listFragments = <T extends Fragment>(
   corpus: Iterable<T>,
-  input: { cursor?: string }
+  input: z.input<typeof listInput>
 ) => {
-  const { cursor: after } = listInput.parse(input);
+  const { cursor: after, tag: tags = [] } = listInput.parse(input);
   const ordered = [...corpus]
     .filter(
       (item) =>
@@ -111,6 +121,12 @@ export const listFragments = <T extends Fragment>(
         item.at < after[0] ||
         (item.at === after[0] && item.ref > after[1])
     )
+    .filter((item) => {
+      const anchors = extractAnchors(item.fragment);
+      return tags.every((each) =>
+        anchors.some((anchor) => withinTag(anchor, each))
+      );
+    })
     .toSorted((a, b) => b.at.localeCompare(a.at) || a.ref.localeCompare(b.ref));
   const fragments = ordered.slice(0, PAGE_SIZE);
   const last = fragments.at(-1);
@@ -123,17 +139,6 @@ export const listFragments = <T extends Fragment>(
 
 const normalize = (text: string): string =>
   text.toLowerCase().replaceAll(/\s+/gu, " ").trim();
-
-export const extractAnchors = (text: string): string[] =>
-  [
-    ...new Set(
-      [
-        ...text.matchAll(
-          /(?:^|[^\p{L}\p{N}_/#])#(?<anchor>[\p{L}\p{N}_/-]+)/gu
-        ),
-      ].map((match) => (match.groups?.anchor ?? "").toLowerCase())
-    ),
-  ].toSorted();
 
 // Keep namespaces exact; stem English words in other anchors independently.
 const associationKeys = (anchor: string): string[] =>
