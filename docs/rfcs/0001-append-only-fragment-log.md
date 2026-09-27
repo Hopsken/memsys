@@ -104,7 +104,7 @@ A fragment is its latest record, so it exposes that record's `at`, the time its 
 ## Export and import
 
 - **Export** writes NDJSON in the same record format. By default it holds current fragments only: one record per live ref, its latest. Optionally it holds the whole log, full history included, enough to rebuild the instance. Both are logs, so both import.
-- **Import** accepts either export and the existing `memsys.fragments` v1 JSON. A v1 item becomes one record at `updatedAt ?? createdAt ?? now`.
+- **Import** accepts either export. The current `memsys.fragments` JSON is not accepted; it is replaced, not kept alongside.
 - Refs unknown to this instance arrive with their full history and original `at`. A file that repeats an `at` within one ref is rejected.
 - Refs this instance already knows follow today's rules: identical current text is skipped, different text is a conflict. A ref forgotten here counts as known with no text, so an old backup cannot silently bring it back.
 
@@ -151,7 +151,7 @@ TIDs become worth it when one memory gains concurrent writers, such as offline c
 - Durable Object: each write appends one row; a restart replays to the same corpus; forgotten refs are never reused; purge removes every row of a ref.
 - Migration: an existing table yields the same current corpus, with `at` equal to the old `updatedAt`.
 - Export: current-only and full history, each importing back to the same current corpus.
-- Import: all formats, conflicts, and forgotten refs.
+- Import: both exports, conflicts, and forgotten refs.
 - `pnpm eval` results are unchanged.
 
 ## Decision requested
