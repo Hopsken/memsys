@@ -1,8 +1,20 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet } from "react-router";
 
 import { SessionExpired } from "@/components/session-expired";
+import { toasts } from "@/components/toaster";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, isExpired } from "@/lib/api";
@@ -10,12 +22,75 @@ import { api, isExpired } from "@/lib/api";
 import type { ForgottenFragment, ForgottenList } from "../contract/memory";
 import { formatRelativeDateInline } from "../lib/date";
 import {
-  DeleteButton,
   memoryId,
   useOpenHistory,
   useRestore,
   useReturnFocus,
 } from "./history";
+
+// Delete is the user's purge: unlike forgetting, it removes the history too,
+// so it lives only here, behind a confirmation.
+const DeleteMemory = ({ target }: { target: string }) => {
+  const queryClient = useQueryClient();
+  const purge = useMutation({
+    mutationFn: () => api.post("/api/purge", { json: { ref: target } }),
+    onSuccess: () => {
+      queryClient.setQueryData<ForgottenList>(
+        ["forgotten"],
+        (data) =>
+          data && {
+            fragments: data.fragments.filter(({ ref }) => ref !== target),
+          }
+      );
+    },
+  });
+  return (
+    <AlertDialog
+      onOpenChange={(open) => {
+        if (!open) {
+          purge.reset();
+        }
+      }}
+    >
+      <AlertDialogTrigger
+        render={
+          <Button
+            className="text-destructive hover:text-destructive"
+            size="sm"
+            variant="ghost"
+          />
+        }
+      >
+        Delete
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete this memory?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Its history goes with it, and you won’t be able to restore it.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {purge.isError ? (
+          <p className="text-destructive text-sm" role="alert">
+            Couldn’t delete this memory. Try again.
+          </p>
+        ) : null}
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={purge.isPending}>
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction
+            disabled={purge.isPending}
+            onClick={() => purge.mutate()}
+            variant="destructive"
+          >
+            {purge.isPending ? "Deleting…" : "Delete"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+};
 
 const ForgottenRow = ({ item }: { item: ForgottenFragment }) => {
   const open = useOpenHistory();
@@ -49,19 +124,22 @@ const ForgottenRow = ({ item }: { item: ForgottenFragment }) => {
             Couldn’t restore. Try again.
           </p>
         ) : null}
-        <DeleteButton
-          before={
-            <Button
-              disabled={restore.isPending}
-              onClick={() => restore.mutate({ at: item.at, ref: item.ref })}
-              size="sm"
-              variant="outline"
-            >
-              Restore
-            </Button>
-          }
-          target={item.ref}
-        />
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            disabled={restore.isPending}
+            onClick={() =>
+              restore.mutate(
+                { at: item.at, ref: item.ref },
+                { onSuccess: () => toasts.add({ title: "Restored" }) }
+              )
+            }
+            size="sm"
+            variant="outline"
+          >
+            Restore
+          </Button>
+          <DeleteMemory target={item.ref} />
+        </div>
       </div>
     </li>
   );

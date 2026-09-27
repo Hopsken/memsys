@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { InfiniteData, QueryClient } from "@tanstack/react-query";
 import { cn } from "cn";
+import { Archive } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { MouseEvent, ReactNode } from "react";
+import type { MouseEvent } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 
 import { SessionExpired } from "@/components/session-expired";
+import { toasts } from "@/components/toaster";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,7 +22,6 @@ import { diffWords } from "@/lib/diff";
 import type { Part } from "@/lib/diff";
 
 import type {
-  ForgottenList,
   FragmentPage,
   History,
   Restored,
@@ -28,7 +29,16 @@ import type {
 } from "../contract/memory";
 import { formatRelativeDate } from "../lib/date";
 
-type Label = "Edited" | "Forgotten" | "Restored" | "Saved";
+type Label = "Edited" | "Forgotten" | "New" | "Restored";
+
+// Edited is the usual step, so it stays plain; the rest stand out. Red and
+// green belong to the diff.
+const BADGES = {
+  Edited: null,
+  Forgotten: "bg-amber-500/15 text-amber-800 dark:text-amber-300",
+  New: "bg-sky-500/15 text-sky-800 dark:text-sky-300",
+  Restored: "bg-violet-500/15 text-violet-800 dark:text-violet-300",
+} satisfies Record<Label, string | null>;
 
 interface Entry {
   diff: Part[] | null;
@@ -56,7 +66,7 @@ const entries = (versions: Version[]): Entry[] => {
         return { diff: null, label: "Restored", version };
       }
       return before === null
-        ? { diff: null, label: "Saved", version }
+        ? { diff: null, label: "New", version }
         : { diff: diffWords(before, text), label: "Edited", version };
     })
     .toReversed();
@@ -107,139 +117,148 @@ export const useReturnFocus = () => {
   }, [ref]);
 };
 
-// The restored memory keeps its place in the loaded list until the list
-// reloads, so restoring never makes a row jump out of view.
-const showInList = (queryClient: QueryClient, restored: Restored) => {
+type ListData = InfiniteData<FragmentPage>;
+
+// Where a memory sat in the loaded list, so Undo can put it back there.
+interface Position {
+  index: number;
+  page: number;
+}
+
+const removeFromList = (
+  queryClient: QueryClient,
+  ref: string
+): Position | null => {
+  const pages = queryClient.getQueryData<ListData>(["fragments"])?.pages ?? [];
+  for (const [page, { fragments }] of pages.entries()) {
+    const index = fragments.findIndex((item) => item.ref === ref);
+    if (index !== -1) {
+      queryClient.setQueryData<ListData>(
+        ["fragments"],
+        (data) =>
+          data && {
+            ...data,
+            pages: data.pages.map((each) => ({
+              ...each,
+              fragments: each.fragments.filter((item) => item.ref !== ref),
+            })),
+          }
+      );
+      return { index, page };
+    }
+  }
+  return null;
+};
+
+// A restored memory keeps its place in the loaded list, or returns to the
+// place it was forgotten from, until the list reloads; restoring never makes
+// a row jump out of view.
+const showInList = (
+  queryClient: QueryClient,
+  restored: Restored,
+  position: Position | null
+) => {
   const { at, fragment, ref, versions } = restored;
   if (fragment === null) {
     return;
   }
-  let found = false;
-  queryClient.setQueryData<InfiniteData<FragmentPage>>(
+  const item = { at, fragment, ref, versions };
+  const pages = queryClient.getQueryData<ListData>(["fragments"])?.pages;
+  const listed = pages?.some(({ fragments }) =>
+    fragments.some((each) => each.ref === ref)
+  );
+  if (!listed && !(position && pages?.[position.page])) {
+    void queryClient.invalidateQueries({ queryKey: ["fragments"] });
+    return;
+  }
+  queryClient.setQueryData<ListData>(
     ["fragments"],
     (data) =>
       data && {
         ...data,
-        pages: data.pages.map((page) => ({
-          ...page,
-          fragments: page.fragments.map((item) => {
-            if (item.ref !== ref) {
-              return item;
-            }
-            found = true;
-            return { at, fragment, ref, versions };
-          }),
-        })),
+        pages: data.pages.map((page, index) => {
+          if (listed) {
+            return {
+              ...page,
+              fragments: page.fragments.map((each) =>
+                each.ref === ref ? item : each
+              ),
+            };
+          }
+          return position && index === position.page
+            ? {
+                ...page,
+                fragments: page.fragments.toSpliced(position.index, 0, item),
+              }
+            : page;
+        }),
       }
   );
-  if (!found) {
-    void queryClient.invalidateQueries({ queryKey: ["fragments"] });
-  }
+};
+
+const restoreVersion = async (
+  queryClient: QueryClient,
+  { at, ref }: { at: string; ref: string },
+  position: Position | null = null
+) => {
+  const restored = await api
+    .post(`/api/fragments/${ref}/restore`, { json: { at } })
+    .json<Restored>();
+  queryClient.setQueryData<History>(
+    ["history", ref],
+    (data) =>
+      data && {
+        versions: [
+          { at: restored.at, fragment: restored.fragment, ref },
+          ...data.versions,
+        ],
+      }
+  );
+  showInList(queryClient, restored, position);
+  void queryClient.invalidateQueries({ queryKey: ["forgotten"] });
+  return restored;
 };
 
 export const useRestore = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ at, ref }: { at: string; ref: string }) =>
-      api
-        .post(`/api/fragments/${ref}/restore`, { json: { at } })
-        .json<Restored>(),
-    onSuccess: (restored) => {
-      const { at, fragment, ref } = restored;
-      queryClient.setQueryData<History>(
-        ["history", ref],
-        (data) =>
-          data && { versions: [{ at, fragment, ref }, ...data.versions] }
-      );
-      showInList(queryClient, restored);
-      void queryClient.invalidateQueries({ queryKey: ["forgotten"] });
-    },
+    mutationFn: (version: { at: string; ref: string }) =>
+      restoreVersion(queryClient, version),
   });
 };
 
-// Delete is the user's purge: unlike forgetting, it removes the history too.
-export const DeleteButton = ({
-  before,
-  onDeleted,
-  target,
-}: {
-  before?: ReactNode;
-  onDeleted?: () => void;
-  target: string;
-}) => {
+// Forgetting closes the dialog and leaves a toast to undo it, which puts the
+// memory back where it was in the list.
+const useForget = (onForgotten: () => void) => {
   const queryClient = useQueryClient();
-  const [confirming, setConfirming] = useState(false);
-  const purge = useMutation({
-    mutationFn: () => api.post("/api/purge", { json: { ref: target } }),
-    onSuccess: () => {
-      queryClient.setQueryData<InfiniteData<FragmentPage>>(
-        ["fragments"],
-        (data) =>
-          data && {
-            ...data,
-            pages: data.pages.map((page) => ({
-              ...page,
-              fragments: page.fragments.filter(({ ref }) => ref !== target),
-            })),
-          }
-      );
-      queryClient.setQueryData<ForgottenList>(
-        ["forgotten"],
-        (data) =>
-          data && {
-            fragments: data.fragments.filter(({ ref }) => ref !== target),
-          }
-      );
-      onDeleted?.();
+  return useMutation({
+    mutationFn: ({ ref }: Version) =>
+      api.post("/api/forget", { json: { ref } }),
+    onSuccess: (_, current) => {
+      const position = removeFromList(queryClient, current.ref);
+      void queryClient.invalidateQueries({ queryKey: ["forgotten"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["history", current.ref],
+      });
+      onForgotten();
+      const id = toasts.add({
+        actionProps: {
+          children: "Undo",
+          onClick: async () => {
+            toasts.close(id);
+            try {
+              await restoreVersion(queryClient, current, position);
+            } catch {
+              toasts.add({
+                title: "Couldn’t restore. It’s in Forgotten memories.",
+              });
+            }
+          },
+        },
+        title: "Forgotten",
+      });
     },
   });
-  return (
-    <div className="flex flex-wrap items-center justify-end gap-2">
-      {purge.isError ? (
-        <span className="text-destructive text-xs">
-          Couldn’t delete this memory. Try again.
-        </span>
-      ) : null}
-      {confirming ? (
-        <>
-          <span className="text-foreground text-xs">
-            Delete this memory and its history for good?
-          </span>
-          <Button
-            disabled={purge.isPending}
-            onClick={() => {
-              setConfirming(false);
-              purge.reset();
-            }}
-            size="sm"
-            variant="ghost"
-          >
-            Cancel
-          </Button>
-          <Button
-            disabled={purge.isPending}
-            onClick={() => purge.mutate()}
-            size="sm"
-            variant="destructive"
-          >
-            {purge.isPending ? "Deleting…" : "Delete"}
-          </Button>
-        </>
-      ) : (
-        <>
-          {before}
-          <Button
-            className="text-destructive hover:text-destructive"
-            onClick={() => setConfirming(true)}
-            size="sm"
-            variant="ghost"
-          >
-            Delete
-          </Button>
-        </>
-      )}
-    </div>
-  );
 };
 
 const Text = ({ entry }: { entry: Entry }) => {
@@ -338,11 +357,17 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
                 )}
               >
                 <div className="text-muted-foreground flex min-h-7 items-center justify-between gap-3 text-xs">
-                  <span>
-                    <span className="text-foreground font-medium">
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className={cn(
+                        "text-foreground font-medium",
+                        BADGES[entry.label] &&
+                          cn("rounded-md px-1.5 py-0.5", BADGES[entry.label])
+                      )}
+                    >
                       {entry.label}
                     </span>
-                    {" · "}
+                    <span aria-hidden="true">·</span>
                     <time dateTime={at} title={new Date(at).toLocaleString()}>
                       {stamp(at)}
                     </time>
@@ -401,6 +426,9 @@ export const HistoryDialog = () => {
       : navigate(-1));
   };
   const missing = query.error !== null && failure(query.error).status === 404;
+  const forget = useForget(close);
+  // Only a memory your AI can still recall can be forgotten.
+  const current = query.data?.versions[0];
 
   return (
     <Dialog
@@ -412,16 +440,32 @@ export const HistoryDialog = () => {
       open
     >
       <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 p-0 sm:max-h-[85dvh] sm:max-w-xl">
-        <DialogHeader className="border-b px-5 py-4 pr-12">
+        <DialogHeader className="min-h-15 flex-row items-center justify-between border-b py-3 pr-12 pl-5">
           <DialogTitle>
             History
             <span className="text-muted-foreground ml-2 font-mono text-xs font-normal">
               {ref}
             </span>
           </DialogTitle>
+          {current?.fragment ? (
+            <Button
+              disabled={forget.isPending}
+              onClick={() => forget.mutate(current)}
+              size="sm"
+              variant="ghost"
+            >
+              <Archive aria-hidden="true" />
+              Forget
+            </Button>
+          ) : null}
         </DialogHeader>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
           {isExpired(query.error) ? <SessionExpired /> : null}
+          {forget.isError ? (
+            <p className="text-destructive mb-3 text-xs" role="alert">
+              Couldn’t forget this memory. Try again.
+            </p>
+          ) : null}
           {missing ? (
             <p className="text-muted-foreground text-sm">Memory not found.</p>
           ) : null}
@@ -452,14 +496,7 @@ export const HistoryDialog = () => {
               ))}
             </div>
           ) : null}
-          {query.data ? (
-            <>
-              <Timeline versions={query.data.versions} />
-              <div className="mt-6 border-t pt-4">
-                <DeleteButton onDeleted={close} target={ref} />
-              </div>
-            </>
-          ) : null}
+          {query.data ? <Timeline versions={query.data.versions} /> : null}
         </div>
       </DialogContent>
     </Dialog>

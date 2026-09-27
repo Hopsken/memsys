@@ -3,6 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, Navigate, RouterProvider } from "react-router";
 
+import { Toaster } from "@/components/toaster";
 import { failure } from "@/lib/api";
 
 import { ApiKeysView } from "./api-keys";
@@ -69,7 +70,9 @@ if (root) {
   createRoot(root).render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
+        <Toaster>
+          <RouterProvider router={router} />
+        </Toaster>
       </QueryClientProvider>
     </StrictMode>
   );

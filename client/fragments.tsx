@@ -1,33 +1,17 @@
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
-import { Archive, ArrowDown, Ellipsis, Layers } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { ArrowDown, Layers } from "lucide-react";
 import { Link, Outlet } from "react-router";
 
 import { SessionExpired } from "@/components/session-expired";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, isExpired } from "@/lib/api";
 
 import type { FragmentPage, ListedFragment } from "../contract/memory";
 import { formatRelativeDate, formatRelativeDateInline } from "../lib/date";
-import {
-  memoryId,
-  useOpenHistory,
-  useRestore,
-  useReturnFocus,
-} from "./history";
+import { memoryId, useOpenHistory, useReturnFocus } from "./history";
 
 const linkClass =
   "text-foreground underline underline-offset-4 hover:text-foreground/80";
@@ -42,65 +26,10 @@ const flatten = (pages: FragmentPage[]) => {
   return [...items.values()];
 };
 
-// Forgetting keeps the row in place as an undo, until the list reloads.
+// A row only shows the memory; clicking it opens the history, where it can
+// be restored or forgotten.
 const FragmentRow = ({ item }: { item: ListedFragment }) => {
-  const queryClient = useQueryClient();
   const open = useOpenHistory();
-  const [forgotten, setForgotten] = useState(false);
-  const undo = useRef<HTMLButtonElement>(null);
-  const settled = useRef(true);
-  const forget = useMutation({
-    mutationFn: () => api.post("/api/forget", { json: { ref: item.ref } }),
-    onSuccess: () => {
-      setForgotten(true);
-      void queryClient.invalidateQueries({ queryKey: ["forgotten"] });
-      void queryClient.invalidateQueries({ queryKey: ["history", item.ref] });
-    },
-  });
-  const restore = useRestore();
-
-  // Focus follows the row: to Undo once forgotten, back to the row once
-  // restored.
-  useEffect(() => {
-    if (forgotten) {
-      undo.current?.focus();
-    } else if (!settled.current) {
-      document.querySelector<HTMLElement>(`#${memoryId(item.ref)}`)?.focus();
-    }
-    settled.current = !forgotten;
-  }, [forgotten, item.ref]);
-
-  if (forgotten) {
-    return (
-      <li className="flex min-h-14 flex-wrap items-center justify-between gap-x-4 py-2 text-sm">
-        <span className="text-muted-foreground" role="status">
-          Forgotten
-        </span>
-        <div className="flex items-center gap-2">
-          {restore.isError ? (
-            <span className="text-destructive text-xs">
-              Couldn’t restore. Try again.
-            </span>
-          ) : null}
-          <Button
-            disabled={restore.isPending}
-            onClick={() =>
-              restore.mutate(
-                { at: item.at, ref: item.ref },
-                { onSuccess: () => setForgotten(false) }
-              )
-            }
-            ref={undo}
-            size="sm"
-            variant="ghost"
-          >
-            Undo
-          </Button>
-        </div>
-      </li>
-    );
-  }
-
   return (
     <li>
       <div
@@ -115,40 +44,15 @@ const FragmentRow = ({ item }: { item: ListedFragment }) => {
           >
             {item.ref}
           </Link>
-          <div className="flex items-center gap-1">
-            <time dateTime={item.at} title={new Date(item.at).toLocaleString()}>
-              {item.versions > 1
-                ? `Edited ${formatRelativeDateInline(item.at)}`
-                : formatRelativeDate(item.at)}
-            </time>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button aria-label="More" size="icon-sm" variant="ghost" />
-                }
-              >
-                <Ellipsis aria-hidden="true" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  disabled={forget.isPending}
-                  onClick={() => forget.mutate()}
-                >
-                  <Archive aria-hidden="true" />
-                  Forget
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <time dateTime={item.at} title={new Date(item.at).toLocaleString()}>
+            {item.versions > 1
+              ? `Edited ${formatRelativeDateInline(item.at)}`
+              : formatRelativeDate(item.at)}
+          </time>
         </div>
         <p className="text-sm leading-6 [overflow-wrap:anywhere] whitespace-pre-wrap">
           {item.fragment}
         </p>
-        {forget.isError ? (
-          <p className="text-destructive text-xs">
-            Couldn’t forget this memory. Try again.
-          </p>
-        ) : null}
       </div>
     </li>
   );
