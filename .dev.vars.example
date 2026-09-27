@@ -7,7 +7,8 @@ PUBLIC_URL=http://localhost:5173
 # Signs sessions. Use at least 32 random characters (`openssl rand -base64 32`).
 BETTER_AUTH_SECRET=local-development-secret-change-me-0123456789
 # Who may sign in: comma-separated addresses, or `@domain` for a whole domain.
-AUTH_ALLOWED_EMAILS=you@example.com
+# dev@memsys.test is the development account the sign-in page offers.
+AUTH_ALLOWED_EMAILS=you@example.com,dev@memsys.test
 # Sign-in emails go through Resend from this address on a verified domain.
 # Leave either empty in development to print codes in the dev server log.
 EMAIL_FROM="memsys <memsys@example.com>"
