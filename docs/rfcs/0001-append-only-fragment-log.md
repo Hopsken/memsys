@@ -34,7 +34,7 @@ The canonical serialization is UTF-8 NDJSON, one record per line:
 
 - Every record has exactly these keys. `v` is the record schema version, starting at `1`. `at` is ISO 8601 UTC with milliseconds.
 - A string `fragment` is the complete text at that point: a snapshot, never a patch. `null` means the fragment was forgotten.
-- `at` is the order. Within one ref it strictly increases, so a ref's records never tie; records of different refs may share an `at`, because replay never compares them. Export writes lines sorted by `at`.
+- `at` is the order. A ref's records never share an `at`; records of different refs may, because replay never compares them. Export writes lines sorted by `at`.
 - An LF follows every record, including the last. Line breaks inside text are JSON-escaped.
 - Readers ignore unknown keys and reject an unknown `v`.
 
@@ -69,7 +69,7 @@ export const records = sqliteTable(
 ```
 
 - There is no sequence column: `at`, in epoch milliseconds, is the order, and the key `(ref, at)` enforces that a ref's records never tie. `v` is not stored; the table is versioned by migrations, and `v` is added when serializing.
-- A write stamps `at` with `max(now, the ref's latest at + 1)`. Two writes to one ref in the same millisecond, or a clock that steps back when the Durable Object moves, still produce increasing times.
+- A write stamps `at` with the current time. Each write is its own call into the Durable Object and lands well after the previous write to the same ref, so times increase without extra rules. If two writes to one ref ever did land in the same millisecond, the key rejects the second instead of leaving replay order ambiguous.
 - `remember`, `revise`, and `forget` each insert one row and then update the in-memory corpus, in the same order as today. The check that a fragment did not change while `revise` hooks ran stays as it is.
 - Load reads every record ordered by `at` and replays it. The in-memory corpus remains the only projection.
 
@@ -90,7 +90,7 @@ export interface Fragment {
 A fragment is its latest record, so it exposes that record's `at`, the time its current text was written. `createdAt` and `updatedAt` disappear from the contract: records are immutable and carry a single time, and when a fragment was first or last changed can always be read from its history.
 
 - **Ordering is unchanged.** Recall ties and the fragment list already order by the time of the current text (`updatedAt` today); they now read `at`. The list cursor becomes `at,ref`.
-- **Agent-facing output is compact.** Recall items were carrying two ISO timestamps, about 25 tokens, the largest per-item cost after the text. What an agent needs from the time is how recent a fragment is, so MCP results render `at` as its age: `"at":"3d ago"`, in the largest whole unit (`just now` under an hour, then `5h ago`, `3d ago`, `2w ago`, `4mo ago`, `1y ago`), a few tokens per item. An age is elapsed time, so it needs no time zone and no user setting. REST and export keep ISO.
+- **MCP output keeps ISO for now.** A more compact form for agents is tracked in #36.
 - **This is a breaking change** to `contract/memory.ts`. It ships together with the log migration, not before.
 
 ## Forget and purge
@@ -105,7 +105,7 @@ A fragment is its latest record, so it exposes that record's `at`, the time its 
 
 - **Export** writes NDJSON in the same record format. By default it holds current fragments only: one record per live ref, its latest. Optionally it holds the whole log, full history included, enough to rebuild the instance. Both are logs, so both import.
 - **Import** accepts either export and the existing `memsys.fragments` v1 JSON. A v1 item becomes one record at `updatedAt ?? createdAt ?? now`.
-- Refs unknown to this instance arrive with their full history, appended in file order with their original `at`.
+- Refs unknown to this instance arrive with their full history and original `at`. A file that repeats an `at` within one ref is rejected.
 - Refs this instance already knows follow today's rules: identical current text is skipped, different text is a conflict. A ref forgotten here counts as known with no text, so an old backup cannot silently bring it back.
 
 ## Migration
@@ -144,14 +144,13 @@ Records such as `replace old with new` are smaller but tie history to the write 
 - Migration: an existing table yields the same current corpus, with `at` equal to the old `updatedAt`.
 - Export: current-only and full history, each importing back to the same current corpus.
 - Import: all formats, conflicts, and forgotten refs.
-- MCP ages at each unit boundary.
 - `pnpm eval` results are unchanged.
 
 ## Decision requested
 
 1. Durable state is an append-only log of complete fragment snapshots; `forget` appends `null`.
 2. The log lives in the memory Durable Object's SQLite; NDJSON is its canonical serialization and export format.
-3. `Fragment` exposes only `at`, the time of its latest record; MCP renders it as an age such as `3d ago`.
+3. `Fragment` exposes only `at`, the time of its latest record.
 4. Agents can only append; purge is a user action.
 5. Export defaults to current fragments, with full history as an option.
 6. History view and restore in the web app, and moving the log off Durable Objects, are out of scope.
