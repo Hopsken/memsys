@@ -34,12 +34,22 @@ export interface FragmentPage {
   nextCursor: string | null;
 }
 
+// The action that wrote a record. Restoring an earlier version of a live
+// fragment is a `revise`; `restore` brings back a forgotten one.
+export type Op = "remember" | "revise" | "forget" | "restore";
+
+// Who wrote a record: the signed-in user, or an AI tool under the name it
+// had at the time.
+export type Author = "user" | `agent:${string}`;
+
 // One record of a fragment's history. A null `fragment` means it was
-// forgotten at `at`.
+// forgotten at `at`. `by` is null for records written before it was kept.
 export interface Version {
   ref: string;
   fragment: string | null;
   at: string;
+  op: Op;
+  by: Author | null;
 }
 
 // Every record of one fragment, newest first.
@@ -51,6 +61,16 @@ export interface History {
 // forgotten. Restoring the record `(ref, at)` brings it back.
 export type ForgottenFragment = Fragment & { forgottenAt: string };
 
+// One record of the log across fragments. `previous` is the fragment's text
+// before it: what a `revise` changed, or what a `forget` forgot.
+export type ActivityEntry = Version & { previous: string | null };
+
+// Newest first, paged like the fragment list.
+export interface ActivityPage {
+  entries: ActivityEntry[];
+  nextCursor: string | null;
+}
+
 // Newest forgotten first.
 export interface ForgottenList {
   fragments: ForgottenFragment[];
@@ -60,12 +80,15 @@ export interface ForgottenList {
 export type Restored = Version & { versions: number };
 
 // One line of the fragment log, its export, and its import. A null
-// `fragment` means the fragment was forgotten.
+// `fragment` means the fragment was forgotten. A file of current fragments
+// only, or one from before they were kept, has no `op` or `by`.
 export interface LogRecord {
   v: 1;
   ref: string;
   fragment: string | null;
   at: string;
+  op?: Op;
+  by?: Author;
 }
 
 // Import takes a log (NDJSON) or plain text with one fragment per line.

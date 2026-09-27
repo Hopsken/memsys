@@ -106,11 +106,13 @@ describe("Fragment export and import", () => {
       /filename="memsys-\d{4}-\d{2}-\d{2}-history\.ndjson"$/u
     );
     const history = await records(source, "?history=true");
-    expect(history.map(({ fragment }) => fragment)).toStrictEqual([
-      "Before",
-      "After",
-      "Forgotten",
-      null,
+    expect(
+      history.map(({ by, fragment, op }) => [fragment, op, by])
+    ).toStrictEqual([
+      ["Before", "remember", "user"],
+      ["After", "revise", "user"],
+      ["Forgotten", "remember", "user"],
+      [null, "forget", "user"],
     ]);
 
     const target = await signIn();

@@ -11,6 +11,7 @@ import type { Context } from "hono";
 import { createMiddleware } from "hono/factory";
 import { z } from "zod";
 
+import type { Author } from "../contract/memory";
 import { sendSignInCode } from "./email";
 import type { MemoryDO } from "./memory-do";
 
@@ -26,6 +27,8 @@ const OAUTH_SCOPES = [MEMORY_READ, MEMORY_WRITE, "offline_access"];
 export interface AppEnv {
   Bindings: Env;
   Variables: {
+    // Who writes through this request, recorded with each record.
+    by: Author;
     memory: DurableObjectStub<MemoryDO>;
     scopes: ReadonlySet<Scope>;
     userId: string;
@@ -305,6 +308,7 @@ export const requireSession = createMiddleware<AppEnv>(async (c, next) => {
   if (!result) {
     return c.json({ error: "Authentication required" }, 401);
   }
+  c.set("by", "user");
   c.set("memory", memoryOf(c.env, defaultSpace(result.user.id)));
   c.set("userId", result.user.id);
   return next();
@@ -352,12 +356,22 @@ const verifyAccessToken = async (env: Env, token: string) => {
   if (!consent) {
     return null;
   }
+  const client = await adapter.findOne<{ name?: string | null }>({
+    model: "oauthClient",
+    where: [{ field: "clientId", value: claims.data.azp }],
+  });
   const granted = new Set(claims.data.scope.split(" "));
   return {
+    name: client?.name ?? null,
     scopes: new Set([...ALL_SCOPES].filter((scope) => granted.has(scope))),
     userId: claims.data.sub,
   };
 };
+
+// An app names itself when it registers, so its name is only ever shown as
+// an agent's and cannot pass for the user.
+const agent = (name: string | null | undefined): Author =>
+  `agent:${name ?? ""}`;
 
 // /mcp: an API key or an OAuth access token as a bearer token,
 // naming the user who created it.
@@ -373,6 +387,7 @@ export const requireToken = createMiddleware<AppEnv>(async (c, next) => {
     if (!verified.valid || !verified.key) {
       return unauthorized(c);
     }
+    c.set("by", agent(verified.key.name));
     c.set("memory", memoryOf(c.env, defaultSpace(verified.key.referenceId)));
     c.set("scopes", ALL_SCOPES);
     c.set("userId", verified.key.referenceId);
@@ -389,6 +404,7 @@ export const requireToken = createMiddleware<AppEnv>(async (c, next) => {
     );
     return c.json({ error: "Insufficient scope" }, 403);
   }
+  c.set("by", agent(verified.name));
   c.set("memory", memoryOf(c.env, defaultSpace(verified.userId)));
   c.set("scopes", verified.scopes);
   c.set("userId", verified.userId);

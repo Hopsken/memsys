@@ -3,15 +3,32 @@
 
 import { z } from "zod";
 
-import type { Fragment, LogRecord } from "../contract/memory";
+import type { Author, Fragment, LogRecord, Op } from "../contract/memory";
 import { fragment, logRecord } from "./memory";
 
 // A record as stored: `at` in epoch milliseconds; a null fragment is forgotten.
 export interface Row {
   at: number;
+  by: Author | null;
   fragment: string | null;
+  op: Op;
   ref: string;
 }
+
+// A current fragment written out on its own has no history to name an op.
+type Snapshot = Omit<Row, "by" | "op"> & Partial<Pick<Row, "by" | "op">>;
+
+// The op a record's place in its ref's log implies, for records that do not
+// name one: the first is a remember, one after a forget a restore.
+const impliedOp = (text: string | null, previous?: string | null): Op => {
+  if (text === null) {
+    return "forget";
+  }
+  if (previous === undefined) {
+    return "remember";
+  }
+  return previous === null ? "restore" : "revise";
+};
 
 export interface Issue {
   message: string;
@@ -45,7 +62,7 @@ const logLine = z
 export const parseLog = (
   content: string
 ): { rows: Row[] } | { issues: Issue[] } => {
-  const rows: Row[] = [];
+  const parsed: z.output<typeof logRecord>[] = [];
   const issues: Issue[] = [];
   const seen = new Set<string>();
   for (const [index, line] of lines(content).entries()) {
@@ -53,29 +70,46 @@ export const parseLog = (
       break;
     }
     const number = String(index + 1);
-    const parsed = logLine.safeParse(line);
-    if (!parsed.success) {
+    const result = logLine.safeParse(line);
+    if (!result.success) {
       issues.push(
-        ...parsed.error.issues.map(({ message, path }) => ({
+        ...result.error.issues.map(({ message, path }) => ({
           message,
           path: [number, ...path.map(String)],
         }))
       );
       continue;
     }
-    const { at, fragment: text, ref } = parsed.data;
-    const key = `${ref} ${at}`;
+    const { data: record } = result;
+    const key = `${record.ref} ${record.at}`;
     if (seen.has(key)) {
       issues.push({
-        message: `Ref ${ref} has two records at the same time`,
+        message: `Ref ${record.ref} has two records at the same time`,
         path: [number, "at"],
       });
       continue;
     }
     seen.add(key);
-    rows.push({ at, fragment: text, ref });
+    parsed.push(record);
   }
-  return issues.length > 0 ? { issues } : { rows };
+  if (issues.length > 0) {
+    return { issues };
+  }
+  const last = new Map<string, string | null>();
+  const rows = parsed
+    .toSorted((a, b) => a.at - b.at)
+    .map(({ at, by = null, fragment: text, op, ref }): Row => {
+      const previous = last.has(ref) ? last.get(ref) : undefined;
+      last.set(ref, text);
+      return {
+        at,
+        by,
+        fragment: text,
+        op: op ?? impliedOp(text, previous),
+        ref,
+      };
+    });
+  return { rows };
 };
 
 // Plain text: every non-empty line is one new fragment.
@@ -106,11 +140,11 @@ export const parseText = (
   return issues.length > 0 ? { issues } : { texts };
 };
 
-// Lines sorted by `at`, each ending with LF.
-export const serializeLog = (rows: Iterable<Row>): string =>
+// Lines sorted by `at`, each ending with LF. An unknown author is left out.
+export const serializeLog = (rows: Iterable<Snapshot>): string =>
   [...rows]
     .toSorted((a, b) => a.at - b.at || a.ref.localeCompare(b.ref))
-    .map(({ at, fragment: text, ref }) => {
+    .map(({ at, by, fragment: text, op, ref }) => {
       // The format's key order, not alphabetical.
       // oxlint-disable-next-line sort-keys
       const record: LogRecord = {
@@ -118,6 +152,8 @@ export const serializeLog = (rows: Iterable<Row>): string =>
         ref,
         fragment: text,
         at: new Date(at).toISOString(),
+        ...(op && { op }),
+        ...(by && { by }),
       };
       return `${JSON.stringify(record)}\n`;
     })
@@ -125,7 +161,9 @@ export const serializeLog = (rows: Iterable<Row>): string =>
 
 // Per ref, the latest record wins, so rows may come in any order. `heads`
 // holds every ref seen, forgotten ones included, with its latest `at`.
-export const replay = (rows: Iterable<Row>) => {
+export const replay = (
+  rows: Iterable<Pick<Row, "at" | "fragment" | "ref">>
+) => {
   const corpus = new Map<string, Fragment>();
   const heads = new Map<string, number>();
   for (const { at, fragment: text, ref } of rows) {

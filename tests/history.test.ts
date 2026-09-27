@@ -55,8 +55,20 @@ describe("History and restore", () => {
       "First",
     ]);
     expect(versions.slice(1)).toStrictEqual([
-      { at: second.at, fragment: "Second", ref: saved.ref },
-      { at: saved.at, fragment: "First", ref: saved.ref },
+      {
+        at: second.at,
+        by: "user",
+        fragment: "Second",
+        op: "revise",
+        ref: saved.ref,
+      },
+      {
+        at: saved.at,
+        by: "user",
+        fragment: "First",
+        op: "remember",
+        ref: saved.ref,
+      },
     ]);
     await expect(
       get(user, "/api/fragments/2222222/history")
@@ -86,10 +98,10 @@ describe("History and restore", () => {
       nextCursor: null,
     });
     const versions = await history(user, saved.ref);
-    expect(versions.map(({ fragment }) => fragment)).toStrictEqual([
-      "Original",
-      "Mistake",
-      "Original",
+    expect(versions.map(({ fragment, op }) => [fragment, op])).toStrictEqual([
+      ["Original", "revise"],
+      ["Mistake", "revise"],
+      ["Original", "remember"],
     ]);
   });
 
@@ -98,14 +110,22 @@ describe("History and restore", () => {
     const saved = await remember(user, "Keep this #memsys");
     await post("/api/forget", { ref: saved.ref }, user);
     await expect(list(user)).resolves.toMatchObject({ fragments: [] });
-    await restore(user, saved.ref, saved.at);
+    await expect(restore(user, saved.ref, saved.at)).resolves.toMatchObject({
+      by: "user",
+      op: "restore",
+    });
     await expect(list(user)).resolves.toMatchObject({
       fragments: [{ fragment: "Keep this #memsys", ref: saved.ref }],
     });
     const [, forget] = await history(user, saved.ref);
     await expect(
       restore(user, saved.ref, forget?.at ?? "")
-    ).resolves.toMatchObject({ fragment: null, ref: saved.ref, versions: 4 });
+    ).resolves.toMatchObject({
+      fragment: null,
+      op: "forget",
+      ref: saved.ref,
+      versions: 4,
+    });
     await expect(list(user)).resolves.toMatchObject({ fragments: [] });
   });
 
