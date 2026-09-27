@@ -380,8 +380,6 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
   const [fresh, setFresh] = useState<string | null>(null);
   const newest = useRef<HTMLLIElement>(null);
   const current = versions[0]?.fragment ?? null;
-  // A forgotten memory's most recent text is the one to bring back.
-  const latestText = versions.find(({ fragment }) => fragment !== null);
 
   // A restore lands at the top, maybe out of view: show it and point it out.
   useEffect(() => {
@@ -461,11 +459,7 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
                         )
                       }
                       size="sm"
-                      variant={
-                        current === null && entry.version === latestText
-                          ? "default"
-                          : "outline"
-                      }
+                      variant="outline"
                     >
                       Restore
                     </Button>
