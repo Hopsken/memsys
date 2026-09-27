@@ -33,7 +33,7 @@ const FragmentRow = ({ item }: { item: ListedFragment }) => {
   return (
     <li>
       <div
-        className="hover:bg-muted/50 -mx-3 my-1 cursor-pointer space-y-1 rounded-lg px-3 py-2.5"
+        className="hover:bg-foreground/5 -mx-3 my-1 cursor-pointer space-y-1 rounded-lg px-3 py-2.5 transition-colors"
         onClick={open(`memories/${item.ref}`)}
       >
         <div className="text-muted-foreground flex min-h-7 flex-wrap items-center justify-between gap-x-4 text-xs">
