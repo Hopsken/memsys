@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { InfiniteData, QueryClient } from "@tanstack/react-query";
 import { cn } from "cn";
-import { Archive } from "lucide-react";
+import { Archive, Trash2, XIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
@@ -9,9 +9,21 @@ import { useLocation, useNavigate, useParams } from "react-router";
 import { SessionExpired } from "@/components/session-expired";
 import { toasts } from "@/components/toaster";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -22,6 +34,7 @@ import { diffWords } from "@/lib/diff";
 import type { Part } from "@/lib/diff";
 
 import type {
+  ForgottenList,
   FragmentPage,
   History,
   Restored,
@@ -261,6 +274,71 @@ const useForget = (onForgotten: () => void) => {
   });
 };
 
+// Delete is the user's purge: unlike forgetting, it removes the history too.
+// It is the next step for a forgotten memory, as Forget is for a live one,
+// and waits behind a confirmation.
+const DeleteMemory = ({
+  onDeleted,
+  target,
+}: {
+  onDeleted: () => void;
+  target: string;
+}) => {
+  const queryClient = useQueryClient();
+  const purge = useMutation({
+    mutationFn: () => api.post("/api/purge", { json: { ref: target } }),
+    onSuccess: () => {
+      queryClient.setQueryData<ForgottenList>(
+        ["forgotten"],
+        (data) =>
+          data && {
+            fragments: data.fragments.filter(({ ref }) => ref !== target),
+          }
+      );
+      onDeleted();
+    },
+  });
+  return (
+    <AlertDialog
+      onOpenChange={(open) => {
+        if (!open) {
+          purge.reset();
+        }
+      }}
+    >
+      <AlertDialogTrigger render={<Button size="sm" variant="ghost" />}>
+        <Trash2 aria-hidden="true" />
+        Delete
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete this memory?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Its history goes with it, and you won’t be able to restore it.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {purge.isError ? (
+          <p className="text-destructive text-sm" role="alert">
+            Couldn’t delete this memory. Try again.
+          </p>
+        ) : null}
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={purge.isPending}>
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction
+            disabled={purge.isPending}
+            onClick={() => purge.mutate()}
+            variant="destructive"
+          >
+            {purge.isPending ? "Deleting…" : "Delete"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+};
+
 const Text = ({ entry }: { entry: Entry }) => {
   const className =
     "text-sm leading-6 [overflow-wrap:anywhere] whitespace-pre-wrap";
@@ -427,8 +505,11 @@ export const HistoryDialog = () => {
   };
   const missing = query.error !== null && failure(query.error).status === 404;
   const forget = useForget(close);
-  // Only a memory your AI can still recall can be forgotten.
+  // The header offers the next step down: Forget for a memory your AI can
+  // still recall, Delete for a forgotten one.
   const current = query.data?.versions[0];
+  // Focus starts on the history, not on an action one Enter away.
+  const body = useRef<HTMLDivElement>(null);
 
   return (
     <Dialog
@@ -439,9 +520,15 @@ export const HistoryDialog = () => {
       }}
       open
     >
-      <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 p-0 sm:max-h-[85dvh] sm:max-w-xl">
-        <DialogHeader className="min-h-15 flex-row items-center justify-between border-b py-3 pr-12 pl-5">
-          <DialogTitle>
+      <DialogContent
+        // A nested dialog, such as the delete confirmation, has no backdrop
+        // of its own, so this one dims instead.
+        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 p-0 after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:bg-black/0 after:transition-colors data-nested-dialog-open:after:bg-black/10 sm:max-h-[85dvh] sm:max-w-xl"
+        initialFocus={body}
+        showCloseButton={false}
+      >
+        <DialogHeader className="min-h-15 flex-row items-center gap-3 border-b py-3 pr-3 pl-5">
+          <DialogTitle className="flex-1">
             History
             <span className="text-muted-foreground ml-2 font-mono text-xs font-normal">
               {ref}
@@ -458,8 +545,22 @@ export const HistoryDialog = () => {
               Forget
             </Button>
           ) : null}
+          {current && current.fragment === null ? (
+            <DeleteMemory onDeleted={close} target={ref} />
+          ) : null}
+          <DialogClose
+            render={
+              <Button aria-label="Close" size="icon-sm" variant="ghost" />
+            }
+          >
+            <XIcon aria-hidden="true" />
+          </DialogClose>
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+        <div
+          className="min-h-0 flex-1 overflow-y-auto px-5 py-5 outline-none"
+          ref={body}
+          tabIndex={-1}
+        >
           {isExpired(query.error) ? <SessionExpired /> : null}
           {forget.isError ? (
             <p className="text-destructive mb-3 text-xs" role="alert">
