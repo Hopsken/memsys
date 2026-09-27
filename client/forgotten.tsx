@@ -71,7 +71,7 @@ const ForgottenRow = ({ item }: { item: ForgottenFragment }) => {
 export const ForgottenView = () => {
   const query = useQuery({
     queryFn: ({ signal }) =>
-      api.get("/api/forgotten", { signal }).json<ForgottenList>(),
+      api.get("/api/fragments/forgotten", { signal }).json<ForgottenList>(),
     queryKey: ["forgotten"],
   });
   useReturnFocus();

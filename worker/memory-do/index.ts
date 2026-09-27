@@ -28,7 +28,6 @@ import {
   REF_LENGTH,
   truncate,
 } from "../memory";
-import type { restoreInput } from "../memory";
 import {
   assertRegistry,
   createCtx,
@@ -293,7 +292,7 @@ export class MemoryDO extends DurableObject<Env> {
   // The user's own action, never an agent's: appends a copy of one record,
   // stamped now. Core validation only and no write hooks, since the text was
   // accepted once; a revision it lands on stays in the history.
-  restore({ at, ref }: z.output<typeof restoreInput>): Restored | null {
+  restore({ at, ref }: { at: number; ref: string }): Restored | null {
     const row = this.db
       .select()
       .from(records)

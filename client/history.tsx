@@ -140,8 +140,10 @@ const showInList = (queryClient: QueryClient, restored: Restored) => {
 export const useRestore = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (version: { at: string; ref: string }) =>
-      api.post("/api/restore", { json: version }).json<Restored>(),
+    mutationFn: ({ at, ref }: { at: string; ref: string }) =>
+      api
+        .post(`/api/fragments/${ref}/restore`, { json: { at } })
+        .json<Restored>(),
     onSuccess: (restored) => {
       const { at, fragment, ref } = restored;
       queryClient.setQueryData<History>(

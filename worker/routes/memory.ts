@@ -31,14 +31,14 @@ export const memory = new Hono<AppEnv>()
       ? c.json(result)
       : c.json({ error: "Fragment not found" }, 404);
   })
-  .get("/forgotten", async (c) => {
+  .get("/fragments/forgotten", async (c) => {
     c.header("Cache-Control", "no-store");
     return c.json(await c.get("memory").listForgotten());
   })
-  .post("/restore", async (c) => {
-    const result = await c
-      .get("memory")
-      .restore(restoreInput.parse(await c.req.json()));
+  .post("/fragments/:ref/restore", async (c) => {
+    const { ref } = inputs.forget.parse({ ref: c.req.param("ref") });
+    const { at } = restoreInput.parse(await c.req.json());
+    const result = await c.get("memory").restore({ at, ref });
     return result
       ? c.json(result)
       : c.json({ error: "Version not found" }, 404);

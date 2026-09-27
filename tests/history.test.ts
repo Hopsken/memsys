@@ -31,7 +31,7 @@ const remember = async (user: User, fragment: string) => {
 };
 
 const restore = async (user: User, ref: string, at: string) => {
-  const response = await post("/api/restore", { at, ref }, user);
+  const response = await post(`/api/fragments/${ref}/restore`, { at }, user);
   return response.json<Restored>();
 };
 
@@ -110,13 +110,14 @@ describe("History and restore", () => {
   });
 
   it.each([
-    [{ at: "2026-01-01T00:00:00.000Z", ref: "2222222" }, 404],
-    [{ at: "2026-01-01T00:00:00Z", ref: "2222222" }, 400],
-    [{ at: "2026-01-01T00:00:00.000Z", ref: "invalid!" }, 400],
-    [{ ref: "2222222" }, 400],
-  ])("rejects restoring %o", async (body, status) => {
+    ["2222222", { at: "2026-01-01T00:00:00.000Z" }, 404],
+    ["2222222", { at: "2026-01-01T00:00:00Z" }, 400],
+    ["invalid!", { at: "2026-01-01T00:00:00.000Z" }, 400],
+    ["2222222", {}, 400],
+    ["2222222", { at: "2026-01-01T00:00:00.000Z", ref: "2222222" }, 400],
+  ])("rejects restoring %s %o", async (ref, body, status) => {
     await expect(
-      post("/api/restore", body, await signIn())
+      post(`/api/fragments/${ref}/restore`, body, await signIn())
     ).resolves.toMatchObject({ status });
   });
 
@@ -138,7 +139,7 @@ describe("History and restore", () => {
       )
     );
     await post("/api/purge", { ref: purged.ref }, user);
-    const { body } = await get<ForgottenList>(user, "/api/forgotten");
+    const { body } = await get<ForgottenList>(user, "/api/fragments/forgotten");
     // Forgets in the same millisecond fall back to ref order.
     expect(body.fragments.map(({ ref }) => ref)).toStrictEqual(
       [older.ref, newer.ref].toSorted((a, b) => {

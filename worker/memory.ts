@@ -83,13 +83,13 @@ export const importInput = z
   .object({ content: z.string(), format: z.enum(["ndjson", "text"]) })
   .strict();
 
-// A user action on one record of the log; not exposed over MCP.
+// A user action on one record of the log; not exposed over MCP. The ref
+// comes from the path.
 export const restoreInput = z
   .object({
     at: z.iso
       .datetime({ precision: 3 })
       .transform((value) => Date.parse(value)),
-    ref,
   })
   .strict();
 
