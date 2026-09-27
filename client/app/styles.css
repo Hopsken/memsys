@@ -3,6 +3,10 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
+/* The app has no dark theme yet, so `dark:` styles apply only under a
+   `.dark` class, never from the system setting alone. */
+@custom-variant dark (&:is(.dark *));
+
 @theme inline {
   --font-sans: "Geist Variable", ui-sans-serif, sans-serif;
   --font-heading: var(--font-sans);
