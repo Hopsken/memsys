@@ -93,6 +93,12 @@ app.onError((cause, c) => {
   return c.json({ error: "Internal server error" }, 500);
 });
 
-export default { fetch: app.fetch };
+export default {
+  // Start Better Auth here, so its setup outlives this request if needed.
+  fetch: (request: Request, env: Env, ctx?: ExecutionContext) => {
+    getAuth(env, ctx);
+    return app.fetch(request, env, ctx);
+  },
+};
 
 export { MemoryDO } from "./memory-do";
