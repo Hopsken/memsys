@@ -9,4 +9,11 @@ export default defineConfig({
     // Written by `pnpm eval`.
     "eval/results.md",
   ],
+  // The client's path aliases sort with its own imports, not with packages.
+  sortImports: {
+    ignoreCase: true,
+    internalPattern: ["@/", "@contract/", "@lib/"],
+    newlinesBetween: true,
+    order: "asc",
+  },
 });

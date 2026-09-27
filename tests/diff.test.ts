@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { diffWords } from "../client/lib/diff";
+import { diffWords } from "../client/shared/lib/diff";
 
 describe("Word diff", () => {
   it("groups a replaced phrase into one removal and one addition", () => {
