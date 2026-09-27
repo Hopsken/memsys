@@ -10,6 +10,7 @@ import { TaggedText, useTags } from "@/features/tag-filter";
 import { api, isExpired } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
+import { listCard, listCardLink } from "@/shared/ui/list-card";
 import { Skeleton } from "@/shared/ui/skeleton";
 import {
   memoryId,
@@ -34,11 +35,7 @@ const flatten = (pages: FragmentPage[]) => {
   return [...items.values()];
 };
 
-// Cards reach past the column, so their text lines up with the header.
-const card = "bg-card -mx-3 space-y-1 rounded-xl px-3 py-3 sm:-mx-4 sm:px-4";
-
-// A row only shows the memory, on a white card that lifts when hovered;
-// clicking it opens the history, where it can be restored or forgotten. The
+// A row only shows the memory; clicking it opens the history, where it can be restored or forgotten. The
 // history keeps the list's filter in its URL, so closing it returns to the
 // same list.
 const FragmentRow = ({ item }: { item: ListedFragment }) => {
@@ -46,13 +43,7 @@ const FragmentRow = ({ item }: { item: ListedFragment }) => {
   const to = `${item.ref}${useLocation().search}`;
   return (
     <li>
-      <div
-        className={cn(
-          card,
-          "cursor-pointer transition-shadow duration-200 hover:shadow-md hover:shadow-black/5"
-        )}
-        onClick={open(to)}
-      >
+      <div className={listCardLink} onClick={open(to)}>
         <div className="text-muted-foreground flex min-h-7 flex-wrap items-center justify-between gap-x-4 text-xs">
           <Link
             className="hover:text-foreground focus-visible:ring-ring/50 rounded-sm font-mono outline-none focus-visible:ring-3"
@@ -147,7 +138,7 @@ export const FragmentsView = () => {
           <div className="space-y-2" role="status">
             <span className="sr-only">Loading memories</span>
             {[1, 2, 3].map((key) => (
-              <div className={cn(card, "space-y-2 py-3.5")} key={key}>
+              <div className={cn(listCard, "space-y-2 py-3.5")} key={key}>
                 <Skeleton className="h-3 w-24" />
                 <Skeleton className="h-4 w-2/3" />
               </div>

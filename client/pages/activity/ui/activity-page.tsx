@@ -1,5 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
+import { cn } from "cn";
 import { Activity, ArrowDown } from "lucide-react";
 import { Link, Outlet } from "react-router";
 
@@ -8,6 +9,7 @@ import { SessionExpired } from "@/features/auth";
 import { api, isExpired } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
+import { listCard, listCardLink } from "@/shared/ui/list-card";
 import { Skeleton } from "@/shared/ui/skeleton";
 import {
   MemoryText,
@@ -57,10 +59,7 @@ const EntryRow = ({ entry }: { entry: ActivityEntry }) => {
   const to = `${entry.ref}?${new URLSearchParams({ at: entry.at })}`;
   return (
     <li>
-      <div
-        className="hover:bg-foreground/5 -mx-3 my-1 cursor-pointer space-y-1 rounded-lg px-3 py-2.5 transition-colors"
-        onClick={open(to)}
-      >
+      <div className={listCardLink} onClick={open(to)}>
         <div className="text-muted-foreground flex min-h-7 flex-wrap items-center justify-between gap-x-4 text-xs">
           <span className="flex flex-wrap items-center gap-x-1.5">
             <OpBadge op={entry.op} />
@@ -138,10 +137,10 @@ export const ActivityView = () => {
 
       <section aria-busy={query.isFetching} aria-label="Activity">
         {query.isPending ? (
-          <div className="divide-y" role="status">
+          <div className="space-y-2" role="status">
             <span className="sr-only">Loading activity</span>
             {[1, 2, 3].map((key) => (
-              <div className="space-y-2 py-3.5" key={key}>
+              <div className={cn(listCard, "space-y-2 py-3.5")} key={key}>
                 <Skeleton className="h-3 w-40" />
                 <Skeleton className="h-4 w-2/3" />
               </div>
@@ -170,10 +169,10 @@ export const ActivityView = () => {
         ) : null}
         {days.map(({ day, entries }) => (
           <section className="pt-6 first:pt-1" key={day}>
-            <h2 className="text-muted-foreground pb-1 text-xs font-medium">
+            <h2 className="text-muted-foreground pb-2 text-xs font-medium">
               {formatRelativeDate(entries[0]?.at ?? day)}
             </h2>
-            <ul className="divide-y">
+            <ul className="space-y-2">
               {entries.map((entry) => (
                 <EntryRow entry={entry} key={`${entry.ref}-${entry.at}`} />
               ))}
