@@ -19,6 +19,8 @@ import {
 import type { FragmentPage, ListedFragment } from "@contract/memory";
 import { formatRelativeDate, formatRelativeDateInline } from "@lib/date";
 
+import { TagFilterBar } from "./tag-filter-bar";
+
 const linkClass =
   "text-foreground underline underline-offset-4 hover:text-foreground/80";
 
@@ -106,6 +108,7 @@ export const FragmentsView = () => {
 
   return (
     <>
+      <TagFilterBar />
       {query.isError ? (
         <Alert className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <AlertDescription className="text-foreground">

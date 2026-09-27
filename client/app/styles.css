@@ -50,6 +50,14 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
+  /* The sticky header; a page's own sticky bar sits right below it. */
+  --header-height: 4.25rem;
+}
+
+@media (width >= 40rem) {
+  :root {
+    --header-height: 5.25rem;
+  }
 }
 
 @layer base {
