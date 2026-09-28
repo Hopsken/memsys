@@ -24,6 +24,7 @@ import { Skeleton } from "@/shared/ui/skeleton";
 import { formatRelativeDateInline } from "@lib/date";
 
 import { ConnectedApps } from "./connected-apps";
+import { RemoveMenu } from "./remove-menu";
 
 // Better Auth API keys; the list never includes the secret.
 interface ApiKey {
@@ -131,7 +132,6 @@ const NewApiKey = ({
 
 const ApiKeyRow = ({ apiKey }: { apiKey: ApiKey }) => {
   const queryClient = useQueryClient();
-  const [confirming, setConfirming] = useState(false);
   const revoke = useMutation({
     mutationFn: () =>
       api.post("/api/auth/api-key/delete", { json: { keyId: apiKey.id } }),
@@ -139,7 +139,7 @@ const ApiKeyRow = ({ apiKey }: { apiKey: ApiKey }) => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: API_KEYS }),
   });
   return (
-    <li className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3.5">
+    <li className="flex items-center justify-between gap-4 py-3.5">
       <div className="min-w-0 space-y-1">
         <p className="truncate text-sm font-medium">{apiKey.name}</p>
         <p className="text-muted-foreground flex flex-wrap gap-x-3 text-xs">
@@ -151,34 +151,15 @@ const ApiKeyRow = ({ apiKey }: { apiKey: ApiKey }) => {
               : "Never used"}
           </span>
         </p>
-        {revoke.error ? (
-          <p className="text-destructive text-xs">{describe(revoke.error)}</p>
-        ) : null}
       </div>
-      {confirming ? (
-        <div className="flex items-center gap-2">
-          <Button
-            disabled={revoke.isPending}
-            onClick={() => setConfirming(false)}
-            size="sm"
-            variant="ghost"
-          >
-            Cancel
-          </Button>
-          <Button
-            disabled={revoke.isPending}
-            onClick={() => revoke.mutate()}
-            size="sm"
-            variant="destructive"
-          >
-            {revoke.isPending ? "Revoking…" : "Revoke"}
-          </Button>
-        </div>
-      ) : (
-        <Button onClick={() => setConfirming(true)} size="sm" variant="outline">
-          Revoke
-        </Button>
-      )}
+      <RemoveMenu
+        action="Revoke"
+        description="Tools using it lose access to your memories right away, and you can’t undo this."
+        name={apiKey.name ?? "API key"}
+        pending="Revoking…"
+        remove={revoke}
+        title={`Revoke ${apiKey.name ?? "this API key"}?`}
+      />
     </li>
   );
 };
