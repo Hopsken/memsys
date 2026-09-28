@@ -1,4 +1,3 @@
-import { stem } from "porter2";
 import { z } from "zod";
 
 import type {
@@ -9,7 +8,7 @@ import type {
   RecallItem,
   RecallResult,
 } from "../contract/memory";
-import { extractAnchors, withinTag } from "../lib/anchor";
+import { associationKeys, extractAnchors, withinTag } from "../lib/anchor";
 import { FRAGMENT_MAX, fragmentLength } from "../lib/fragment";
 import { RECALL_LIMIT_MAX } from "../lib/recall";
 import { bm25, terms } from "./search";
@@ -168,14 +167,6 @@ export const listFragments = <T extends Fragment>(
 
 const normalize = (text: string): string =>
   text.toLowerCase().replaceAll(/\s+/gu, " ").trim();
-
-// Keep namespaces exact; stem English words in other anchors independently.
-const associationKeys = (anchor: string): string[] =>
-  anchor.includes("/")
-    ? [anchor]
-    : [anchor, ...anchor.split("-").filter(Boolean)].map((word) =>
-        /^[a-z]+$/u.test(word) ? stem(word) : word
-      );
 
 // Candidate generation: cue matches (best first), then one-hop associations.
 export const recallCandidates = (

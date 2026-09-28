@@ -47,6 +47,8 @@ export default defineConfig(async () => {
         wrangler: { configPath: "./wrangler.jsonc" },
       }),
     ],
+    // Client modules under test import through the tsconfig aliases.
+    resolve: { tsconfigPaths: true },
     test: { setupFiles: ["./tests/apply-migrations.ts"] },
   };
 });
