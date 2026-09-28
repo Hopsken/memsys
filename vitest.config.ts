@@ -41,8 +41,8 @@ export default defineConfig(async () => {
             TEST_MIGRATIONS: migrations,
           },
         },
-        // Tests never reach Workers AI; plugins get a fake `ai`. Without this, the
-        // AI binding opens a remote session that needs Cloudflare credentials.
+        // Tests never reach Workers AI; memory uses worker/dev/ai.ts. Without
+        // this, the AI binding opens a remote session that needs credentials.
         remoteBindings: false,
         wrangler: { configPath: "./wrangler.jsonc" },
       }),

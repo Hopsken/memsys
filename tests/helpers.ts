@@ -8,10 +8,8 @@ import type {
   FragmentPage,
   ListedFragment,
 } from "../contract/memory";
-import { jev } from "../plugins/jev";
 import { defaultSpace, memoryOf as memoryOfSpace } from "../worker/auth";
 import worker from "../worker/index";
-import type { MemoryDO } from "../worker/memory-do";
 
 export const ORIGIN = "https://memsys.test";
 
@@ -117,21 +115,6 @@ export const useAuth = () => {
 };
 
 export const sentCode = (email: string) => codes.get(email);
-
-// Jev is on by default, and tests have no Workers AI. Tests of core recall
-// turn it off; tests/jev.test.ts covers Jev.
-export const withoutJev = async (memory: DurableObjectStub<MemoryDO>) => {
-  const response = await memory.updatePlugin("jev", {
-    config: jev.defaults.config,
-    enabled: false,
-    updatedAt: null,
-  });
-  // Read the body: an unread one keeps the object busy and blocks eviction.
-  const body = await response.text();
-  if (!response.ok) {
-    throw new Error(body);
-  }
-};
 
 export const memoryOf = (user: User) =>
   memoryOfSpace(env, defaultSpace(user.id));

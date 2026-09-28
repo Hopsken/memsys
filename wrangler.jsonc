@@ -30,8 +30,8 @@
   "dev": {
     "inspector_port": 0,
   },
-  // Workers AI; the jev plugin calls typesafe/jev through it. Always remote,
-  // so local dev bills the account too. Tests turn remote bindings off.
+  // Workers AI; the jev plugin calls typesafe/jev through it. The dev server
+  // and tests turn remote bindings off and use worker/dev/ai.ts instead.
   "ai": {
     "binding": "AI",
     "remote": true,

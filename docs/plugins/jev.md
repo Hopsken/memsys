@@ -24,4 +24,4 @@ Fail-closed: an unfiltered result misleads the agent, which costs more than an e
 
 ## Development
 
-The `AI` binding is always remote, so every recall in local dev calls Jev and bills the account. Tests set `remoteBindings: false` and inject a fake `ai`, so they need no Cloudflare credentials.
+The dev server and tests turn remote bindings off, and the memory object uses `worker/dev/ai.ts` instead of Workers AI. There Jev approves every candidate, so recall shows what core returns, bills nothing, and needs no Cloudflare credentials. Production builds drop it. `tests/jev.test.ts` injects its own fake `ai` to test the plugin; `JEV=1 pnpm eval` runs the real model.

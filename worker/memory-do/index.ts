@@ -20,6 +20,7 @@ import type {
 } from "../../contract/memory";
 import type { PluginView, Verdict } from "../../contract/plugin";
 import { plugins } from "../../plugins";
+import { devAi } from "../dev/ai";
 import type { SeedFragment } from "../dev/corpus";
 import { parseLog, parseText, replay, serializeLog } from "../log";
 import type { Issue, Row } from "../log";
@@ -128,10 +129,14 @@ export class MemoryDO extends DurableObject<Env> {
 
     this.db = drizzle(ctx.storage);
     this.pluginEnv = {
-      ai: {
-        run: async (model, input) =>
-          z.json().parse(await env.AI.run(model, input)),
-      },
+      // Replaced with `false` in production builds, which then drop worker/dev.
+      ai:
+        import.meta.env.DEV && process.env.NODE_ENV !== "production"
+          ? devAi
+          : {
+              run: async (model, input) =>
+                z.json().parse(await env.AI.run(model, input)),
+            },
       corpus: this.corpus,
     };
     void ctx.blockConcurrencyWhile(async () => {

@@ -4,22 +4,13 @@ import { describe, expect, it } from "vitest";
 
 import type { Fragment, FragmentPage } from "../contract/memory";
 import worker from "../worker/index";
-import {
-  getList,
-  list,
-  memoryOf,
-  post,
-  useAuth,
-  withoutJev,
-  withVersions,
-} from "./helpers";
+import { getList, list, post, useAuth, withVersions } from "./helpers";
 
 describe("Fragment HTTP API", () => {
   const signIn = useAuth();
 
   it("creates and replaces text while preserving identity", async () => {
     const user = await signIn();
-    await withoutJev(memoryOf(user));
     const saved = await post("/api/remember", { fragment: "Original" }, user);
     expect(saved.status).toBe(201);
     const item = await saved.json<Fragment>();
