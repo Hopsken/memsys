@@ -157,8 +157,7 @@ describe("Fragment HTTP API", () => {
     ["/api/remember", { fragment: "x", space: "another-user" }, 400],
     ["/api/revise", { fragment: "", ref: "7x9c2pa" }, 400],
     ["/api/recall", { cue: " " }, 400],
-    ["/api/recall", { cue: "x", limit: 0 }, 400],
-    ["/api/recall", { cue: "x", limit: 1.5 }, 400],
+    ["/api/recall", { cue: "x", limit: 10 }, 400],
     ["/api/forget", { ref: "invalid!" }, 400],
   ] satisfies [string, JSONValue, number][])(
     "rejects invalid request %#",

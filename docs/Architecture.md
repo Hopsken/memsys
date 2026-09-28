@@ -63,8 +63,8 @@ Any future "let's add X" starts here.
 Four tools, the minimal complete operation set of a memory: write, change, forget, bring back.
 
 - **The contract** — tool names, input schemas, output shape, field meanings — is meant to hold for years. New fields are additive, with defaults that reproduce prior behavior.
-- **`recall` has two stages.** _Candidate generation_ finds cue matches and one-hop associations. The _terminal_ orders, filters, and truncates. Plugins attach only at the terminal.
-- **`recall` returns one list**: cue matches first, then associations. An item's `via` (the shared anchors) is both its kind and the reason it was associated. `hasMore` means more fragments survived than were returned.
+- **`recall` has two stages.** _Candidate generation_ finds cue matches and one-hop associations, each bounded by a core ceiling. The _terminal_ orders, filters, and truncates. Plugins attach only at the terminal, and only the final truncation knows how many fragments a recall returns.
+- **`recall` returns one list**: cue matches first, then associations. An item's `via` (the shared anchors) is both its kind and the reason it was associated. `hasMore` means a more specific cue would reach relevant fragments left out: cue matches were cut, or more survived than were returned. Forgotten associations do not count ([RFC 0002](rfcs/0002-recall-bounds.md)).
 - **Core carries information it does not use.** `context` (what the agent is doing) is accepted and ignored by core, so read-path plugins can judge relevance against the situation. Carrying is core; using is policy.
 - **Core keeps an absolute safety ceiling; policy lives in plugins.** A disabled or failing plugin can never let an unbounded fragment in. Tool descriptions carry no instance-specific numbers; warnings and rejections do.
 
@@ -82,7 +82,7 @@ A plugin may do both. Plugins are a compile-time registry: no dynamic loading, n
 Recall:
 
 ```
-candidate generation → recall hooks, in registry order → truncate to limit
+candidate generation → recall hooks, in registry order → truncate
 ```
 
 Each hook receives the previous hook's output, so hooks chain: rank first, then filter. A hook may only reorder or drop items; the host enforces that it cannot add or rewrite them. Hooks see every candidate, before truncation.

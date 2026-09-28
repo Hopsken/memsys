@@ -86,7 +86,7 @@ export const report = (runs: Run[], header: string) => {
   const summary = table(
     [
       "Setup",
-      "Recall@10",
+      "Recall",
       "nDCG@10",
       "MRR",
       "Noise / cue",

@@ -2,8 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "../contract/memory";
 import { extractAnchors } from "../lib/anchor";
-import { RECALL_LIMIT_MAX } from "../lib/recall";
-import { recall } from "../worker/memory";
+import { RECALL_MAX } from "../lib/recall";
+import {
+  ASSOCIATION_MAX,
+  KEY_ASSOCIATION_MAX,
+  MATCH_MAX,
+  recall,
+  recallCandidates,
+  truncate,
+} from "../worker/memory";
 import { terms } from "../worker/search";
 
 const item = (ref: string, fragment: string, day = "01"): Fragment => ({
@@ -188,41 +195,90 @@ describe("Recall", () => {
     ]);
   });
 
-  it.each([
-    [undefined, ["m-00", "m-01", "m-02", "newest", "neighbor"], false],
-    [5, ["m-00", "m-01", "m-02", "newest", "neighbor"], false],
-    [4, ["m-00", "m-01", "m-02", "newest"], true],
-    [3, ["m-00", "m-01", "m-02"], true],
-    [2, ["m-00", "m-01"], true],
-  ])(
-    "puts matches before associations and bounds the combined list to %s",
-    (limit, refs, hasMore) => {
-      const corpus = [
-        item("neighbor", "neighbor #shared"),
-        item("newest", "newest neighbor #shared", "02"),
-        ...["m-02", "m-01", "m-00"].map((ref) => item(ref, "cue #shared")),
-      ];
-      const result = recall(corpus, { cue: "cue", ...(limit && { limit }) });
-      expect({
-        hasMore: result.hasMore,
-        refs: result.fragments.map((row) => row.ref),
-      }).toStrictEqual({ hasMore, refs });
-    }
-  );
+  it("puts matches before associations", () => {
+    const corpus = [
+      item("neighbor", "neighbor #shared"),
+      item("newest", "newest neighbor #shared", "02"),
+      ...["m-02", "m-01", "m-00"].map((ref) => item(ref, "cue #shared")),
+    ];
+    expect(
+      recall(corpus, { cue: "cue" }).fragments.map((row) => row.ref)
+    ).toStrictEqual(["m-00", "m-01", "m-02", "newest", "neighbor"]);
+  });
 
-  it("caps limit at the maximum and warns", () => {
-    const corpus = Array.from({ length: RECALL_LIMIT_MAX + 5 }, (_, index) =>
+  it("returns at most RECALL_MAX and sets hasMore past it", () => {
+    const corpus = (count: number) =>
+      Array.from({ length: count }, (_, index) => item(`m-${index}`, "cue"));
+    expect(recall(corpus(RECALL_MAX), { cue: "cue" }).hasMore).toBeFalsy();
+    const over = recall(corpus(RECALL_MAX + 1), { cue: "cue" });
+    expect(over.fragments).toHaveLength(RECALL_MAX);
+    expect(over.hasMore).toBeTruthy();
+  });
+
+  it("cuts direct matches at MATCH_MAX and keeps hasMore after narrowing", () => {
+    const corpus = Array.from({ length: MATCH_MAX + 1 }, (_, index) =>
       item(`m-${index}`, "cue")
     );
-    const result = recall(corpus, { cue: "cue", limit: 100 });
-    expect(result.fragments).toHaveLength(RECALL_LIMIT_MAX);
-    expect(result.hasMore).toBeTruthy();
-    expect(result.warnings).toStrictEqual([
-      `limit 100 is above the maximum of ${RECALL_LIMIT_MAX}; returned at most ${RECALL_LIMIT_MAX} fragments.`,
+    const { candidates, cut } = recallCandidates(corpus, { cue: "cue" });
+    expect(candidates).toHaveLength(MATCH_MAX);
+    expect(cut).toBeTruthy();
+    // A plugin that narrows to a few still leaves the cut matches unseen.
+    expect(truncate(candidates.slice(0, 3), cut).hasMore).toBeTruthy();
+  });
+
+  it("seeds association from every kept match", () => {
+    const corpus = [
+      ...Array.from({ length: RECALL_MAX + 5 }, (_, index) =>
+        item(`m-${index}`, `cue #tag${index}`)
+      ),
+      item("last", `neighbor #tag${RECALL_MAX + 4}`),
+    ];
+    const { candidates } = recallCandidates(corpus, { cue: "cue" });
+    expect(candidates.find((row) => row.ref === "last")?.via).toStrictEqual([
+      `tag${RECALL_MAX + 4}`,
     ]);
-    expect(
-      recall(corpus, { cue: "cue", limit: RECALL_LIMIT_MAX })
-    ).not.toHaveProperty("warnings");
+  });
+
+  it("brings the newest KEY_ASSOCIATION_MAX per anchor and keeps rare ones", () => {
+    const hub = Array.from({ length: KEY_ASSOCIATION_MAX + 3 }, (_, index) => ({
+      at: new Date(Date.UTC(2026, 0, 2, 0, 0, index + 1)).toISOString(),
+      fragment: `busy ${index} #hub`,
+      ref: `h-${index}`,
+    }));
+    const corpus = [
+      item("seed", "cue #hub #rare"),
+      item("old", "rare and old #rare"),
+      ...hub,
+    ];
+    const { candidates, cut } = recallCandidates(corpus, { cue: "cue" });
+    expect(candidates.slice(1).map((row) => row.ref)).toStrictEqual([
+      ...hub
+        .toReversed()
+        .slice(0, KEY_ASSOCIATION_MAX)
+        .map((row) => row.ref),
+      "old",
+    ]);
+    expect(cut).toBeFalsy();
+  });
+
+  it("caps associations at ASSOCIATION_MAX, oldest forgotten, without hasMore", () => {
+    const count = ASSOCIATION_MAX + 1;
+    const corpus = [
+      item(
+        "seed",
+        `cue ${Array.from({ length: count }, (_, index) => `#a${index}`).join(" ")}`
+      ),
+      ...Array.from({ length: count }, (_, index) => ({
+        at: new Date(Date.UTC(2026, 0, 2, 0, 0, index)).toISOString(),
+        fragment: `neighbor #a${index}`,
+        ref: `n-${index}`,
+      })),
+    ];
+    const { candidates, cut } = recallCandidates(corpus, { cue: "cue" });
+    const refs = candidates.slice(1).map((row) => row.ref);
+    expect(refs).toHaveLength(ASSOCIATION_MAX);
+    expect(refs).not.toContain("n-0");
+    expect(cut).toBeFalsy();
   });
 
   it("skips association when disabled", () => {
@@ -231,12 +287,5 @@ describe("Recall", () => {
       fragments: [corpus[0]],
       hasMore: false,
     });
-  });
-
-  it("returns 10 results by default", () => {
-    const corpus = Array.from({ length: 11 }, (_, index) =>
-      item(`m-${index.toString().padStart(2, "0")}`, "cue")
-    );
-    expect(recall(corpus, { cue: "cue" }).fragments).toHaveLength(10);
   });
 });

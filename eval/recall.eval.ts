@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import type { Fragment } from "../contract/memory";
 import type { Json } from "../contract/plugin";
+import { RECALL_MAX } from "../lib/recall";
 import { plugins } from "../plugins";
 import { recallCandidates, truncate } from "../worker/memory";
 import { resolvePlugins, runAfterRecall } from "../worker/plugin-host";
@@ -20,7 +21,7 @@ import type { Outcome, Run } from "./metrics";
 // JEV=1 adds setups that call Workers AI and bill the account.
 const withJev = process.env["JEV"] === "1";
 const strictness = process.env["JEV_STRICTNESS"] ?? "medium";
-// Jev fails open on its 1.5 s timeout; retry so scores reflect its judgment.
+// A Jev failure fails the recall; retry so scores reflect its judgment.
 const ATTEMPTS = 3;
 const CONCURRENCY = 4;
 
@@ -83,7 +84,7 @@ const hookFailures = () =>
   ).length;
 
 const recallOnce = async (stored: StoredConfig[], item: EvalCase) => {
-  const { candidates, input } = recallCandidates(corpus.values(), {
+  const { candidates, cut, input } = recallCandidates(corpus.values(), {
     cue: item.cue,
     ...(item.context && { context: item.context }),
   });
@@ -95,13 +96,11 @@ const recallOnce = async (stored: StoredConfig[], item: EvalCase) => {
     input
   );
   if ("error" in ranked) {
-    throw new Error(ranked.error);
+    return { failed: true, refs: [] };
   }
   return {
     failed: hookFailures() > failed,
-    refs: truncate(ranked, input.limit).fragments.map(
-      (fragment) => fragment.ref
-    ),
+    refs: truncate(ranked, cut).fragments.map((fragment) => fragment.ref),
   };
 };
 
@@ -153,7 +152,7 @@ it("scores recall on the evaluation set", async () => {
   }).trim();
   const header = `# Recall evaluation
 
-${fragments.length} fragments, ${cases.length} cues, limit 10. Commit \`${commit}\`${withJev ? `; Jev strictness \`${strictness}\`` : "; Jev not run"}. Regenerate with \`pnpm eval\` (\`JEV=1 pnpm eval\` for Jev; it bills Workers AI).`;
+${fragments.length} fragments, ${cases.length} cues, up to ${RECALL_MAX} returned. Commit \`${commit}\`${withJev ? `; Jev strictness \`${strictness}\`` : "; Jev not run"}. Regenerate with \`pnpm eval\` (\`JEV=1 pnpm eval\` for Jev; it bills Workers AI).`;
   const markdown = report(runs, header);
   writeFileSync(path.join(import.meta.dirname, "results.md"), markdown);
   process.stdout.write(`${markdown}\n`);

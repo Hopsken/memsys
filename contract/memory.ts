@@ -15,10 +15,10 @@ export interface RecallInput {
   associate: boolean;
   context: string | null;
   cue: string;
-  limit: number;
 }
 
-// `warnings` explains an adjusted request, such as a capped `limit`.
+// `hasMore`: a more specific cue would reach relevant fragments left out.
+// `warnings` explains an adjusted request.
 export interface RecallResult {
   fragments: RecallItem[];
   hasMore: boolean;

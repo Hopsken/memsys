@@ -1,3 +1,3 @@
-// Upper bound on recall's `limit`. Jev judges at most this many candidates,
-// so a full page can always be model-approved.
-export const RECALL_LIMIT_MAX = 40;
+// Most fragments one recall returns. Jev stops judging once more than this
+// many pass.
+export const RECALL_MAX = 20;

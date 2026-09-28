@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { RecallInput, RecallItem } from "../contract/memory";
 import { definePlugin, PluginAbortError } from "../contract/plugin";
 import type { Ctx, Json } from "../contract/plugin";
+import { RECALL_MAX } from "../lib/recall";
 
 // Relevance gate per RFC 1 Stage 2: one independent noul per candidate, so
 // "nothing is relevant" is a possible answer. Fail-closed: an unchecked
@@ -10,11 +11,11 @@ import type { Ctx, Json } from "../contract/plugin";
 export const JEV_MODEL = "typesafe/jev";
 // Per request; a slow recall costs less than a misleading one.
 export const JEV_TIMEOUT_MS = 10_000;
-// 20 fragments at the 1000-character cap stay inside Jev's 32k-token
-// context, even in CJK text.
-export const JEV_BATCH = 20;
-// Judged this many without filling a page: the cue is too broad to check.
-export const JEV_MAX_JUDGED = 400;
+// One request fits Jev's 32k-token context even in CJK text: up to 12,000
+// characters of fragments (~18k tokens), 40 questions (~4k), and the cue and
+// context (~2k). Core bounds how many candidates there are.
+export const JEV_BATCH = 40;
+export const JEV_BATCH_CHARS = 12_000;
 
 // Named levels instead of a raw probability: 0.45 vs 0.48 means nothing to a
 // user. Measured on real recalls, misses score ≲0.15 and hits ≳0.9.
@@ -110,9 +111,29 @@ const judge = async (
       return score;
     });
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new PluginAbortError(`Couldn't check relevance: ${reason}`);
+    console.error({
+      error: String(error),
+      event: "plugin.hook.failed",
+      plugin: "jev",
+    });
+    throw new PluginAbortError(
+      "Couldn't check which memories are relevant. Try again later."
+    );
   }
+};
+
+// The next batch from `start`: at least one item, then as many as fit.
+const nextBatch = (queue: readonly RecallItem[], start: number) => {
+  const batch: RecallItem[] = [];
+  let chars = 0;
+  for (const item of queue.slice(start, start + JEV_BATCH)) {
+    chars += item.fragment.length;
+    if (batch.length > 0 && chars > JEV_BATCH_CHARS) {
+      break;
+    }
+    batch.push(item);
+  }
+  return batch;
 };
 
 const gate = async (
@@ -132,15 +153,11 @@ const gate = async (
       .slice(0, next ? items.indexOf(next) : items.length)
       .filter((item) => !gated(item) || passed.has(item.ref));
   };
-  // Judge in order until more than a page is settled, so `hasMore` is true
-  // exactly when more relevant items exist. The unjudged rest is dropped.
-  while (judged < queue.length && settled().length <= input.limit) {
-    if (judged >= JEV_MAX_JUDGED) {
-      throw new PluginAbortError(
-        "Too many memories match to check. Use a more specific cue."
-      );
-    }
-    const batch = queue.slice(judged, judged + JEV_BATCH);
+  // Judge in order until more than RECALL_MAX are settled: the same result as
+  // judging everything, so `hasMore` stays exact. The unjudged rest is
+  // dropped. Holds only while no later hook drops items.
+  while (judged < queue.length && settled().length <= RECALL_MAX) {
+    const batch = nextBatch(queue, judged);
     // Sequential by design: stop as soon as a page is full.
     // oxlint-disable-next-line no-await-in-loop
     const scores = await judge(ai, batch, input);

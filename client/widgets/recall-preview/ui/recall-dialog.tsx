@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { cn } from "cn";
-import { ArrowDown, Search, SearchX, XIcon } from "lucide-react";
+import { Search, SearchX, XIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import type { FormEvent, ReactNode, RefObject } from "react";
 
@@ -22,12 +22,10 @@ import type { RecallItem, RecallResult } from "@contract/memory";
 import type { PluginView } from "@contract/plugin";
 import { findAnchors } from "@lib/anchor";
 import { formatRelativeDate } from "@lib/date";
-import { RECALL_LIMIT_MAX } from "@lib/recall";
 
 import { groupByMatch } from "../lib/group";
 
 // Show more asks for this many more memories each time.
-const STEP = 10;
 
 interface Request {
   context: string;
@@ -87,15 +85,9 @@ const MemoryRow = ({
 // Each match with the memories it brought along, so the reach of every
 // match shows at a glance.
 const Results = ({
-  busy,
-  limit,
-  onMore,
   onOpen,
   result,
 }: {
-  busy: boolean;
-  limit: number;
-  onMore: () => void;
   onOpen: (ref: string) => void;
   result: RecallResult;
 }) => (
@@ -136,18 +128,9 @@ const Results = ({
         </li>
       ))}
     </ul>
-    {result.hasMore && limit < RECALL_LIMIT_MAX ? (
-      <div className="mt-4 flex justify-center">
-        <Button disabled={busy} onClick={onMore} variant="outline">
-          <ArrowDown aria-hidden="true" />
-          Show more
-        </Button>
-      </div>
-    ) : null}
-    {result.hasMore && limit >= RECALL_LIMIT_MAX ? (
+    {result.hasMore ? (
       <p className="text-muted-foreground mt-4 text-center text-sm">
-        Your AI gets at most {RECALL_LIMIT_MAX} at a time. Try something more
-        specific.
+        More memories matched than your AI gets. Try something more specific.
       </p>
     ) : null}
   </>
@@ -164,7 +147,6 @@ const RecallPanel = ({
 }) => {
   const [draft, setDraft] = useState<Request>({ context: "", cue: "" });
   const [request, setRequest] = useState<Request | null>(null);
-  const [limit, setLimit] = useState(STEP);
   const [opened, setOpened] = useState<string | null>(null);
   const plugins = useQuery({
     queryFn: ({ signal }) =>
@@ -177,20 +159,19 @@ const RecallPanel = ({
     false;
   const query = useQuery({
     enabled: request !== null,
-    // Show more keeps the current results until the longer list arrives.
+    // A new search keeps the current results until its own arrive.
     placeholderData: keepPreviousData,
     queryFn: ({ signal }) =>
       api
         .post("/api/recall", {
           json: {
             cue: request?.cue,
-            limit,
             ...(request?.context && { context: request.context }),
           },
           signal,
         })
         .json<RecallResult>(),
-    queryKey: ["recall", request, limit],
+    queryKey: ["recall", request],
   });
 
   const submit = (event: FormEvent) => {
@@ -206,14 +187,12 @@ const RecallPanel = ({
     if (
       request &&
       next.cue === request.cue &&
-      next.context === request.context &&
-      limit === STEP
+      next.context === request.context
     ) {
       void query.refetch();
       return;
     }
     setRequest(next);
-    setLimit(STEP);
   };
 
   const result = query.data;
@@ -293,15 +272,7 @@ const RecallPanel = ({
             ))}
           </div>
         ) : null}
-        {result ? (
-          <Results
-            busy={query.isFetching}
-            limit={limit}
-            onMore={() => setLimit(Math.min(limit + STEP, RECALL_LIMIT_MAX))}
-            onOpen={setOpened}
-            result={result}
-          />
-        ) : null}
+        {result ? <Results onOpen={setOpened} result={result} /> : null}
       </section>
       {/* An edit or forget in the history shows in the results once it
       closes. */}

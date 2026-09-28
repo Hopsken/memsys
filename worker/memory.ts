@@ -10,14 +10,19 @@ import type {
 } from "../contract/memory";
 import { associationKeys, extractAnchors, withinTag } from "../lib/anchor";
 import { FRAGMENT_MAX, fragmentLength } from "../lib/fragment";
-import { RECALL_LIMIT_MAX } from "../lib/recall";
+import { RECALL_MAX } from "../lib/recall";
 import { bm25, terms } from "./search";
 
 // Lowercase only; omit 0, 1, i, l, and o. 31^7 possible refs.
 export const REF_ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz";
 export const REF_LENGTH = 7;
-const RESULT_LIMIT = 10;
 export const PAGE_SIZE = 50;
+// Recall ceilings (RFC 0002). Direct matches past MATCH_MAX are cut and set
+// `hasMore`. Associations past the per-key and total ceilings are forgotten,
+// oldest first, and do not.
+export const MATCH_MAX = 200;
+export const KEY_ASSOCIATION_MAX = 20;
+export const ASSOCIATION_MAX = 200;
 
 export const fragment = z
   .string()
@@ -76,13 +81,6 @@ export const inputs = {
         .max(256)
         .describe(
           "Free text, not a single tag: one or a few words, a phrase, or #anchors. Matches contain every word; a cue of three or more words may miss one."
-        ),
-      limit: z
-        .int()
-        .min(1)
-        .optional()
-        .describe(
-          `Maximum fragments to return, at most ${RECALL_LIMIT_MAX}; larger values are capped with a warning. Defaults to ${RESULT_LIMIT}. Raise it when a result has \`hasMore\`.`
         ),
     })
     .strict(),
@@ -173,21 +171,8 @@ export const recallCandidates = (
   corpus: Iterable<Fragment>,
   raw: z.input<typeof inputs.recall>
 ) => {
-  const {
-    associate = true,
-    context = null,
-    cue,
-    limit: requested = RESULT_LIMIT,
-  } = inputs.recall.parse(raw);
-  // A limit past the cap is lowered rather than rejected, and said so.
-  const limit = Math.min(requested, RECALL_LIMIT_MAX);
-  const warnings =
-    requested > limit
-      ? [
-          `limit ${requested} is above the maximum of ${RECALL_LIMIT_MAX}; returned at most ${RECALL_LIMIT_MAX} fragments.`,
-        ]
-      : [];
-  const input: RecallInput = { associate, context, cue, limit };
+  const { associate = true, context = null, cue } = inputs.recall.parse(raw);
+  const input: RecallInput = { associate, context, cue };
   const ordered = [...corpus].toSorted(
     (a, b) => b.at.localeCompare(a.at) || a.ref.localeCompare(b.ref)
   );
@@ -218,16 +203,18 @@ export const recallCandidates = (
     )
     .map(({ item }) => item);
   const refs = new Set(matches.map((item) => item.ref));
-  // Only returned matches seed association.
+  const kept = matches.slice(0, MATCH_MAX);
+  // Every kept match seeds association.
   const keys = new Set(
     associate
-      ? matches
-          .slice(0, limit)
-          .flatMap((item) =>
-            extractAnchors(item.fragment).flatMap(associationKeys)
-          )
+      ? kept.flatMap((item) =>
+          extractAnchors(item.fragment).flatMap(associationKeys)
+        )
       : []
   );
+  // Newest first, each shared key brings at most KEY_ASSOCIATION_MAX: a busy
+  // anchor forgets its oldest fragments while a rare one keeps them all.
+  const brought = new Map<string, number>();
   const associated = ordered
     .filter((item) => keys.size > 0 && !refs.has(item.ref))
     .map((item) => ({
@@ -236,21 +223,33 @@ export const recallCandidates = (
         associationKeys(anchor).some((key) => keys.has(key))
       ),
     }))
-    .filter((item) => item.via.length > 0);
-  const candidates: RecallItem[] = [...matches, ...associated];
-  return { candidates, input, warnings };
+    .filter(({ via }) => {
+      const shared = [
+        ...new Set(via.flatMap(associationKeys).filter((key) => keys.has(key))),
+      ];
+      if (
+        shared.every((key) => (brought.get(key) ?? 0) >= KEY_ASSOCIATION_MAX)
+      ) {
+        return false;
+      }
+      for (const key of shared) {
+        brought.set(key, (brought.get(key) ?? 0) + 1);
+      }
+      return true;
+    })
+    .slice(0, ASSOCIATION_MAX);
+  const candidates: RecallItem[] = [...kept, ...associated];
+  return { candidates, cut: matches.length > MATCH_MAX, input };
 };
 
-// Terminal truncation. Plugins saw every candidate, so `hasMore` counts what
-// survived them.
+// Terminal truncation. Plugins saw every candidate. `hasMore` is set by what
+// a more specific cue would reach: cut matches, or survivors past RECALL_MAX.
 export const truncate = (
   ranked: readonly RecallItem[],
-  limit: number,
-  warnings: string[] = []
+  cut: boolean
 ): RecallResult => ({
-  fragments: ranked.slice(0, limit),
-  hasMore: ranked.length > limit,
-  ...(warnings.length > 0 && { warnings }),
+  fragments: ranked.slice(0, RECALL_MAX),
+  hasMore: cut || ranked.length > RECALL_MAX,
 });
 
 // Core recall without plugins.
@@ -258,6 +257,6 @@ export const recall = (
   corpus: Iterable<Fragment>,
   raw: z.input<typeof inputs.recall>
 ): RecallResult => {
-  const { candidates, input, warnings } = recallCandidates(corpus, raw);
-  return truncate(candidates, input.limit, warnings);
+  const { candidates, cut } = recallCandidates(corpus, raw);
+  return truncate(candidates, cut);
 };

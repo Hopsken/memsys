@@ -1,6 +1,6 @@
 # RFC 0002: Recall bounds and `hasMore`
 
-- Status: Proposed
+- Status: Accepted
 - Created: 2026-09-28
 
 ## Summary
@@ -62,7 +62,7 @@ Jev:
 - Judges candidates in order, in sequential requests. Each request stays under a character budget that fits Jev's context window even in CJK text.
 - Has no cap of its own. Upstream bounds its work to M + A candidates.
 - Stops once more than N candidates are kept and drops the unjudged rest. This returns exactly what judging everything and then cutting to N would, as long as no hook after Jev drops items. The registry keeps Jev last among dropping hooks.
-- Fails closed. A timeout, binding error, empty balance, malformed response, or unanswered candidate throws `PluginAbortError`. The error says what the caller can do (try again later), not which plugin failed.
+- Fails closed. A timeout, binding error, empty balance, malformed response, or unanswered candidate throws `PluginAbortError`. The error tells the caller what to do (try again later); the cause goes to the log.
 
 ### Output: at most N
 
