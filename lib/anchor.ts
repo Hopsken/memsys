@@ -1,3 +1,5 @@
+import { stem } from "porter2";
+
 // An anchor is a #word inside fragment text. The worker, plugins, and client
 // must find the same anchors, so all of them match with this pattern. The
 // match may start one character before the `#`.
@@ -17,3 +19,12 @@ export const extractAnchors = (text: string): string[] =>
 // A tag covers its namespace: #project also matches #project/memsys.
 export const withinTag = (anchor: string, tag: string) =>
   anchor === tag || anchor.startsWith(`${tag}/`);
+
+// What an anchor associates through. Namespaces stay exact; other anchors
+// also split on `-`, and English words are stemmed.
+export const associationKeys = (anchor: string): string[] =>
+  anchor.includes("/")
+    ? [anchor]
+    : [anchor, ...anchor.split("-").filter(Boolean)].map((word) =>
+        /^[a-z]+$/u.test(word) ? stem(word) : word
+      );

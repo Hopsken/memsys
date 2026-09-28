@@ -258,23 +258,19 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
   );
 };
 
-// Every version of one memory, over the list that opened it.
-export const HistoryDialog = () => {
-  const { ref = "" } = useParams();
-  const navigate = useNavigate();
-  const location = useLocation();
+// Every version of one memory, over whatever opened it.
+export const MemoryHistoryDialog = ({
+  memoryRef: ref,
+  onClose: close,
+}: {
+  memoryRef: string;
+  onClose: () => void;
+}) => {
   const query = useQuery({
     queryFn: ({ signal }) =>
       api.get(`/api/fragments/${ref}/history`, { signal }).json<History>(),
     queryKey: ["history", ref],
   });
-  // Back returns to the list as it was; a link opened directly has no list
-  // behind it in history, so it replaces itself with one.
-  const close = () => {
-    void (location.key === "default"
-      ? navigate("..", { replace: true })
-      : navigate(-1));
-  };
   const missing = query.error !== null && failure(query.error).status === 404;
   const forget = useForget(close);
   // The header offers the next step down: Forget for a memory your AI can
@@ -374,4 +370,19 @@ export const HistoryDialog = () => {
       </DialogContent>
     </Dialog>
   );
+};
+
+// The history as a child route of the list that links to it.
+export const HistoryDialog = () => {
+  const { ref = "" } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  // Back returns to the list as it was; a link opened directly has no list
+  // behind it in history, so it replaces itself with one.
+  const close = () => {
+    void (location.key === "default"
+      ? navigate("..", { replace: true })
+      : navigate(-1));
+  };
+  return <MemoryHistoryDialog memoryRef={ref} onClose={close} />;
 };
