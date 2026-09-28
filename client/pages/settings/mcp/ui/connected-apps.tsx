@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
 
-import { api, failure } from "@/shared/api";
-import { Button } from "@/shared/ui/button";
+import { api } from "@/shared/api";
 import { formatRelativeDateInline } from "@lib/date";
+
+import { RemoveMenu } from "./remove-menu";
 
 // Apps the user let in through sign-in; API keys are listed separately.
 interface Connection {
@@ -26,55 +26,31 @@ const access = (scopes: string[]) => {
 
 const ConnectionRow = ({ connection }: { connection: Connection }) => {
   const queryClient = useQueryClient();
-  const [confirming, setConfirming] = useState(false);
   const disconnect = useMutation({
     mutationFn: () => api.delete(`/api/connections/${connection.id}`),
     mutationKey: [...CONNECTIONS, connection.id],
     onSuccess: () => queryClient.invalidateQueries({ queryKey: CONNECTIONS }),
   });
+  const name = connection.name ?? "Unnamed app";
   return (
-    <li className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3.5">
+    <li className="flex items-center justify-between gap-4 py-3.5">
       <div className="min-w-0 space-y-1">
-        <p className="truncate text-sm font-medium">
-          {connection.name ?? "Unnamed app"}
-        </p>
+        <p className="truncate text-sm font-medium">{name}</p>
         <p className="text-muted-foreground flex flex-wrap gap-x-3 text-xs">
           <span>{access(connection.scopes)}</span>
           <span>
             Connected {formatRelativeDateInline(connection.createdAt)}
           </span>
         </p>
-        {disconnect.error ? (
-          <p className="text-destructive text-xs">
-            {failure(disconnect.error).problem.error ??
-              "Something went wrong. Try again."}
-          </p>
-        ) : null}
       </div>
-      {confirming ? (
-        <div className="flex items-center gap-2">
-          <Button
-            disabled={disconnect.isPending}
-            onClick={() => setConfirming(false)}
-            size="sm"
-            variant="ghost"
-          >
-            Cancel
-          </Button>
-          <Button
-            disabled={disconnect.isPending}
-            onClick={() => disconnect.mutate()}
-            size="sm"
-            variant="destructive"
-          >
-            {disconnect.isPending ? "Disconnecting…" : "Disconnect"}
-          </Button>
-        </div>
-      ) : (
-        <Button onClick={() => setConfirming(true)} size="sm" variant="outline">
-          Disconnect
-        </Button>
-      )}
+      <RemoveMenu
+        action="Disconnect"
+        description="It loses access to your memories until you connect it again."
+        name={name}
+        pending="Disconnecting…"
+        remove={disconnect}
+        title={`Disconnect ${connection.name ?? "this app"}?`}
+      />
     </li>
   );
 };
