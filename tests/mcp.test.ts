@@ -4,7 +4,16 @@ import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "../contract/memory";
 import worker from "../worker/index";
-import { call, content, list, post, useAuth, withVersions } from "./helpers";
+import {
+  call,
+  content,
+  list,
+  memoryOf,
+  post,
+  useAuth,
+  withoutJev,
+  withVersions,
+} from "./helpers";
 import type { User } from "./helpers";
 
 const tags = async (user: User) =>
@@ -140,6 +149,7 @@ describe("Stateless MCP", () => {
 
   it("shares writes, recall, and deletion with REST without initialization", async () => {
     const user = await signIn();
+    await withoutJev(memoryOf(user));
     const item = content<Fragment>(
       await call(user, "remember", { fragment: "MCP memory #test" })
     );

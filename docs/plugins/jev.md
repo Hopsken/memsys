@@ -1,6 +1,6 @@
 # Relevance filter (`jev`)
 
-Asks [Jev](https://developers.cloudflare.com/ai/models/typesafe/jev/), a small judgment model on Workers AI, whether each recalled fragment helps with the agent's cue and `context`, and hides the ones it rules out. Off by default. Runs after `idf`. Uses Workers AI credits and slows recall.
+Asks [Jev](https://developers.cloudflare.com/ai/models/typesafe/jev/), a small judgment model on Workers AI, whether each recalled fragment helps with the agent's cue and `context`, and hides the ones it rules out. On by default. Runs after `idf`. Uses Workers AI credits and slows recall.
 
 ## Settings
 
@@ -24,4 +24,4 @@ Fail-closed: an unfiltered result misleads the agent, which costs more than an e
 
 ## Development
 
-The `AI` binding is always remote, so local dev bills the account. Tests set `remoteBindings: false` and inject a fake `ai`, so they need no Cloudflare credentials.
+The `AI` binding is always remote, so every recall in local dev calls Jev and bills the account. Tests set `remoteBindings: false` and inject a fake `ai`, so they need no Cloudflare credentials.

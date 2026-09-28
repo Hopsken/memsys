@@ -176,7 +176,7 @@ export const jev = definePlugin({
   config,
   defaults: {
     config: { matches: true, strictness: "medium" },
-    enabled: false,
+    enabled: true,
   },
   description:
     "Uses a small AI model (Jev) to check each related memory against what your AI is looking for, and hides the ones that don’t help. If the check fails, recall fails rather than show unchecked memories. Slows recall and uses Workers AI credits.",

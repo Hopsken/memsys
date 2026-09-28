@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { Fragment } from "../contract/memory";
 import { corpus } from "../worker/dev/corpus";
 import worker from "../worker/index";
-import { list, ORIGIN, post, useAuth } from "./helpers";
+import { list, memoryOf, ORIGIN, post, useAuth, withoutJev } from "./helpers";
 import type { User } from "./helpers";
 
 // RFC corpus labels: f1 is the first seeded fragment.
@@ -18,6 +18,7 @@ describe("Development seed", () => {
     const user = await signIn();
     await post("/api/remember", { fragment: "Replaced by the seed" }, user);
     const seeded = await post("/api/dev/seed", { email: user.email }, null);
+    await withoutJev(memoryOf(user));
     const recalled = await post("/api/recall", { cue: "US West" }, user);
     const { fragments } = await recalled.json<{
       fragments: (Fragment & { via?: string[] })[];

@@ -3,10 +3,12 @@ import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "../contract/memory";
+import { withoutJev } from "./helpers";
 
 describe("Memory persistence", () => {
   it("preserves writes, edits, and deletion after eviction without changing memory on recall", async () => {
     const memory = env.MEMORY.getByName("persistence");
+    await withoutJev(memory);
     const remember = async (fragment: string): Promise<Fragment> => {
       const result = await memory.remember({ fragment }, "user");
       if ("error" in result) {

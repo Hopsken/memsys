@@ -7,4 +7,4 @@ Each plugin is one file in `plugins/`, registered in `plugins/index.ts`. Registr
 | Short memories (`size-limit`) | write check | on | [size-limit](size-limit.md) |
 | Tag list (`list-tags`) | tool | on | [list-tags](list-tags.md) |
 | Prioritize specific links (`idf`) | recall ranking | on | [idf](idf.md) |
-| Relevance filter (`jev`) | recall filter | off | [jev](jev.md) |
+| Relevance filter (`jev`) | recall filter | on | [jev](jev.md) |

@@ -35,9 +35,11 @@ const corpus = new Map<string, Fragment>(
 const row = (name: string, enabled: boolean, config: Json = {}) =>
   ({ config, enabled, name, updatedAt: 0 }) satisfies StoredConfig;
 
+// Jev is on by default; setups without it turn it off.
+const noJev = row("jev", false, { matches: true, strictness });
 const setups: { name: string; stored: StoredConfig[]; jev?: boolean }[] = [
-  { name: "core", stored: [row("idf", false)] },
-  { name: "idf", stored: [] },
+  { name: "core", stored: [row("idf", false), noJev] },
+  { name: "idf", stored: [noJev] },
   {
     jev: true,
     name: "idf+jev",
