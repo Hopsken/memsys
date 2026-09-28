@@ -1,0 +1,17 @@
+diff --git a/dist/d1-sqlite-dialect-D4qp4-wW.mjs b/dist/d1-sqlite-dialect-D4qp4-wW.mjs
+index d236a7fc5a4efcf307963f0ef14be34c8082672a..c01efaec643bb4b70e550f40ca0f2af788d23367 100644
+--- a/dist/d1-sqlite-dialect-D4qp4-wW.mjs
++++ b/dist/d1-sqlite-dialect-D4qp4-wW.mjs
+@@ -31,7 +31,11 @@ function createD1IndexIntrospector(database) {
+ 		}));
+ 	};
+ }
+-var D1SqliteAdapter = class extends SqliteAdapter {};
++var D1SqliteAdapter = class extends SqliteAdapter {
++	get supportsMultipleConnections() {
++		return true;
++	}
++};
+ var D1SqliteDriver = class {
+ 	#config;
+ 	#connection;

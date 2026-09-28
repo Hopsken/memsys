@@ -44,3 +44,9 @@ minimumReleaseAgeExclude:
   - oxfmt@0.68.0
   - oxlint@1.83.0
   - wrangler@4.131.2
+# Kysely runs one SQLite query at a time per isolate. D1 queries stand alone,
+# and one canceled with its request would hold that turn forever, hanging
+# every later D1 query in the isolate. Drop when Better Auth's D1 dialect
+# declares multiple connections itself.
+patchedDependencies:
+  "@better-auth/kysely-adapter@1.7.5": patches/@better-auth__kysely-adapter@1.7.5.patch
