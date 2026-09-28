@@ -1,10 +1,24 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 import type { Fragment, RecallItem } from "../contract/memory";
+import { PluginAbortError } from "../contract/plugin";
 import type { Ctx, Json } from "../contract/plugin";
 import { RECALL_LIMIT_MAX } from "../lib/recall";
-import { JEV_MODEL, JEV_TIMEOUT_MS, jev } from "../plugins/jev";
-import { createCtx, runAfterRecall } from "../worker/plugin-host";
+import { plugins } from "../plugins";
+import {
+  JEV_BATCH,
+  JEV_MAX_JUDGED,
+  JEV_MODEL,
+  JEV_TIMEOUT_MS,
+  jev,
+} from "../plugins/jev";
+import { recallCandidates, truncate } from "../worker/memory";
+import {
+  createCtx,
+  resolvePlugins,
+  runAfterRecall,
+} from "../worker/plugin-host";
 
 const item = (ref: string, fragment: string, via?: string[]): RecallItem => ({
   at: "",
@@ -18,7 +32,7 @@ const items = [
   item("f7", "Run database migrations with wrangler d1 migrations apply"),
   item("f2", "D1's primary region is in US West", ["d1"]),
   item("f8", "Bird migration season is autumn", ["migration"]),
-  item("fx", "Unanswered by the model", ["d1"]),
+  item("fx", "D1 bills per row read", ["d1"]),
 ];
 const corpus = new Map<string, Fragment>(items.map((row) => [row.ref, row]));
 const input = {
@@ -39,20 +53,39 @@ const noul = (scores: Record<string, number>) => ({
 
 type Run = Ctx<Json>["ai"]["run"];
 
+// Answers every question in a request with `score(ref)`.
+const scoring = (score: (ref: string) => number) =>
+  vi.fn<Run>((_, body) => {
+    const { questions } = z
+      .object({ questions: z.record(z.string(), z.unknown()) })
+      .parse(body);
+    return Promise.resolve(
+      noul(
+        Object.fromEntries(
+          Object.keys(questions).map((ref) => [ref, score(ref)])
+        )
+      )
+    );
+  });
+
 const malformed = () => Promise.resolve({ answers: { f2: { noul: "yes" } } });
 
 // Most cases exercise association gating; defaults also judge cue matches.
 const ASSOCIATIONS = { matches: false, strictness: "medium" } as const;
 
-const hook = (run: Run, rows: RecallItem[], config: Json = ASSOCIATIONS) => {
+const hook = (
+  run: Run,
+  rows: RecallItem[],
+  config: Json = ASSOCIATIONS,
+  limit = input.limit
+) => {
   if (!jev.afterRecall) {
     throw new Error("jev has no afterRecall hook");
   }
-  return jev.afterRecall(
-    createCtx(config, { ai: { run }, corpus }),
-    rows,
-    input
-  );
+  return jev.afterRecall(createCtx(config, { ai: { run }, corpus }), rows, {
+    ...input,
+    limit,
+  });
 };
 
 const gate = (run: Run, config: Json = ASSOCIATIONS) =>
@@ -67,7 +100,9 @@ describe("jev plugin", () => {
   });
 
   it("asks one noul per association with cue and context in the state", async () => {
-    const run = vi.fn<Run>(() => Promise.resolve(noul({ f2: 0.9, f8: 0.1 })));
+    const run = vi.fn<Run>(() =>
+      Promise.resolve(noul({ f2: 0.9, f8: 0.1, fx: 0.9 }))
+    );
     await expect(gate(run).then(refs)).resolves.toStrictEqual([
       "f7",
       "f2",
@@ -83,7 +118,7 @@ describe("jev plugin", () => {
         candidates: {
           f2: "D1's primary region is in US West",
           f8: "Bird migration season is autumn",
-          fx: "Unanswered by the model",
+          fx: "D1 bills per row read",
         },
         context: "Deploying the D1 schema",
         cue: "migration",
@@ -135,18 +170,99 @@ describe("jev plugin", () => {
     });
   });
 
-  it("drops associations past its cap instead of passing them unjudged", async () => {
-    const many = Array.from({ length: RECALL_LIMIT_MAX + 5 }, (_, index) =>
+  describe("batches", () => {
+    const many = Array.from({ length: JEV_BATCH * 3 }, (_, index) =>
       item(`a${index}`, `Association ${index}`, ["d1"])
     );
-    const run = vi.fn<Run>(() => Promise.resolve(noul({})));
-    await expect(
-      hook(run, [item("m", "Cue match"), ...many]).then((rows) => rows.length)
-    ).resolves.toBe(RECALL_LIMIT_MAX + 1);
+    const rows = [item("m", "Cue match"), ...many];
+    // Passes every other candidate.
+    const judgeHalf = scoring((ref) =>
+      Number(ref.slice(1)) % 2 === 0 ? 0.9 : 0.1
+    );
+
+    it("stops once more than a page passes and drops the unjudged rest", async () => {
+      judgeHalf.mockClear();
+      const kept = await hook(judgeHalf, rows, ASSOCIATIONS, 10);
+      expect(judgeHalf).toHaveBeenCalledOnce();
+      expect(refs(kept)).toStrictEqual([
+        "m",
+        ...many
+          .slice(0, JEV_BATCH)
+          .filter((_, index) => index % 2 === 0)
+          .map((row) => row.ref),
+      ]);
+    });
+
+    it("judges every candidate while a page is not full", async () => {
+      judgeHalf.mockClear();
+      const kept = await hook(judgeHalf, rows, ASSOCIATIONS, 40);
+      expect(judgeHalf).toHaveBeenCalledTimes(3);
+      expect(kept).toHaveLength(1 + (JEV_BATCH * 3) / 2);
+    });
+
+    it("fails when too many candidates are left to fill a page", async () => {
+      const crowd = Array.from({ length: JEV_MAX_JUDGED + 1 }, (_, index) =>
+        item(`c${index}`, `Crowd ${index}`, ["d1"])
+      );
+      const none = scoring(() => 0);
+      await expect(hook(none, crowd)).rejects.toThrow(PluginAbortError);
+      expect(none).toHaveBeenCalledTimes(JEV_MAX_JUDGED / JEV_BATCH);
+    });
   });
 
-  it("rejects malformed responses so the host passes recall through", async () => {
-    const log = vi.spyOn(console, "error").mockReturnValue();
+  // Guards the pipeline, not just the hook: nothing before Jev may cut the
+  // candidates down to a page.
+  it.each([
+    [RECALL_LIMIT_MAX + 20, (RECALL_LIMIT_MAX + 20) / 2, false],
+    [RECALL_LIMIT_MAX * 3, RECALL_LIMIT_MAX, true],
+  ])(
+    "sees every candidate through the full registry: %i matches",
+    async (count, returned, hasMore) => {
+      const rows = new Map(
+        Array.from({ length: count }, (_, index): [string, Fragment] => [
+          `m${index}`,
+          { at: "", fragment: `Cue ${index}`, ref: `m${index}` },
+        ])
+      );
+      const states = resolvePlugins(plugins, [
+        {
+          config: jev.defaults.config,
+          enabled: true,
+          name: "jev",
+          updatedAt: 0,
+        },
+      ]);
+      const run = scoring((ref) =>
+        Number(ref.slice(1)) % 2 === 0 ? 0.9 : 0.1
+      );
+      const { candidates, input: recallInput } = recallCandidates(
+        rows.values(),
+        {
+          cue: "cue",
+          limit: RECALL_LIMIT_MAX,
+        }
+      );
+      const ranked = await runAfterRecall(
+        states,
+        { ai: { run }, corpus: rows },
+        candidates,
+        recallInput
+      );
+      if ("error" in ranked) {
+        throw new Error(ranked.error);
+      }
+      const result = truncate(ranked, recallInput.limit);
+      expect(result.fragments).toHaveLength(returned);
+      expect(result.hasMore).toBe(hasMore);
+    }
+  );
+
+  it("fails recall when the model leaves a candidate unanswered", async () => {
+    const run = vi.fn<Run>(() => Promise.resolve(noul({ f2: 0.9, f8: 0.9 })));
+    await expect(gate(run)).rejects.toThrow("Jev left fx unanswered");
+  });
+
+  it("fails recall on a malformed response instead of passing it through", async () => {
     const result = await runAfterRecall(
       [
         {
@@ -161,19 +277,19 @@ describe("jev plugin", () => {
       items,
       input
     );
-    expect(result).toStrictEqual(items);
-    expect(log).toHaveBeenCalledWith(
-      expect.objectContaining({
-        error: "Error: Unexpected Jev response (keys: answers)",
-      })
-    );
+    expect(result).toStrictEqual({
+      error:
+        "jev: Couldn't check relevance: Unexpected Jev response (keys: answers)",
+    });
   });
 
-  it("gives up after its time budget", async () => {
+  it("fails recall after its time budget", async () => {
     vi.useFakeTimers();
     await Promise.all([
       expect(gate(() => Promise.withResolvers<Json>().promise)).rejects.toThrow(
-        `Jev timed out after ${JEV_TIMEOUT_MS} ms`
+        new PluginAbortError(
+          `Couldn't check relevance: Jev timed out after ${JEV_TIMEOUT_MS} ms`
+        )
       ),
       vi.advanceTimersByTimeAsync(JEV_TIMEOUT_MS),
     ]);

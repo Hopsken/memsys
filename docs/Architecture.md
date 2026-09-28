@@ -100,7 +100,7 @@ Write hooks are independent checks, so order does not matter and results are agg
 
 The plugin chooses how it fails, because only it knows whether not running means _a noisier result_ or _unsafe to proceed_.
 
-- **Fail** (default) — an ordinary exception. Logged; the hook acts as identity and the pipeline continues. A broken plugin must never cost the user their memory. Plugins that call external models fail on timeouts, quota, and malformed responses, with no retry on the request path.
+- **Fail** (default) — an ordinary exception. Logged; the hook acts as identity and the pipeline continues. A broken plugin must never cost the user their memory. Plugins that call external models get no retry on the request path. A filter whose failure would pass unchecked items off as checked dies instead.
 - **Die** — `PluginAbortError(reason)`. The pipeline stops and the call returns an error naming the plugin. On the write path nothing is stored.
 
 Hooks that run after a write cannot abort: the fragment is already stored, and an error would mislead the agent.

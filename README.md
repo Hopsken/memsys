@@ -21,7 +21,7 @@ The app uses Vite, React, Tailwind CSS 4, and shadcn/ui in `client/`. Hono, auth
 Agents connect over MCP at `/mcp` (stateless Streamable HTTP) with an OAuth access token or an API key. The core tools are `remember`, `recall`, `revise`, and `forget`; plugins may add more, such as the default `list_tags`. The web UI uses the same operations through a JSON API under `/api/`. Input schemas live in `worker/memory.ts`.
 
 - **Recall** matches fragments that contain every word of the cue, in any order; English words are stemmed, and a cue of three or more words may miss one. Fragments containing the whole cue as a phrase come first, the rest rank by words matched and BM25. Recall then follows one hop through shared `#anchors`. Associated results list those anchors in `via`. Association splits anchors on `-` and stems English words; `/` namespaces match exactly.
-- **Recall size** defaults to 10 fragments. A `limit` above 40 is lowered to 40 and the result carries a warning; 40 is also the most the [Jev plugin](docs/plugins/jev.md) judges per recall.
+- **Recall size** defaults to 10 fragments. A `limit` above 40 is lowered to 40 and the result carries a warning.
 - **Length** is counted in grapheme clusters. Core rejects anything over 1000; the [size-limit plugin](docs/plugins/size-limit.md) sets the everyday limits.
 - **Plugins** live in `plugins/` and reach the worker only through `contract/`. Each one is documented in [docs/plugins](docs/plugins/README.md); [Architecture](docs/Architecture.md) covers the hooks, failure rules, and per-instance configuration.
 

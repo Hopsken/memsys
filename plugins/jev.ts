@@ -1,15 +1,20 @@
 import { z } from "zod";
 
 import type { RecallInput, RecallItem } from "../contract/memory";
-import { definePlugin } from "../contract/plugin";
+import { definePlugin, PluginAbortError } from "../contract/plugin";
 import type { Ctx, Json } from "../contract/plugin";
-import { RECALL_LIMIT_MAX } from "../lib/recall";
 
 // Relevance gate per RFC 1 Stage 2: one independent noul per candidate, so
-// "nothing is relevant" is a possible answer. Fail-open: any error, timeout,
-// or malformed response leaves the input unchanged via the plugin host.
+// "nothing is relevant" is a possible answer. Fail-closed: an unchecked
+// memory must never pass as checked, so any error fails the recall.
 export const JEV_MODEL = "typesafe/jev";
-export const JEV_TIMEOUT_MS = 1500;
+// Per request; a slow recall costs less than a misleading one.
+export const JEV_TIMEOUT_MS = 10_000;
+// 20 fragments at the 1000-character cap stay inside Jev's 32k-token
+// context, even in CJK text.
+export const JEV_BATCH = 20;
+// Judged this many without filling a page: the cue is too broad to check.
+export const JEV_MAX_JUDGED = 400;
 
 // Named levels instead of a raw probability: 0.45 vs 0.48 means nothing to a
 // user. Measured on real recalls, misses score ≲0.15 and hits ≳0.9.
@@ -74,42 +79,79 @@ const withTimeout = async <T>(promise: Promise<T>, ms: number) => {
   }
 };
 
+// One request per batch. Any failure, or a candidate left unanswered, aborts.
+const judge = async (
+  ai: Ctx<Config>["ai"],
+  batch: readonly RecallItem[],
+  { context, cue }: RecallInput
+) => {
+  try {
+    const output = await withTimeout(
+      ai.run(JEV_MODEL, {
+        questions: Object.fromEntries(
+          batch.map((item) => [item.ref, question(item.ref)])
+        ),
+        state: {
+          candidates: Object.fromEntries(
+            batch.map((item) => [item.ref, item.fragment])
+          ),
+          context: context ?? "",
+          cue,
+        },
+      }),
+      JEV_TIMEOUT_MS
+    );
+    const scores = parseScores(output);
+    return batch.map(({ ref }) => {
+      const score = scores[ref]?.noul;
+      if (score === undefined) {
+        throw new Error(`Jev left ${ref} unanswered`);
+      }
+      return score;
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new PluginAbortError(`Couldn't check relevance: ${reason}`);
+  }
+};
+
 const gate = async (
   { ai, config: { matches, strictness } }: Ctx<Config>,
   items: readonly RecallItem[],
-  { context, cue }: RecallInput
+  input: RecallInput
 ) => {
   const gated = (item: RecallItem) => matches || Boolean(item.via);
-  // The cap equals recall's max `limit`: past it, items are dropped rather
-  // than passed through unjudged to fill the page.
-  const judged = items.filter(gated).slice(0, RECALL_LIMIT_MAX);
-  const refs = new Set(judged.map((item) => item.ref));
-  if (judged.length === 0) {
-    return [...items];
-  }
-  const output = await withTimeout(
-    ai.run(JEV_MODEL, {
-      questions: Object.fromEntries(
-        judged.map((item) => [item.ref, question(item.ref)])
-      ),
-      state: {
-        candidates: Object.fromEntries(
-          judged.map((item) => [item.ref, item.fragment])
-        ),
-        context: context ?? "",
-        cue,
-      },
-    }),
-    JEV_TIMEOUT_MS
-  );
-  const scores = parseScores(output);
   const threshold = STRICTNESS[strictness];
-  // Ungated items stay; judged items the model left unanswered stay too.
-  return items.filter(
-    (item) =>
-      !gated(item) ||
-      (refs.has(item.ref) && (scores[item.ref]?.noul ?? 1) >= threshold)
-  );
+  const queue = items.filter(gated);
+  const passed = new Set<string>();
+  let judged = 0;
+  // Items before the first unjudged one are settled: kept if ungated or passed.
+  const settled = () => {
+    const next = queue[judged];
+    return items
+      .slice(0, next ? items.indexOf(next) : items.length)
+      .filter((item) => !gated(item) || passed.has(item.ref));
+  };
+  // Judge in order until more than a page is settled, so `hasMore` is true
+  // exactly when more relevant items exist. The unjudged rest is dropped.
+  while (judged < queue.length && settled().length <= input.limit) {
+    if (judged >= JEV_MAX_JUDGED) {
+      throw new PluginAbortError(
+        "Too many memories match to check. Use a more specific cue."
+      );
+    }
+    const batch = queue.slice(judged, judged + JEV_BATCH);
+    // Sequential by design: stop as soon as a page is full.
+    // oxlint-disable-next-line no-await-in-loop
+    const scores = await judge(ai, batch, input);
+    for (const [index, item] of batch.entries()) {
+      if ((scores[index] ?? 0) >= threshold) {
+        passed.add(item.ref);
+      }
+    }
+    judged += batch.length;
+  }
+  return settled();
 };
 
 export const jev = definePlugin({
@@ -120,7 +162,7 @@ export const jev = definePlugin({
     enabled: false,
   },
   description:
-    "Uses a small AI model (Jev) to check each related memory against what your AI is looking for, and hides the ones that don’t help. Adds up to a second per recall and uses Workers AI credits.",
+    "Uses a small AI model (Jev) to check each related memory against what your AI is looking for, and hides the ones that don’t help. If the check fails, recall fails rather than show unchecked memories. Slows recall and uses Workers AI credits.",
   name: "jev",
   title: "Relevance filter (Jev)",
 });

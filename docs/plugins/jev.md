@@ -1,6 +1,6 @@
 # Relevance filter (`jev`)
 
-Asks [Jev](https://developers.cloudflare.com/ai/models/typesafe/jev/), a small judgment model on Workers AI, whether each recalled fragment helps with the agent's cue and `context`, and hides the ones it rules out. Off by default. Runs after `idf`. Uses Workers AI credits and adds up to about a second per recall.
+Asks [Jev](https://developers.cloudflare.com/ai/models/typesafe/jev/), a small judgment model on Workers AI, whether each recalled fragment helps with the agent's cue and `context`, and hides the ones it rules out. Off by default. Runs after `idf`. Uses Workers AI credits and slows recall.
 
 ## Settings
 
@@ -13,14 +13,16 @@ On real recalls, misses scored about 0.15 or lower and hits about 0.9, which is 
 
 ## Behavior
 
-- One request per recall, with one yes/no (`noul`) question per judged fragment. The state holds the cue, the context, and the fragment texts; question keys are refs.
-- At most `RECALL_LIMIT_MAX` fragments are judged, so a full page can always be model-approved. Judged candidates past that cap are dropped, not passed through unjudged.
-- Order is unchanged. Fragments Jev leaves unanswered are kept.
+- Candidates are judged in order, 20 per request, with one yes/no (`noul`) question each. The state holds the cue, the context, and the fragment texts; question keys are refs. Twenty fragments at the 1000-character cap fit Jev's 32k-token context even in CJK text.
+- Judging stops once more than `limit` fragments are kept, so `hasMore` is exact; candidates never judged are dropped, never passed through.
+- Order is unchanged.
 - The Workers AI binding returns Jev's body inside a gateway envelope (`{ state, result: { answers } }`); the plugin also accepts the bare body the model docs show.
 
 ## Failure
 
-Fail-open: a timeout (1.5 s), binding error, empty balance, or malformed response leaves recall as it would be without the plugin, and logs `plugin.hook.failed`. No retries.
+Fail-closed: an unfiltered result misleads the agent, which costs more than an error. A timeout (10 s per request), binding error, empty balance, malformed response, or unanswered candidate fails the recall with `jev: Couldn't check relevance: …`. No retries.
+
+If 400 candidates are judged without filling a page, recall fails and asks for a more specific cue.
 
 ## Development
 

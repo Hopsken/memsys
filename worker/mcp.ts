@@ -64,7 +64,7 @@ Recall with short textual cues such as distinctive phrases, names, projects, con
       "recall",
       {
         annotations: { readOnlyHint: true },
-        description: `Recall memories using a short textual cue. Prefer distinctive phrases, entities, concepts, or #anchors. Fragments matching the cue come first; fragments with \`via\` were associated through the listed shared #anchors. Returns at most ${RECALL_LIMIT_MAX} fragments per call. \`hasMore\` means more fragments matched: raise \`limit\`, or use a narrower cue once at ${RECALL_LIMIT_MAX}.`,
+        description: `Recall memories using a short textual cue. Prefer distinctive phrases, entities, concepts, or #anchors. Fragments matching the cue come first; fragments with \`via\` were associated through the listed shared #anchors. Returns at most ${RECALL_LIMIT_MAX} fragments per call. \`hasMore\` means more relevant fragments were found than returned: raise \`limit\`, or use a narrower cue once at ${RECALL_LIMIT_MAX}.`,
         inputSchema: inputs.recall,
       },
       async (input) => result(await memory.recall(input))
