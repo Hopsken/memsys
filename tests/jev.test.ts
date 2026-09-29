@@ -4,7 +4,6 @@ import { z } from "zod";
 import type { Fragment, RecallItem } from "../contract/memory";
 import { PluginAbortError } from "../contract/plugin";
 import type { Ctx, Json } from "../contract/plugin";
-import { RECALL_MAX } from "../lib/recall";
 import { plugins } from "../plugins";
 import {
   JEV_BATCH,
@@ -13,7 +12,7 @@ import {
   JEV_TIMEOUT_MS,
   jev,
 } from "../plugins/jev";
-import { recallCandidates, truncate } from "../worker/memory";
+import { RECALL_MAX, recallCandidates, truncate } from "../worker/memory";
 import {
   createCtx,
   resolvePlugins,
@@ -171,30 +170,29 @@ describe("jev plugin", () => {
     );
     const rows = [item("m", "Cue match"), ...many];
 
-    it("stops once more than a page passes and drops the unjudged rest", async () => {
-      // Passes every other candidate.
+    it("judges every candidate, however many pass", async () => {
+      // Passes every other candidate: far more than one recall returns.
       const run = scoring((ref) =>
         Number(ref.slice(1)) % 2 === 0 ? 0.9 : 0.1
       );
       const kept = await hook(run, rows);
-      expect(run).toHaveBeenCalledOnce();
+      expect(run).toHaveBeenCalledTimes(3);
       expect(refs(kept)).toStrictEqual([
         "m",
-        ...many
-          .slice(0, JEV_BATCH)
-          .filter((_, index) => index % 2 === 0)
-          .map((row) => row.ref),
+        ...many.filter((_, index) => index % 2 === 0).map((row) => row.ref),
       ]);
     });
 
-    it("judges every candidate while a page is not full", async () => {
-      // Passes one candidate in ten.
-      const run = scoring((ref) =>
-        Number(ref.slice(1)) % 10 === 0 ? 0.9 : 0.1
-      );
-      const kept = await hook(run, rows);
-      expect(run).toHaveBeenCalledTimes(3);
-      expect(kept).toHaveLength(1 + (JEV_BATCH * 3) / 10);
+    it("fails the whole recall when one batch fails", async () => {
+      vi.spyOn(console, "error").mockReturnValue();
+      let calls = 0;
+      const run = vi.fn<Run>((model, body) => {
+        calls += 1;
+        return calls === 2
+          ? Promise.reject(new Error("offline"))
+          : scoring(() => 0.9)(model, body);
+      });
+      await expect(hook(run, rows)).rejects.toThrow(PluginAbortError);
     });
 
     it("keeps each request within its character budget", async () => {

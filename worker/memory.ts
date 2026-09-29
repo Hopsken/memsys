@@ -10,7 +10,6 @@ import type {
 } from "../contract/memory";
 import { associationKeys, extractAnchors, withinTag } from "../lib/anchor";
 import { FRAGMENT_MAX, fragmentLength } from "../lib/fragment";
-import { RECALL_MAX } from "../lib/recall";
 import { bm25, terms } from "./search";
 
 // Lowercase only; omit 0, 1, i, l, and o. 31^7 possible refs.
@@ -23,6 +22,8 @@ export const PAGE_SIZE = 50;
 export const MATCH_MAX = 200;
 export const KEY_ASSOCIATION_MAX = 20;
 export const ASSOCIATION_MAX = 200;
+// Most fragments one recall returns. Only the final truncation reads it.
+export const RECALL_MAX = 20;
 
 export const fragment = z
   .string()

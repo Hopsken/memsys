@@ -3,7 +3,6 @@ import { z } from "zod";
 import type { RecallInput, RecallItem } from "../contract/memory";
 import { definePlugin, PluginAbortError } from "../contract/plugin";
 import type { Ctx, Json } from "../contract/plugin";
-import { RECALL_MAX } from "../lib/recall";
 
 // Relevance gate per RFC 1 Stage 2: one independent noul per candidate, so
 // "nothing is relevant" is a possible answer. Fail-closed: an unchecked
@@ -13,7 +12,8 @@ export const JEV_MODEL = "typesafe/jev";
 export const JEV_TIMEOUT_MS = 10_000;
 // One request fits Jev's 32k-token context even in CJK text: up to 12,000
 // characters of fragments (~18k tokens), 40 questions (~4k), and the cue and
-// context (~2k). Core bounds how many candidates there are.
+// context (~2k). Core bounds how many candidates there are; batches run in
+// parallel.
 export const JEV_BATCH = 40;
 export const JEV_BATCH_CHARS = 12_000;
 
@@ -103,12 +103,12 @@ const judge = async (
       JEV_TIMEOUT_MS
     );
     const scores = parseScores(output);
-    return batch.map(({ ref }) => {
+    return batch.map(({ ref }): [string, number] => {
       const score = scores[ref]?.noul;
       if (score === undefined) {
         throw new Error(`Jev left ${ref} unanswered`);
       }
-      return score;
+      return [ref, score];
     });
   } catch (error) {
     console.error({
@@ -122,53 +122,40 @@ const judge = async (
   }
 };
 
-// The next batch from `start`: at least one item, then as many as fit.
-const nextBatch = (queue: readonly RecallItem[], start: number) => {
-  const batch: RecallItem[] = [];
+// Consecutive batches, each within JEV_BATCH items and JEV_BATCH_CHARS.
+const toBatches = (queue: readonly RecallItem[]) => {
+  const batches: RecallItem[][] = [];
   let chars = 0;
-  for (const item of queue.slice(start, start + JEV_BATCH)) {
+  for (const item of queue) {
+    const last = batches.at(-1);
     chars += item.fragment.length;
-    if (batch.length > 0 && chars > JEV_BATCH_CHARS) {
-      break;
+    if (last && last.length < JEV_BATCH && chars <= JEV_BATCH_CHARS) {
+      last.push(item);
+    } else {
+      batches.push([item]);
+      chars = item.fragment.length;
     }
-    batch.push(item);
   }
-  return batch;
+  return batches;
 };
 
+// Judges every candidate it receives: a filter that stops early would tie
+// its result to the page size and to the hooks after it.
 const gate = async (
   { ai, config: { matches, strictness } }: Ctx<Config>,
   items: readonly RecallItem[],
   input: RecallInput
 ) => {
   const gated = (item: RecallItem) => matches || Boolean(item.via);
+  const batches = toBatches(items.filter(gated));
+  const judged = await Promise.all(
+    batches.map((batch) => judge(ai, batch, input))
+  );
+  const scores = new Map(judged.flat());
   const threshold = STRICTNESS[strictness];
-  const queue = items.filter(gated);
-  const passed = new Set<string>();
-  let judged = 0;
-  // Items before the first unjudged one are settled: kept if ungated or passed.
-  const settled = () => {
-    const next = queue[judged];
-    return items
-      .slice(0, next ? items.indexOf(next) : items.length)
-      .filter((item) => !gated(item) || passed.has(item.ref));
-  };
-  // Judge in order until more than RECALL_MAX are settled: the same result as
-  // judging everything, so `hasMore` stays exact. The unjudged rest is
-  // dropped. Holds only while no later hook drops items.
-  while (judged < queue.length && settled().length <= RECALL_MAX) {
-    const batch = nextBatch(queue, judged);
-    // Sequential by design: stop as soon as a page is full.
-    // oxlint-disable-next-line no-await-in-loop
-    const scores = await judge(ai, batch, input);
-    for (const [index, item] of batch.entries()) {
-      if ((scores[index] ?? 0) >= threshold) {
-        passed.add(item.ref);
-      }
-    }
-    judged += batch.length;
-  }
-  return settled();
+  return items.filter(
+    (item) => !gated(item) || (scores.get(item.ref) ?? 0) >= threshold
+  );
 };
 
 export const jev = definePlugin({

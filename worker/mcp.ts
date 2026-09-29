@@ -2,11 +2,10 @@ import { McpServer } from "@modelcontextprotocol/server";
 import type { CallToolResult } from "@modelcontextprotocol/server";
 
 import type { Author, RecallResult } from "../contract/memory";
-import { RECALL_MAX } from "../lib/recall";
 import { plugins } from "../plugins";
 import { MEMORY_READ, MEMORY_WRITE } from "./auth";
 import type { Scope } from "./auth";
-import { inputs } from "./memory";
+import { inputs, RECALL_MAX } from "./memory";
 import type { MemoryDO, WriteResult } from "./memory-do";
 
 const error = (text: string): CallToolResult => ({

@@ -8,9 +8,8 @@ import { z } from "zod";
 
 import type { Fragment } from "../contract/memory";
 import type { Json } from "../contract/plugin";
-import { RECALL_MAX } from "../lib/recall";
 import { plugins } from "../plugins";
-import { recallCandidates, truncate } from "../worker/memory";
+import { RECALL_MAX, recallCandidates, truncate } from "../worker/memory";
 import { resolvePlugins, runAfterRecall } from "../worker/plugin-host";
 import type { PluginEnv, StoredConfig } from "../worker/plugin-host";
 import { cases, fragments } from "./dataset";

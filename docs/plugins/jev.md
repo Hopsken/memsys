@@ -14,7 +14,7 @@ On real recalls, misses scored about 0.15 or lower and hits about 0.9, which is 
 ## Behavior
 
 - Candidates are judged in order, one yes/no (`noul`) question each. The state holds the cue, the context, and the fragment texts; question keys are refs. A request holds up to 40 candidates and 12,000 characters of text, which fits Jev's 32k-token context even in CJK text.
-- Judging stops once more than a recall's 20 fragments are kept, so `hasMore` is exact; candidates never judged are dropped, never passed through. Core bounds how many candidates there are. Jev must stay the last hook that drops items.
+- Every candidate it receives is judged, with requests sent in parallel; core bounds how many there are. Judging never depends on how many fragments a recall returns.
 - Order is unchanged.
 - The Workers AI binding returns Jev's body inside a gateway envelope (`{ state, result: { answers } }`); the plugin also accepts the bare body the model docs show.
 

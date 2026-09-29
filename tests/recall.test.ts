@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "../contract/memory";
 import { extractAnchors } from "../lib/anchor";
-import { RECALL_MAX } from "../lib/recall";
 import {
   ASSOCIATION_MAX,
   KEY_ASSOCIATION_MAX,
   MATCH_MAX,
+  RECALL_MAX,
   recall,
   recallCandidates,
   truncate,
