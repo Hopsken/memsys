@@ -3,6 +3,7 @@
 - Status: Proposed
 - Created: 2026-09-28
 - Revised: 2026-09-29
+- Discussion: pull request #51
 - Implementation: pull request #50
 
 ## Summary
