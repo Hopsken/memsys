@@ -11,7 +11,7 @@
 Recall is the read side of memsys. This RFC fixes its contract: what the agent sends, what it gets back, and what each signal in the result tells it to do next. It also decides where the bounds of the pipeline live, because those bounds decide what the result can promise.
 
 - Recall takes a `cue` and, whenever the agent has one, a `context`. The `associate` and `limit` parameters go away.
-- Generation bounds its own output in core. Narrowing handles everything it receives. Only the final truncation knows how many fragments a recall returns.
+- Every generating step is bounded before narrowing sees it. Narrowing handles everything it receives. Only the final truncation knows how many fragments a recall returns.
 - Narrowing finishes or fails. A failure retries, then returns an explicit error that says whether trying again will help.
 - The result carries `truncated`, replacing `hasMore`: relevant memories were left out that a more specific cue would reach.
 
@@ -37,22 +37,22 @@ Before this RFC, recall took `cue`, `context`, `associate`, and `limit`, and ret
 - **One Jev request could overflow its context.** Forty fragments at the 1000-character cap, in CJK text, can exceed Jev's 32k-token window, which then failed open silently.
 - **`limit` leaked into generation.** Only the top `limit` matches seeded associations, so how far recall spread depended on the page size.
 - **`limit` invited search-engine habits.** Agents set `limit` from habit, 5 or 10, the way they page a search API. Recall is not a search API: the agent does not know how many memories bear on its task, and a small `limit` cut off exactly the associations it did not know to ask for. The advice to raise it and retry reran the whole pipeline, Jev included, for results the first call could have returned.
-- **`associate` asked the agent a question it cannot answer.** Turning association off is a claim that the agent already knows everything it needs. No caller ever sent it.
+- **`associate` asked the agent a question it cannot answer.** Turning association off is a claim that the agent already knows everything it needs. No known caller ever sent it.
 
 ## The model
 
 Two kinds of thing are in memory for the agent:
 
 - **Known unknowns.** Things the agent knows it needs and can name: "what did we decide about D1 regions?" The `cue` reaches these through the words they share.
-- **Unknown unknowns.** Things that bear on the task but the agent would not think to ask for: a lesson from a similar mistake, a constraint set months ago. Nothing the agent types can reach these, because it does not know they exist. Association reaches them: from what the cue found, recall spreads along shared anchors to what sits nearby, the way a thought brings its neighbours with it.
+- **Unknown unknowns.** Things that bear on the task but the agent would not think to ask for: a lesson from a similar mistake, a constraint set months ago. The agent cannot ask for these by name, because it does not know they exist. Association is how recall reaches them today: from what the cue found, it spreads along shared anchors to what sits nearby, the way a thought brings its neighbours with it. Spreading along other neighbourhoods, such as time or meaning, would be the same idea.
 
 ```
 cue ──► starting points ──► spread ──► narrowing ──► output
-        ╰──── generation (core) ────╯   (plugins)     (truncate)
+        ╰─── generation (core today) ───╯ (plugins)     (truncate)
 context ─────────────────────────────────┘
 ```
 
-Generation decides what recall can reach: the cue's direct matches, then their associations. Narrowing decides what is worth returning, judging against the cue and the context. The output decides how much the agent reads.
+Generation decides what recall can reach: the cue's direct matches, then whatever spreading adds to them. Narrowing decides what is worth returning, judging against the cue and the context. The output decides how much the agent reads.
 
 ## Decisions
 
@@ -60,27 +60,27 @@ Generation decides what recall can reach: the cue's direct matches, then their a
 
 `cue` is required: the words the agent has for what it needs. `context` is optional, but the tool asks for it whenever the agent has a task: what it is doing right now.
 
-**Why.** A parameter should stand for something the caller knows and cares about. The agent knows what it is looking for and what it is doing. It does not know how memory is laid out, how many fragments match, or how far association should reach. A parameter for any of those asks it to guess, and it guesses from habits formed on other tools.
+**Why.** A parameter should stand for something the caller knows and cares about. The agent knows what it is looking for and what it is doing. It does not know how memory is laid out, how many fragments match, or how far association should reach. A parameter for any of those asks it to guess, and in practice it guesses from habits formed on other tools.
 
-`context` takes no part in matching. It tells narrowing what "relevant" means for this call, and may later seed generation as well. Without it a relevance filter can judge only against the cue's words, so the description asks for it rather than leaving it as an afterthought.
+`context` takes no part in matching today. It tells narrowing what "relevant" means for this call, and may later seed generation as well. Without it a relevance filter can judge only against the cue's words, so the description asks for it rather than leaving it as an afterthought.
 
-### 2. Association is always on; `associate` is removed
+### 2. Association is not the agent's to switch; `associate` is removed
 
-**Why.** Association exists for unknown unknowns. An agent that turns it off asserts it has none, which is the one judgment it cannot make. Whether association returns too much for a given memory is a question of narrowing policy, which belongs to the instance, not to the caller. The web client never sent `associate`, and no agent was observed to.
+**Why.** Association exists for unknown unknowns. An agent that turns it off asserts it has none, which is a judgment it is poorly placed to make. Whether spreading runs at all, how far, and how much of what it finds is kept are the instance's to decide, not the caller's: today spreading is a fixed step in core, and it may become a plugin the owner configures, as narrowing already is. Either way the agent sees no switch. The web client never sent `associate`, and no agent was observed to.
 
 The one case that looked like a reason to turn it off, reading every fragment under an anchor such as `#must-read`, is enumeration, not recall: it wants every item, in order, with nothing added and nothing judged. That belongs to a listing tool (the planned memfs plugin), not to a switch on recall.
 
 ### 3. The system sizes the result; `limit` is removed
 
-**Why.** The agent does not know how much it does not know, so it cannot choose a size. It can only copy a habit, and the habit is small. A small `limit` shuts the association channel. A large one is what the system would have chosen anyway. The system knows how wide the spread was and how much narrowing kept, so it is the one party able to size the result.
+**Why.** The agent does not know how much it does not know, so it cannot choose a size. In practice it copies a habit, and the habit is small. A small `limit` shuts the association channel. A large one is close to what the system would have chosen anyway. The system knows how wide the spread was and how much narrowing kept, so it is better placed to size the result.
 
 `RecallInput`, which plugins receive, drops `limit` too, so no plugin can behave differently by page size.
 
-### 4. Generation bounds its own output
+### 4. Generation is bounded before narrowing sees it
 
-Each generating step, starting points and spread alike, has a fixed ceiling in core. Narrowing never has to refuse work because generation produced too much, and the caller cannot widen or shrink a recall.
+Each generating step, starting points and spread alike, has a fixed ceiling that the pipeline enforces. Today both steps and their ceilings live in core; if spreading moves into plugins, the host enforces the ceiling on what each adds. Narrowing never has to refuse work because generation produced too much, and the caller cannot widen or shrink a recall.
 
-**Why.** A bound has to live somewhere. In generation it is a property of the memory; anywhere later it becomes a property of the plugin configuration, and the same cue reaches different memories on different instances.
+**Why.** A bound has to live somewhere. Placing it on generation keeps size logic out of narrowing plugins, which then only judge, and keeps size out of the caller's hands.
 
 ### 5. Only the output knows the size
 
@@ -95,7 +95,7 @@ A narrowing plugin judges everything it receives. If it cannot, it retries withi
 
 The cause goes to the log. Narrowing never stops early and never passes unchecked items through as checked.
 
-**Why an error rather than a warning.** An agent acts on errors and skips warnings. A result plus a warning reads as a result: the agent takes the unfiltered list as checked, which is the trust cost this RFC is here to remove. An error is unambiguous, and with retry in front of it, rare. Two error classes keep an agent from retrying into an empty balance.
+**Why an error rather than a warning.** Agents reliably act on errors; a warning inside a successful result is easy to skip. A result plus a warning reads as a result: the agent is likely to take the unfiltered list as checked, which is the trust cost this RFC is here to remove. An error is unambiguous, and with retry in front of it, should be rare. Two error classes keep an agent from retrying into an empty balance.
 
 **Why not stop early once the page is full.** It looks like a free optimization but is not: the result would depend on the page size (against decision 5), and any hook after it that reorders or drops items could then need what was never judged.
 
@@ -109,7 +109,7 @@ The result carries `truncated: true` when relevant memories were left out that a
 
 The tool describes it as: some relevant memories were left out; use a more specific cue, or recall an anchor from `via`.
 
-**Why a boolean and not a count.** A count has to count something: matches before narrowing, or survivors after. The first tells an agent, on an instance with Jev on, that 134 fragments exist that it "cannot see", when they are the ones judged irrelevant. The second changes meaning with the instance's plugins, so the same agent code reads it differently on different memories. And any number invites paging toward it. A boolean with one meaning and one remedy avoids all three.
+**Why a boolean and not a count.** A count has to count something: matches before narrowing, or survivors after. The first tells an agent, on an instance with Jev on, that 134 fragments exist that it "cannot see", when they are the ones judged irrelevant. The second changes meaning with the instance's plugins, so the same agent code reads it differently on different memories. And a number invites paging toward it. A boolean with one meaning and one remedy avoids all three.
 
 **Why rename.** `hasMore` is the vocabulary of paged APIs and promises a cursor. Recall has none, and the remedy is not "call again" but "ask differently". `truncated` states what happened and leaves the remedy to the description.
 
@@ -136,7 +136,7 @@ The per-key ceiling keeps a hub anchor from crowding out a rare one; a single re
 
 ### Narrowing
 
-Plugins run in registry order and may only reorder or drop.
+Narrowing plugins run in registry order and may only reorder or drop. A hook for plugins that add candidates is not defined here.
 
 - `idf` moves associations through rare anchors ahead of those through common ones. It does not drop.
 - `jev` judges every candidate it is asked to, in batches of at most 40 candidates and 12,000 characters so each request fits Jev's 32k-token context even in CJK text, and sends the batches in parallel. A request that times out (10 s) or fails is retried once; the whole step has a deadline of 25 s. A Workers AI error that names a balance, a quota, or an unknown model is persistent; every other failure, including a malformed response or an unanswered candidate, is transient. Jev's default setting is not decided here.
@@ -175,7 +175,7 @@ The dev server and tests use a fake Workers AI (`worker/dev/ai.ts`) in which Jev
 
 - On an instance with Jev on, a Workers AI outage that outlasts the retries fails recall until it passes. Every recall there bills Workers AI.
 - Without Jev, a recall returns up to N fragments instead of 10, and noise per recall roughly doubles on the eval set. With Jev it is unchanged.
-- Old fragments under busy anchors stop surfacing through association. They still surface through a direct cue.
+- Under the current spread policy, old fragments under busy anchors stop surfacing through association. They still surface through a direct cue.
 - A recall's snapshot of the corpus lives as long as its Jev requests, so a fragment revised or forgotten meanwhile may come back in its earlier form.
 - Architecture.md says plugins attach only at the terminal. That described the code, not a rule; it is reworded with the implementation, since `context` may later seed generation.
 
@@ -183,7 +183,7 @@ The dev server and tests use a fake Workers AI (`worker/dev/ai.ts`) in which Jev
 
 ### Keep `limit` as a pure output cap
 
-Decisions 4 and 5 make `limit` harmless to the pipeline. It stays harmful to the agent, who sets it from habit and shuts the association channel. Its one honest use, a reading budget, is a judgment models make badly.
+Decisions 4 and 5 make `limit` harmless to the pipeline. It stays harmful to the agent, who sets it from habit and shuts the association channel. Its one honest use, a reading budget, is a judgment models make poorly today.
 
 ### Keep `limit` and fix the wording
 
@@ -191,7 +191,7 @@ The raise-and-retry loop stays, and `limit` still decides how far recall spreads
 
 ### A count instead of a boolean
 
-Covered under decision 7: no count has one meaning across instances, and every count invites paging.
+Covered under decision 7: we found no count with one meaning across instances, and a count invites paging.
 
 ### Fail open with a warning
 
@@ -238,7 +238,7 @@ The shape is old. Recall as designed here corresponds to well-studied parts of h
 - **Per-key ceilings and `idf`** follow the fan effect (Anderson, 1974) and the cue-overload principle (Watkins and Watkins, 1975): a cue shared by many items is a weak cue for each. `#work` is an overloaded cue.
 - **`context`** is context-dependent retrieval (Godden and Baddeley, 1975; Howard and Kahana's temporal context model, 2002).
 - **Association for unknown unknowns** is reminding (Schank, _Dynamic Memory_, 1982) and involuntary memory (Berntsen, 2009): the situation, not a search, brings the relevant episode back, and distinctive cues do it best.
-- **Generation then narrowing** is the generate-recognize account of recall (Bahrick, 1970; Anderson and Bower, 1972), with narrowing as the monitoring stage of Koriat and Goldsmith (1996), where a confidence criterion trades quantity for accuracy. The same literature records the risk: a recognition stage can reject items that would have been recalled correctly, which is why a filter's default must be judged by what it misses.
+- **Generation then narrowing** is the generate-recognize account of recall (Bahrick, 1970; Anderson and Bower, 1972), with narrowing as the monitoring stage of Koriat and Goldsmith (1996), where a confidence criterion trades quantity for accuracy. The same literature records the risk: a recognition stage can reject items that would have been recalled correctly, which is why a filter's default should be judged by what it misses.
 
 What memsys does not do on its own, forgetting, consolidation, reweighting by use, is the slow system of complementary learning systems theory (McClelland, McNaughton, and O'Reilly, 1995). Those belong to plugins that propose changes through the core write tools; the core stores verbatim.
 
@@ -249,6 +249,7 @@ What memsys does not do on its own, forgetting, consolidation, reweighting by us
 - **Enumeration.** Reading every fragment under an anchor is the planned memfs plugin's job.
 - **Consolidation and decay.** A periodic pass by a stronger model that tidies memories, and any reweighting by use, are plugin-layer work that proposes writes through the core tools.
 - **Spread along time.** Fragments written close together tend to belong together; spreading along `at` as well as anchors is a plugin for later.
+- **Spread as a plugin.** Anchor spread itself may leave core and become the first of a family of plugins that add candidates, with a hook for adding, host-enforced ceilings, and a `via` that can carry reasons other than anchors. The decisions here are worded so that move needs no revisiting: the agent has no switch either way, generation stays bounded before narrowing, and only core's cuts set `truncated`.
 
 ## Open questions
 
@@ -262,7 +263,8 @@ What memsys does not do on its own, forgetting, consolidation, reweighting by us
 ## Testing
 
 - Pipeline: the full plugin registry sees every candidate and cuts only at the end.
-- Core: a cut at M sets `truncated`; cuts at K and A do not; every kept match seeds association; K keeps the newest per key.
+- Core: a cut at M sets `truncated`; cuts at K and A do not.
+- Current policy: every kept match seeds association; K keeps the newest per key.
 - Input: `associate` and `limit` are rejected; `context` is optional.
 - Jev: every candidate is judged whatever the output size; batches stay within budget; a transient failure is retried and then fails the recall with the transient message; a persistent failure fails at once with the persistent message; one failed batch fails the recall.
 - `pnpm eval`, with and without `JEV=1`.
@@ -270,9 +272,9 @@ What memsys does not do on its own, forgetting, consolidation, reweighting by us
 ## Decision
 
 1. Recall takes a `cue` and an optional, recommended `context`.
-2. Association is always on; `associate` is removed.
+2. Association is not the agent's to switch; `associate` is removed.
 3. The system sizes the result; `limit` is removed.
-4. Generation bounds its own output in core.
+4. Generation is bounded before narrowing sees it; in core today.
 5. Only the final truncation knows how many fragments a recall returns.
 6. Narrowing judges everything it receives, or retries and then fails with an error that says whether to retry.
 7. `truncated` replaces `hasMore`, set by cuts a more specific cue can recover: starting points and output, not spread.
