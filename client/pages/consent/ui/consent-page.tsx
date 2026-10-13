@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { Check, Layers } from "lucide-react";
+import { Check } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router";
 
@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/shared/ui/card";
+import { Logo } from "@/shared/ui/logo";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { Switch } from "@/shared/ui/switch";
 
@@ -63,7 +64,7 @@ export const ConsentView = () => {
   return (
     <main className="mx-auto flex min-h-svh max-w-sm flex-col justify-center gap-6 px-5 py-10">
       <h1 className="flex items-center justify-center gap-3 text-3xl font-semibold tracking-tight">
-        <Layers aria-hidden="true" className="size-7" />
+        <Logo className="size-10" />
         memsys
       </h1>
       <Card aria-busy={app.isPending}>
