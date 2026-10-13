@@ -1,6 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
 import { cn } from "cn";
-import { Layers } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router";
 
@@ -17,6 +16,7 @@ import {
 } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { Logo } from "@/shared/ui/logo";
 
 // Better Auth error codes, in words a person signing in can act on. Other
 // errors, such as an address outside the allowlist, keep the worker's text.
@@ -121,7 +121,7 @@ export const LoginView = () => {
   return (
     <main className="mx-auto flex min-h-svh max-w-sm flex-col justify-center gap-6 px-5 py-10">
       <h1 className="flex items-center justify-center gap-3 text-3xl font-semibold tracking-tight">
-        <Layers aria-hidden="true" className="size-7" />
+        <Logo className="size-10" />
         memsys
       </h1>
       <Card>

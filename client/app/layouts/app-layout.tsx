@@ -1,9 +1,10 @@
 import { cn } from "cn";
-import { Archive, Layers, Settings } from "lucide-react";
+import { Archive, Settings } from "lucide-react";
 import { Navigate, NavLink, Outlet } from "react-router";
 
 import { authClient } from "@/shared/api";
 import { buttonVariants } from "@/shared/ui/button";
+import { Logo } from "@/shared/ui/logo";
 import { MemoryHistoryDialog } from "@/widgets/memory-history";
 import { RecallPreview } from "@/widgets/recall-preview";
 
@@ -37,7 +38,7 @@ export const App = () => {
               end
               to="/"
             >
-              <Layers aria-hidden="true" className="size-6" />
+              <Logo />
               <span className="max-sm:sr-only">memsys</span>
             </NavLink>
           </h1>

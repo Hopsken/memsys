@@ -41,6 +41,7 @@ export default defineConfig({
     "worker-configuration.d.ts",
     // Vendored from the shadcn registry; `shadcn add --overwrite` regenerates it.
     "client/shared/ui/**",
+    "!client/shared/ui/logo.tsx",
     "!client/shared/ui/toaster.tsx",
   ],
   overrides: [
