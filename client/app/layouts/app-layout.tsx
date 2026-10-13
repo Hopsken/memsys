@@ -30,16 +30,16 @@ export const App = () => {
     <>
       <header className="bg-background/85 sticky top-0 z-10 backdrop-blur">
         <div className="mx-auto flex h-(--header-height) max-w-3xl items-center gap-4 px-5 sm:gap-6 sm:px-8">
-          {/* On a phone the logo keeps only its mark, so both views keep
-          their names. */}
+          {/* The elephant stands for the name on screen; screen readers
+          still hear it. */}
           <h1>
             <NavLink
               className="focus-visible:ring-ring/50 flex items-center gap-2 rounded-md text-xl font-semibold tracking-tight outline-none focus-visible:ring-3"
               end
               to="/"
             >
-              <Logo />
-              <span className="max-sm:sr-only">memsys</span>
+              <Logo className="size-9" />
+              <span className="sr-only">memsys</span>
             </NavLink>
           </h1>
           <nav aria-label="Views" className="flex items-center gap-1">
