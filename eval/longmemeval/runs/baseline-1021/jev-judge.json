@@ -1,0 +1,842 @@
+[
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "00ca467f",
+    "score": 0.99,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "00ca467f",
+    "score": 0.96,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": false,
+    "model": "jev-1.13.0",
+    "questionId": "031748ae_abs",
+    "score": 0.09,
+    "setup": "full context"
+  },
+  {
+    "deepseek": false,
+    "model": "jev-1.13.0",
+    "questionId": "031748ae_abs",
+    "score": 0.06,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "06878be2",
+    "score": 0.92,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "06878be2",
+    "score": 0.86,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "06db6396",
+    "score": 0.97,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "06db6396",
+    "score": 0.96,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": false,
+    "model": "jev-1.13.0",
+    "questionId": "07741c45",
+    "score": 0.04,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "07741c45",
+    "score": 0.9,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": false,
+    "model": "jev-1.13.0",
+    "questionId": "09ba9854",
+    "score": 0.1,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "09ba9854",
+    "score": 0.91,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "0f05491a",
+    "score": 0.95,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "0f05491a",
+    "score": 0.76,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "195a1a1b",
+    "score": 0.93,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "195a1a1b",
+    "score": 0.67,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "1a1907b4",
+    "score": 0.66,
+    "setup": "full context"
+  },
+  {
+    "deepseek": false,
+    "model": "jev-1.13.0",
+    "questionId": "1a1907b4",
+    "score": 0.1,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "1c0ddc50",
+    "score": 0.24,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "1c0ddc50",
+    "score": 0.44,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "1d4da289",
+    "score": 0.97,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "1d4da289",
+    "score": 0.46,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "1de5cff2",
+    "score": 0.98,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "1de5cff2",
+    "score": 0.98,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "1e043500",
+    "score": 0.96,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "1e043500",
+    "score": 0.96,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "2311e44b",
+    "score": 0.96,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "2311e44b",
+    "score": 0.93,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "2c63a862",
+    "score": 0.98,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "2c63a862",
+    "score": 0.97,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "3249768e",
+    "score": 0.8,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "3249768e",
+    "score": 0.83,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "36580ce8",
+    "score": 0.97,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "36580ce8",
+    "score": 0.98,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "488d3006",
+    "score": 0.98,
+    "setup": "full context"
+  },
+  {
+    "deepseek": false,
+    "model": "jev-1.13.0",
+    "questionId": "488d3006",
+    "score": 0.03,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "4f54b7c9",
+    "score": 0.97,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "4f54b7c9",
+    "score": 0.95,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "51a45a95",
+    "score": 0.85,
+    "setup": "full context"
+  },
+  {
+    "deepseek": false,
+    "model": "jev-1.13.0",
+    "questionId": "51a45a95",
+    "score": 0.03,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "54026fce",
+    "score": 0.76,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "54026fce",
+    "score": 0.52,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "58bf7951",
+    "score": 0.97,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "58bf7951",
+    "score": 0.95,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "6071bd76",
+    "score": 0.97,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "6071bd76",
+    "score": 0.96,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "6222b6eb",
+    "score": 0.97,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "6222b6eb",
+    "score": 0.96,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "6456829e",
+    "score": 0.96,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "6456829e",
+    "score": 0.86,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "6aeb4375",
+    "score": 0.96,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "6aeb4375",
+    "score": 0.94,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "6b168ec8",
+    "score": 0.98,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "6b168ec8",
+    "score": 0.94,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "6b7dfb22",
+    "score": 0.93,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "6b7dfb22",
+    "score": 0.73,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "70b3e69b",
+    "score": 0.88,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "70b3e69b",
+    "score": 0.92,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "720133ac",
+    "score": 0.99,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "720133ac",
+    "score": 0.97,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "75832dbd",
+    "score": 0.73,
+    "setup": "full context"
+  },
+  {
+    "deepseek": false,
+    "model": "jev-1.13.0",
+    "questionId": "75832dbd",
+    "score": 0.04,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": false,
+    "model": "jev-1.13.0",
+    "questionId": "80ec1f4f_abs",
+    "score": 0.58,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "80ec1f4f_abs",
+    "score": 0.73,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "86f00804",
+    "score": 0.96,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "86f00804",
+    "score": 0.94,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "a08a253f",
+    "score": 0.98,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "a08a253f",
+    "score": 0.96,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": false,
+    "model": "jev-1.13.0",
+    "questionId": "a11281a2",
+    "score": 0.4,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "a11281a2",
+    "score": 0.95,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": false,
+    "model": "jev-1.13.0",
+    "questionId": "a2f3aa27",
+    "score": 0.36,
+    "setup": "full context"
+  },
+  {
+    "deepseek": false,
+    "model": "jev-1.13.0",
+    "questionId": "a2f3aa27",
+    "score": 0.83,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "a3045048",
+    "score": 0.96,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "a3045048",
+    "score": 0.98,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "a89d7624",
+    "score": 0.83,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "a89d7624",
+    "score": 0.65,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "ac031881",
+    "score": 0.97,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "ac031881",
+    "score": 0.9,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "ad7109d1",
+    "score": 0.97,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "ad7109d1",
+    "score": 0.95,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "b01defab",
+    "score": 0.89,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "b01defab",
+    "score": 0.89,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "b6019101",
+    "score": 0.96,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "b6019101",
+    "score": 0.76,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "bc8a6e93_abs",
+    "score": 0.97,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "bc8a6e93_abs",
+    "score": 0.83,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "bcbe585f",
+    "score": 0.97,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "bcbe585f",
+    "score": 0.92,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "c14c00dd",
+    "score": 0.94,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "c14c00dd",
+    "score": 0.81,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "c4f10528",
+    "score": 0.94,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "c4f10528",
+    "score": 0.88,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "c6853660",
+    "score": 0.97,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "c6853660",
+    "score": 0.97,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "c8c3f81d",
+    "score": 0.98,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "c8c3f81d",
+    "score": 0.92,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "ceb54acb",
+    "score": 0.95,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "ceb54acb",
+    "score": 0.96,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "d24813b1",
+    "score": 0.94,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "d24813b1",
+    "score": 0.84,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "d6233ab6",
+    "score": 0.9,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "d6233ab6",
+    "score": 0.72,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "eaca4986",
+    "score": 0.72,
+    "setup": "full context"
+  },
+  {
+    "deepseek": false,
+    "model": "jev-1.13.0",
+    "questionId": "eaca4986",
+    "score": 0.03,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "gpt4_4edbafa2",
+    "score": 0.98,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "gpt4_4edbafa2",
+    "score": 0.92,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "gpt4_6ed717ea",
+    "score": 0.95,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "gpt4_6ed717ea",
+    "score": 0.95,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "gpt4_7fce9456",
+    "score": 0.78,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "gpt4_7fce9456",
+    "score": 0.68,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "gpt4_93f6379c",
+    "score": 0.97,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "gpt4_93f6379c",
+    "score": 0.92,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "gpt4_cd90e484",
+    "score": 0.97,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "gpt4_cd90e484",
+    "score": 0.98,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "gpt4_d31cdae3",
+    "score": 0.97,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "gpt4_d31cdae3",
+    "score": 0.94,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "gpt4_e414231f",
+    "score": 0.95,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "gpt4_e414231f",
+    "score": 0.95,
+    "setup": "memsys"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "gpt4_fa19884d",
+    "score": 0.8,
+    "setup": "full context"
+  },
+  {
+    "deepseek": true,
+    "model": "jev-1.13.0",
+    "questionId": "gpt4_fa19884d",
+    "score": 0.81,
+    "setup": "memsys"
+  }
+]

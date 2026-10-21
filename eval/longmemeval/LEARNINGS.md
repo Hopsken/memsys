@@ -23,6 +23,8 @@ From reading [DolphinBench](https://mem0.ai/blog/introducing-dolphinbench-mappin
 12. **Known limit: writing after the fact.** Pi reads each finished transcript and then writes. A real assistant writes during the conversation, and DolphinBench feeds user messages one at a time through a normal harness. Keep this in mind when reading write-side results.
 13. **DolphinBench itself, later.** About 500k tokens per persona, so it still fits a 1M context. It supports Hermes and Claude Code, so Pi needs an adapter, and it has 13.5k messages to write. Consider a sample after 1 to 3 land; check the repository and the cost first.
 
+14. **Switch the answer judge to Jev** (section 7), keep a large model for evidence labels, and flag Jev scores between 0.3 and 0.7 for review. Separate the agent model from the judge model, so that Pi can run on OpenCode Go (`MODEL=opencode-go/deepseek-v4.1-flash`, $3.2 per 60 questions off-peak) while the judge and the full-context control keep calling DeepSeek directly.
+
 Outside the eval: memsys is a memory for a long-running personal assistant, not for coding agents only. `docs/VISION.md` still names the coding-agent user as primary, so update it.
 
 ## baseline-1021 (2026-10-21)
@@ -47,7 +49,7 @@ Of the 7 wrong answers, read by hand, only one is a recall miss, and lexical rec
 | 488d3006 | The trail the assistant recommended (GR-90) was never stored | write |
 | eaca4986 | The chord progression the assistant wrote was never stored | write |
 | 51a45a95 | Memory says a $5 creamer coupon was redeemed, but not where (Target) | write |
-| a2f3aa27 | Follower counts 1,250 and "close to 1,300" both stored the same day; the older one was not revised | write (stale fact) |
+| a2f3aa27 | Follower counts 1,250 and "close to 1,300" both stored the same day; the older one was not revised. Section 7: the answer gave the updated value, so this is likely a judge error, not a miss | write (stale fact)? |
 | 031748ae_abs | The user's title was Senior Software Engineer; the agent answered for "Software Engineer Manager" instead of flagging the false premise | answer |
 | 1a1907b4 | Every needed memory came back; the agent asked a question instead of suggesting cocktails | answer |
 | 75832dbd | Cue `research interests conferences`; the memories say "deep learning for medical image analysis" and "XAI", sharing no word | recall (semantic gap) |
@@ -146,6 +148,31 @@ At strictness `medium`, no Jev failures after retries.
 So `low` is the safe point found so far: it removes clear misses without touching what association is for. `medium` saves about twice the tokens and puts association-only memories at risk.
 
 Whether `low` holds up with a real agent needs the answer step rerun with Jev on (about $0.15), and the replay repeated to see how stable Jev's verdicts are.
+
+### 7. Jev can replace the DeepSeek judge for answer checks
+
+`jev-judge.ts` ([jev-judge.md](runs/baseline-1021/jev-judge.md)) graded the 120 answers this run already has (60 memsys, 60 full context) again with Jev (`jev-1.13.0`). LongMemEval's grading rules were restated as Jev criteria, one question per answer, and an answer counts as correct at a score of 0.5 or more. Cost: Workers AI only, a few minutes.
+
+**Agreement 115/120.** Scores with Jev: memsys 52/60, full context 54/60. With DeepSeek they were 53 and 54, so the conclusion of section 5 does not change.
+
+The 5 disagreements, read by hand:
+
+| Question | Setup | DeepSeek | Jev | Who is right |
+| --- | --- | --- | --- | --- |
+| a2f3aa27 | memsys | wrong | 0.83 right | Jev. "Close to 1,300" with the older 1,250 named as earlier is the updated answer; the knowledge-update rule accepts it. Section 1 counted this as a miss. |
+| 80ec1f4f_abs | full context | wrong | 0.58 right | Jev. "No evidence of any museum visit in December; 0 recorded" is the expected answer. |
+| 1d4da289 | memsys | right | 0.46 wrong | DeepSeek, by the rule. The agent said it had no record and listed six generic 2FA methods, which include the two expected ones. By the rule this is "contains the answer", but it is a guess; memory did not supply it (a write miss). |
+| 1c0ddc50 | memsys | right | 0.44 wrong | Unclear. The rubric wants podcasts beyond true crime and self-improvement, and nothing visual. The answer suggests reading on the bus and gives generic audio ideas. |
+| 1c0ddc50 | full context | right | 0.24 wrong | Unclear, the same as above. |
+
+So Jev is right at least as often as DeepSeek where they differ, and it removes the self-grading bias: the agent and the DeepSeek judge are the same model.
+
+Notes for using it:
+
+- Scores are less sharp on real answers than in a toy probe: 20 of 120 fall between 0.2 and 0.8, mostly preference questions. Flag answers between 0.3 and 0.7 for review instead of trusting the threshold.
+- The question bank rewards guessing: 1d4da289 counts as correct for memsys although memory had nothing. A no-history control (open fix 8) would show how common that is.
+- Jev is also a memsys plugin. Pin its version in every verdict, so that a change to Jev does not silently change the grading.
+- Evidence labels still need a large model: each one reads the whole memory, about 230 fragments, which is beyond what Jev takes.
 
 ### Reproduce the numbers
 
