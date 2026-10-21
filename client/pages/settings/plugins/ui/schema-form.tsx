@@ -41,7 +41,7 @@ const SEGMENTED_MAX = 4;
 
 // Strings show bare; other JSON values show as JSON.
 const display = (value: Json | undefined) =>
-  z.safeParse(z.string(), value).data ?? JSON.stringify(value);
+  z.safeParse(z.string(), value).data ?? JSON.stringify(value) ?? "";
 
 // Types whose control fits beside the label; anything else spans the row.
 const INLINE_TYPES = new Set(["boolean", "integer", "number", "string"]);
@@ -73,6 +73,10 @@ export const hasFields = (schema: JsonObject) => {
 
 // Booleans read as On/Off; other values as in `display`.
 const displayValue = (value: Json | undefined) => {
+  // A cleared field has no value until the user types one.
+  if (value === undefined) {
+    return "Not set";
+  }
   const flag = z.safeParse(z.boolean(), value);
   if (flag.success) {
     return flag.data ? "On" : "Off";
