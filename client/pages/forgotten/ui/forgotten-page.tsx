@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { cn } from "cn";
 import { Link, Outlet } from "react-router";
 
-import { useRestore } from "@/entities/memory";
+import { MemoryLength, useRestore } from "@/entities/memory";
 import { SessionExpired } from "@/features/auth";
 import { api, isExpired } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
@@ -33,6 +33,7 @@ const ForgottenRow = ({ item }: { item: ForgottenFragment }) => {
           >
             {item.ref}
           </Link>
+          <MemoryLength text={item.fragment} />
           <span aria-hidden="true">·</span>
           <time
             className="flex-1"
