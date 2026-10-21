@@ -1,9 +1,14 @@
-import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useQuery,
+} from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
 import { cn } from "cn";
-import { ArrowDown, Hash, Layers } from "lucide-react";
+import { ArrowDown, Hash, Layers, TriangleAlert } from "lucide-react";
 import { useEffect } from "react";
 import { Link, Outlet, useLocation } from "react-router";
+import * as z from "zod/mini";
 
 import { SessionExpired } from "@/features/auth";
 import { TaggedText, useTags } from "@/features/tag-filter";
@@ -18,7 +23,9 @@ import {
   useReturnFocus,
 } from "@/widgets/memory-history";
 import type { FragmentPage, ListedFragment } from "@contract/memory";
+import type { PluginView } from "@contract/plugin";
 import { formatRelativeDate, formatRelativeDateInline } from "@lib/date";
+import { fragmentLength } from "@lib/fragment";
 
 import { TagFilterBar } from "./tag-filter-bar";
 
@@ -35,23 +42,58 @@ const flatten = (pages: FragmentPage[]) => {
   return [...items.values()];
 };
 
+const softLimitConfig = z.object({ soft: z.int() });
+
+// The "Warn above" length from the Short memories plugin, or null when that
+// plugin is off.
+const useSoftLimit = () => {
+  const plugins = useQuery({
+    queryFn: ({ signal }) =>
+      api.get("/api/plugins", { signal }).json<PluginView[]>(),
+    queryKey: ["plugins"],
+  });
+  const sizeLimit = plugins.data?.find(
+    ({ enabled, name }) => enabled && name === "size-limit"
+  );
+  return z.safeParse(softLimitConfig, sizeLimit?.config).data?.soft ?? null;
+};
+
 // A row only shows the memory; clicking it opens the history, where it can be restored or forgotten. The
 // history keeps the list's filter in its URL, so closing it returns to the
 // same list.
-const FragmentRow = ({ item }: { item: ListedFragment }) => {
+const FragmentRow = ({
+  item,
+  softLimit,
+}: {
+  item: ListedFragment;
+  softLimit: number | null;
+}) => {
   const open = useOpenHistory();
   const to = `${item.ref}${useLocation().search}`;
+  const length = fragmentLength(item.fragment);
+  const tooLong = softLimit !== null && length > softLimit;
   return (
     <li>
       <div className={listCardLink} onClick={open(to)}>
         <div className="text-muted-foreground flex min-h-7 flex-wrap items-center justify-between gap-x-4 text-xs">
-          <Link
-            className="hover:text-foreground focus-visible:ring-ring/50 rounded-sm font-mono outline-none focus-visible:ring-3"
-            id={memoryId(item.ref)}
-            to={to}
-          >
-            {item.ref}
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              className="hover:text-foreground focus-visible:ring-ring/50 rounded-sm font-mono outline-none focus-visible:ring-3"
+              id={memoryId(item.ref)}
+              to={to}
+            >
+              {item.ref}
+            </Link>
+            {tooLong ? (
+              <span
+                className="inline-flex items-center gap-1 text-amber-700 tabular-nums dark:text-amber-400"
+                title={`${length} characters, over your warning limit of ${softLimit}`}
+              >
+                <TriangleAlert aria-hidden className="size-3" />
+                {length}
+              </span>
+            ) : null}
+          </div>
           <time dateTime={item.at} title={new Date(item.at).toLocaleString()}>
             {item.versions > 1
               ? `Edited ${formatRelativeDateInline(item.at)}`
@@ -93,6 +135,7 @@ export const FragmentsView = () => {
     queryKey: ["fragments", { tag: tags }],
   });
   const items = flatten(query.data?.pages ?? []);
+  const softLimit = useSoftLimit();
   useReturnFocus();
   // A new filter is a new list, so it starts from the top.
   const filter = tags.join(" ");
@@ -180,7 +223,7 @@ export const FragmentsView = () => {
         ) : null}
         <ul className="space-y-2">
           {items.map((item) => (
-            <FragmentRow item={item} key={item.ref} />
+            <FragmentRow item={item} key={item.ref} softLimit={softLimit} />
           ))}
         </ul>
       </section>
