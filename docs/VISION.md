@@ -4,7 +4,7 @@ This is an overview of what memsys is for, zoomed out enough that it survives wh
 
 ### Charter
 
-memsys is a durable memory for AI agents: a user's history should outlive any single generation of model.
+memsys is a durable memory for AI agents: a user's history should outlive any single generation of model, and any single agent.
 
 ### Tenets
 
@@ -18,15 +18,19 @@ Tenets guide how decisions are made. Ideally we honor all of them all the time. 
 
 ## Use Cases
 
-### A person working with a coding agent
+### A person with a long-running personal assistant
 
-The primary user. They have told the agent things — preferences, facts about their environment, lessons from past mistakes — and expect not to repeat themselves when the model is upgraded. They care most that memsys is **Durable** and **Faithful**: the memory survives the model swap, and it says what they said.
+The primary user. They want one memory that follows them for years, across model upgrades and across every agent they use: a chat assistant, a coding agent, a voice assistant, whatever comes next. Over time they tell those agents who the people in their life are, what they like, how their days run, what went wrong last time — and expect not to repeat themselves when the model is upgraded or they switch agents. They care most that memsys is **Durable** and **Faithful**: the memory survives the model swap, and it says what they said.
+
+memsys is the one memory all of those agents share. A person tells ChatGPT their favorite fruit is watermelon. Weeks later they ask Claude to plan a dinner, and Claude suggests watermelon for dessert without being told to check. Two things make that work. What one agent writes, every agent connected to the same memory can recall: the fragment is plain text, so no agent needs to understand another. And the agent knows to recall on its own. memsys's own server instructions and tool descriptions are the place for that, because every connected agent reads them; the person's AGENTS.md or custom instructions can add to them. memsys does not reach into the conversation (see [Boundaries](#boundaries)).
+
+Coding agents are one important surface: people who use them daily store a lot about code. They are still one of the agents a person uses, not the definition of the product. The memory is about the whole person.
 
 The success measure is theirs: _how often do I have to repeat myself?_ Fewer repetitions means it is working. Noise is easy to feel; omissions are not — catching yourself re-explaining something is the signal of a miss.
 
-### Authors of AGENTS.md and skills
+### Authors of AGENTS.md, custom instructions, and skills
 
-They compose memsys with the rest of the harness: "read `#must-read` before starting" in AGENTS.md, a skill for how to write good fragments. They care that memsys is **Composable** — that push, scoping, and workflow can be expressed as conventions over stable primitives rather than as new endpoints.
+They compose memsys with the rest of the harness: "read `#must-read` before starting" in AGENTS.md or an assistant's custom instructions, a skill for how to write good fragments. They care that memsys is **Composable** — that push, scoping, and workflow can be expressed as conventions over stable primitives rather than as new endpoints.
 
 ### Cheap models on routine tasks
 
@@ -36,16 +40,17 @@ Most everyday work does not need a frontier model. A cheaper model should get co
 
 Memory stores the **residual**: what a model with no history would get wrong.
 
+- The model knows lactose intolerance is common → not stored. It does not know you are lactose intolerant → stored.
+- The model knows how to plan a trip to Kyoto → not stored. It does not know you went last spring and found the temples too crowded → stored.
 - The model knows pnpm and bun both work → not stored. It does not know you switched to bun last month → stored.
-- The model knows SQLite has `integrity_check` → not stored. It does not know the system's 3.40.1 gives false positives → stored.
 
 Three kinds of payload in practice:
 
 | Kind | Example | Shape |
 | --- | --- | --- |
-| Preferences | use bun; at most 5 expects per test | few, very stable, apply almost always, nobody thinks to look them up |
-| Environment facts | this repo's D1 primary is in us-west | moderate, stable, scoped by project |
-| Episodic lessons | forgot `allowedHosts`, got 403 | many, ever-growing, triggered by situation rather than keyword |
+| Preferences | favorite fruit is watermelon; aisle seat; no meetings before 10 | few, very stable, apply almost always, nobody thinks to look them up |
+| Facts about the person's world | sister Mei lives in Lisbon; the dentist is Dr. Okafor | moderate, stable, scoped by person, place, or project |
+| Episodic lessons | the hotel the assistant booked in Porto was too noisy | many, ever-growing, triggered by situation rather than keyword |
 
 Whether a fragment can be recalled is decided as much when it is written as when it is queried: recall works on the overlap between cue and encoding. The write path deserves the same design attention as the read path.
 
@@ -53,11 +58,11 @@ Whether a fragment can be recalled is decided as much when it is written as when
 
 Three things compose; none replaces another.
 
-- **AGENTS.md** — always-injected strong context. Present every turn, never retrieved.
+- **AGENTS.md** and custom instructions — always-injected strong context. Present every turn, never retrieved.
 - **Skills** — how to do things. How a tool is used, how it is used well.
 - **Memory** — durable facts and experience. Retrieved on demand.
 
-Push is a convention, not a mechanism: one line in AGENTS.md pointing at `#must-read` is a "how to work with me" document. Data lives in memory, policy lives in AGENTS.md, the substrate does not move.
+Push is a convention, not a mechanism. memsys's server instructions and tool descriptions are the place to tell every connected agent when to recall, such as before it plans or suggests something, so it looks without being asked. A person can add to that: one line in AGENTS.md or custom instructions pointing at `#must-read` is a "how to work with me" document. Data lives in memory, policy lives in the instructions, the substrate does not move.
 
 ## The System
 
