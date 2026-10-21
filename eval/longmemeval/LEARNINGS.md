@@ -67,6 +67,29 @@ This is the concrete case for BM25 as a fallback: when the AND match is empty or
 - A tool call cancelled in the UI may still have run: the `lme-baseline` service had started before the cancel. Check `amp orb service list` before starting a run again.
 - DeepSeek accepts only the `deepseek-flash` alias (not `deepseek-v4.1-flash-1017`); the fingerprint `e72d3c7f663d3e1383b00b3884cb4501` records the version.
 
+### 5. Full context ties memsys on LongMemEval_S
+
+Control run (`full-context.ts`, [full-context.md](runs/baseline-1021/full-context.md)): the same 60 questions, the same model with thinking on, every session in one prompt (about 105k tokens), LongMemEval's own full-context prompt, the same judge. **Full context 54/60, memsys 53/60.** The difference is one question, well inside the noise. Full context cost $1.96 for 60 questions against $6.45 for memsys.
+
+They fail on different questions, and the split matches section 1:
+
+| Type                      | memsys | Full context |
+| ------------------------- | ------ | ------------ |
+| multi-session             | 10/10  | 7/10         |
+| knowledge-update          | 8/10   | 7/10         |
+| single-session-assistant  | 8/10   | 10/10        |
+| single-session-preference | 8/10   | 10/10        |
+| single-session-user       | 9/10   | 10/10        |
+| temporal-reasoning        | 10/10  | 10/10        |
+
+- memsys wins where facts must be gathered or updated across sessions: counting, adding up, the latest value. Distilled fragments are easier to reason over than 50 raw sessions.
+- Full context wins on every single-session detail memsys lost at write time: the GR-90 trail, the chord progression, the coupon store, and the user's research field. Each of these was in the transcript and not in memory.
+
+What this means:
+
+- On LongMemEval_S, a model with a 1M-token window does not need memory. Its sessions fit in one prompt. So a score on S says little about whether memsys is worth it. LongMemEval_M (about 500 sessions per question, more than 1M tokens) is the version where full context cannot work.
+- The single-session gap is the cost of what the writer drops. Fixing the write side (section 1) should move those questions toward full context without losing the multi-session wins.
+
 ### Reproduce the numbers
 
 ```sh

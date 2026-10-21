@@ -1,0 +1,7 @@
+{
+  "answer": "Relevant information:\n- You ordered your best friend’s personalized photo album from Shutterfly on **April 15**.\n- You later stated that your best friend’s 30th birthday party was on **April 22**.\n\nReasoning:\n- April 15 to April 22 is **7 days**.\n\nAnswer: **7 days before the birthday party.**",
+  "cost": 0.032135399999999995,
+  "promptTokens": 105162,
+  "correct": true,
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501"
+}

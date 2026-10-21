@@ -1,0 +1,7 @@
+{
+  "answer": "You joined **‘Page Turners’ first**.\n\n- In Session 2, you said you **“just joined a new book club group called ‘Page Turners’ last week.”**\n- In Session 11, you said you had been engaging with **“Marketing Professionals” on LinkedIn since I joined it yesterday.**\n\nSince “last week” is earlier than “yesterday,” **Page Turners was joined first.**",
+  "cost": 0.031776,
+  "promptTokens": 104672,
+  "correct": true,
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501"
+}

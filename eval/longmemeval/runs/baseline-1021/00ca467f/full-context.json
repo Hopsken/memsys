@@ -1,0 +1,7 @@
+{
+  "answer": "1. **March 3** – Appointed with primary care physician **Dr. Smith**, who diagnosed bronchitis.  \n2. **March 20** – Follow-up appointment with orthopedic surgeon **Dr. Thompson** about the knee.  \n\nOther mentioned medical visits were **not in March**: the EMG with Dr. Johnson is scheduled for **April 1**, and physical therapy starting March 25 is therapy, not a doctor’s appointment.\n\n**Answer: 2 doctor’s appointments in March.**",
+  "cost": 0.033018599999999995,
+  "promptTokens": 105790,
+  "correct": true,
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501"
+}

@@ -1,0 +1,7 @@
+{
+  "answer": "The relevant information from the earlier conversation is:\n\n- SIAC_GEE uses the **6S radiative transfer model** for atmospheric correction.\n- Sen2Cor uses the L2A_Process algorithm.\n- MAJA is implemented in the MAJA software developed by CNES.\n- In the comparison, it was explicitly stated that **6S is implemented in the SIAC_GEE tool**.\n\n**Answer:** **6S** is the atmospheric correction method implemented in **SIAC_GEE**.",
+  "cost": 0.032600399999999995,
+  "promptTokens": 107092,
+  "correct": true,
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501"
+}
