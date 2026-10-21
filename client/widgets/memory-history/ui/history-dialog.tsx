@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "cn";
-import { Archive, Trash2, XIcon } from "lucide-react";
+import { Archive, Ruler, Trash2, XIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   useLocation,
@@ -42,6 +42,7 @@ import { Skeleton } from "@/shared/ui/skeleton";
 import { toasts } from "@/shared/ui/toaster";
 import type { ForgottenList, History, Version } from "@contract/memory";
 import { formatRelativeDate } from "@lib/date";
+import { fragmentLength } from "@lib/fragment";
 
 import { MemoryText } from "./memory-text";
 
@@ -189,6 +190,7 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
           const { at, by, fragment, op } = version;
           const isCurrent = index === 0 && fragment !== null;
           const canRestore = fragment !== null && fragment !== current;
+          const length = fragment === null ? null : fragmentLength(fragment);
           const before =
             op === "revise" ? (versions[index + 1]?.fragment ?? null) : null;
           return (
@@ -223,6 +225,18 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
                     <time dateTime={at} title={new Date(at).toLocaleString()}>
                       {stamp(at)}
                     </time>
+                    {length === null ? null : (
+                      <>
+                        <span aria-hidden="true">·</span>
+                        <span
+                          className="inline-flex items-center gap-1 tabular-nums"
+                          title={`${length} characters`}
+                        >
+                          <Ruler aria-hidden="true" className="size-3" />
+                          {length}
+                        </span>
+                      </>
+                    )}
                   </span>
                   {isCurrent ? <span>Current</span> : null}
                   {canRestore ? (
