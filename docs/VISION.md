@@ -22,7 +22,7 @@ Tenets guide how decisions are made. Ideally we honor all of them all the time. 
 
 The primary user. They want one memory that follows them for years, across model upgrades and across every agent they use: a chat assistant, a coding agent, a voice assistant, whatever comes next. Over time they tell those agents who the people in their life are, what they like, how their days run, what went wrong last time — and expect not to repeat themselves when the model is upgraded or they switch agents. They care most that memsys is **Durable** and **Faithful**: the memory survives the model swap, and it says what they said.
 
-memsys is the one memory all of those agents share. A person tells ChatGPT their favorite fruit is watermelon. Weeks later they ask Claude to plan a dinner, and Claude suggests watermelon for dessert without being told to check. Two things make that work. What one agent writes, every agent connected to the same memory can recall: the fragment is plain text, so no agent needs to understand another. And the agent knows to recall on its own. That starts with memsys's own server instructions and tool descriptions, which every connected agent reads; the person's AGENTS.md or custom instructions can add to them. memsys does not reach into the conversation (see [Boundaries](#boundaries)).
+memsys is the one memory all of those agents share. A person tells ChatGPT their favorite fruit is watermelon. Weeks later they ask Claude to plan a dinner, and Claude suggests watermelon for dessert without being told to check. Two things make that work. What one agent writes, every agent connected to the same memory can recall: the fragment is plain text, so no agent needs to understand another. And the agent knows to recall on its own. memsys's own server instructions and tool descriptions are the place for that, because every connected agent reads them; the person's AGENTS.md or custom instructions can add to them. memsys does not reach into the conversation (see [Boundaries](#boundaries)).
 
 Coding agents are one important surface: people who use them daily store a lot about code. They are still one of the agents a person uses, not the definition of the product. The memory is about the whole person.
 
@@ -62,7 +62,7 @@ Three things compose; none replaces another.
 - **Skills** — how to do things. How a tool is used, how it is used well.
 - **Memory** — durable facts and experience. Retrieved on demand.
 
-Push is a convention, not a mechanism. memsys's server instructions and tool descriptions tell every connected agent when to recall, such as before it plans or suggests something, so it looks without being asked. A person can add to that: one line in AGENTS.md or custom instructions pointing at `#must-read` is a "how to work with me" document. Data lives in memory, policy lives in the instructions, the substrate does not move.
+Push is a convention, not a mechanism. memsys's server instructions and tool descriptions are the place to tell every connected agent when to recall, such as before it plans or suggests something, so it looks without being asked. A person can add to that: one line in AGENTS.md or custom instructions pointing at `#must-read` is a "how to work with me" document. Data lives in memory, policy lives in the instructions, the substrate does not move.
 
 ## The System
 
