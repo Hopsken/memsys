@@ -15,6 +15,8 @@ Needs `pi` (`npm i -g @earendil-works/pi-coding-agent`) and `DEEPSEEK_API_KEY`. 
 
 Output goes to `runs/<name>/`, one directory per question. Runs are ignored by Git unless listed in `.gitignore` to keep; `runs/baseline-1021/` is kept as the first baseline (60 questions, 53 correct), with every session log, memory, answer, and verdict. Pi's per-conversation config (`runs/*/.pi/`) is never kept. Every step is skipped when its output exists, so rerunning a run name continues it. Delete `verdict.json` files to regrade, or `answer.json` files to ask again.
 
+Write what each run teaches in [LEARNINGS.md](LEARNINGS.md) before starting the next one.
+
 ## Steps
 
 1. **Write.** For each session, oldest first, Pi gets the transcript in a new conversation and stores what it judges worth keeping (`sessions.jsonl`). The space is `eval:<run>-<question>-w`.
