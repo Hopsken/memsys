@@ -5,7 +5,8 @@
 //
 //   RUN=baseline-1021 pnpm exec vitest run --config eval/longmemeval/vitest.config.ts
 //
-// Writes runs/<run>/replay.md.
+// JEV_STRICTNESS (default medium) sets the Jev level. Writes
+// runs/<run>/replay-<strictness>.md.
 
 import { existsSync } from "node:fs";
 import { readdir, readFile, writeFile } from "node:fs/promises";
@@ -27,6 +28,7 @@ import { verdict } from "./report.ts";
 
 const RUN = process.env["RUN"] ?? "baseline-1021";
 const RUN_DIR = path.join(import.meta.dirname, "runs", RUN);
+const STRICTNESS = process.env["JEV_STRICTNESS"] ?? "medium";
 // Jev fails open on its timeout; retry so results reflect its judgment.
 const ATTEMPTS = 3;
 const CONCURRENCY = 4;
@@ -39,11 +41,11 @@ const setups: { name: string; stored: StoredConfig[] }[] = [
   { name: "as run (idf)", stored: [] },
   {
     name: "idf + jev",
-    stored: [row("jev", true, { matches: false, strictness: "medium" })],
+    stored: [row("jev", true, { matches: false, strictness: STRICTNESS })],
   },
   {
     name: "idf + jev (matches)",
-    stored: [row("jev", true, { matches: true, strictness: "medium" })],
+    stored: [row("jev", true, { matches: true, strictness: STRICTNESS })],
   },
 ];
 
@@ -243,7 +245,7 @@ it("replays recorded recalls under each plugin setup", async () => {
   }
   const markdown = `# Recall replay, run \`${RUN}\`
 
-${jobs.length} answer-time recalls from ${cases.length} questions, replayed against each question's saved memory. \`as run\` reproduced the recorded result exactly for ${reproduced} of ${jobs.length} recalls. Jev at strictness \`medium\`, timeout ${JEV_TIMEOUT_MS} ms, up to ${ATTEMPTS} attempts. Regenerate with \`RUN=${RUN} pnpm exec vitest run --config eval/longmemeval/vitest.config.ts\`.
+${jobs.length} answer-time recalls from ${cases.length} questions, replayed against each question's saved memory. \`as run\` reproduced the recorded result exactly for ${reproduced} of ${jobs.length} recalls. Jev at strictness \`${STRICTNESS}\`, timeout ${JEV_TIMEOUT_MS} ms, up to ${ATTEMPTS} attempts. Regenerate with \`RUN=${RUN} JEV_STRICTNESS=${STRICTNESS} pnpm exec vitest run --config eval/longmemeval/vitest.config.ts\`.
 
 Evidence found counts needed memories (as labeled for the run) that at least one recall of the question returned.
 
@@ -265,6 +267,6 @@ ${table(
 
 ${lost.length === 0 ? "None." : lost.map((entry) => `- ${entry}`).join("\n")}
 `;
-  await writeFile(path.join(RUN_DIR, "replay.md"), markdown);
+  await writeFile(path.join(RUN_DIR, `replay-${STRICTNESS}.md`), markdown);
   process.stdout.write(`${markdown}\n`);
 });

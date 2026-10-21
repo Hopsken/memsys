@@ -10,7 +10,7 @@ Found by baseline-1021 and its full-context control; not started. Each names the
 2. **Keep specifics.** A fragment kept the coupon's amount and date but dropped the store. Same change and check as 1.
 3. **Revise instead of adding beside.** 303 `revise` against 13,883 `remember`; a new value is stored next to the old one and answers hedge. Change: instructions, `remember` and `revise` descriptions. Check: rewrite S, knowledge-update questions.
 4. **Empty recalls on keyword-bag cues.** 34% of answer-time recalls return nothing (56% at 4+ words). Change: BM25 ranking over any cue term when the AND match is empty or thin, or a clearer cue contract. Check: offline replay of the 279 recorded cues ($0), then the answer step only ($0.15).
-5. **Association noise.** 72% of returned fragments came through `via`; only 4 of 92 returned evidence fragments came through `via` alone. Jev replay done (section 6): it removes about 75% of associated fragments but dropped 2 of those 4. Next check: the answer step with Jev on ($0.15), and a second replay for Jev's stability.
+5. **Association noise.** 72% of returned fragments came through `via`; only 4 of 92 returned evidence fragments came through `via` alone. Jev replay done (section 6): at `medium` it removes about 75% of associated fragments but dropped 2 of those 4; at `low` it removes about 30% and dropped none. Next check: the answer step with Jev on ($0.15), and a second replay for Jev's stability.
 6. **Harness.** Add a "stale fact" stage to `report.ts`; label evidence against the answer sessions, not the whole memory; add "answer only against another run's memory".
 7. **Scale.** S fits in a 1M context, so full context ties memsys. Run a small LongMemEval_M sample (about $25 for 2 per type) after 1 to 3 land.
 
@@ -104,7 +104,7 @@ What this means:
 
 ### 6. Jev halves what recall returns and costs about 170 ms
 
-Offline replay (`replay.eval.ts`, [replay.md](runs/baseline-1021/replay.md)): the 279 recorded answer-time recalls, run again against each question's saved memory under three plugin setups. No agent and no DeepSeek; Jev bills Workers AI. The `as run` setup reproduced the recorded result exactly for 278 of 279 recalls, so the replay matches what the agent saw.
+Offline replay (`replay.eval.ts`, [replay-medium.md](runs/baseline-1021/replay-medium.md)): the 279 recorded answer-time recalls, run again against each question's saved memory under three plugin setups. No agent and no DeepSeek; Jev bills Workers AI. The `as run` setup reproduced the recorded result exactly for 278 of 279 recalls, so the replay matches what the agent saw.
 
 | Setup | Returned | Via anchors | Empty recalls | Evidence found | Median / p95 added |
 | --- | --- | --- | --- | --- | --- |
@@ -119,7 +119,22 @@ At strictness `medium`, no Jev failures after retries.
 - **But Jev drops exactly the memories association exists for.** The associations-only setup lost 2 of the 4 evidence fragments that came back only through `via`, both in questions memsys answered correctly: 2c63a862 ("User started working with real estate agent Rachel on February 15", via `#homebuying`, needed to count the days) and a89d7624 (the user's taste in indie rock, via `#music`, for a Denver trip). The matches-too setup kept both in this run; a single replay cannot say whether that is Jev's judgment or chance near the threshold.
 - **Empty recalls stay empty.** Jev cannot help open fix 4; it only filters.
 
-So Jev is a token and noise win with a small, real risk to the unknown unknowns that association is for. Whether that trade is worth it needs the answer step rerun with Jev on (about $0.15), and the replay repeated to see how stable Jev's verdicts are.
+**At `low` (threshold 0.1, [replay-low.md](runs/baseline-1021/replay-low.md)), Jev loses nothing.** Same 279 recalls, no Jev failures:
+
+| Setup | Returned | Via anchors | Empty recalls | Evidence found |
+| --- | --- | --- | --- | --- |
+| as run (Jev off) | 2,115 | 1,518 | 95 | 92 |
+| Jev `low`, associations only | 1,682 | 1,085 | 95 | 94 |
+| Jev `low`, matches too | 1,512 | 964 | 95 | 92 |
+
+- No needed memory was dropped in either setup, including the 2 that `medium` lost.
+- Associations only found 2 more needed memories than Jev off: removing clear misses let lower-ranked evidence into the page.
+- Noise cut is smaller: 20 to 29% of returned fragments, against 53 to 62% at `medium`.
+- Latency is the same, about 170 ms median, because the cost is the model call, not the level.
+
+So `low` is the safe point found so far: it removes clear misses without touching what association is for. `medium` saves about twice the tokens and puts association-only memories at risk.
+
+Whether `low` holds up with a real agent needs the answer step rerun with Jev on (about $0.15), and the replay repeated to see how stable Jev's verdicts are.
 
 ### Reproduce the numbers
 
