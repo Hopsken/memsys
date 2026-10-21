@@ -2,6 +2,18 @@
 
 Runs cost real money, so every finding is written down here, newest first, with the evidence to check it against. Numbers come from the run's files in `runs/<name>/`; the commands that produce them are under each run.
 
+## Open fixes
+
+Found by baseline-1021 and its full-context control; not started. Each names the evidence and the cheapest run that would show the fix working.
+
+1. **Store what the assistant produced.** Recommendations, lists, and content the assistant wrote are almost never stored (2 single-session-assistant misses; about 49 of 14,236 records). Change: server instructions and the `remember` description. Check: rewrite S ($6.5).
+2. **Keep specifics.** A fragment kept the coupon's amount and date but dropped the store. Same change and check as 1.
+3. **Revise instead of adding beside.** 303 `revise` against 13,883 `remember`; a new value is stored next to the old one and answers hedge. Change: instructions, `remember` and `revise` descriptions. Check: rewrite S, knowledge-update questions.
+4. **Empty recalls on keyword-bag cues.** 34% of answer-time recalls return nothing (56% at 4+ words). Change: BM25 ranking over any cue term when the AND match is empty or thin, or a clearer cue contract. Check: offline replay of the 279 recorded cues ($0), then the answer step only ($0.15).
+5. **Association noise.** 72% of returned fragments came through `via`; only 4 of 92 returned evidence fragments came through `via` alone. Check: offline replay with and without Jev.
+6. **Harness.** Add a "stale fact" stage to `report.ts`; label evidence against the answer sessions, not the whole memory; add offline replay and "answer only against another run's memory".
+7. **Scale.** S fits in a 1M context, so full context ties memsys. Run a small LongMemEval_M sample (about $25 for 2 per type) after 1 to 3 land.
+
 ## baseline-1021 (2026-10-21)
 
 60 questions (10 per type), Pi 1.3, `deepseek/deepseek-flash` at thinking `medium` for agent and judge, memsys at [`5b8a0ab`](https://github.com/Hopsken/memsys/commit/5b8a0ab). **53/60 correct (88%), $6.45, 70 minutes at concurrency 10.** No Pi or DeepSeek errors.
