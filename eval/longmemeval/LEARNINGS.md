@@ -4,7 +4,7 @@ Runs cost real money, so every finding is written down here, newest first, with 
 
 ## Open fixes
 
-Found by baseline-1021 and its full-context control; not started. Each names the evidence and the cheapest run that would show the fix working.
+Found by baseline-1021, its full-context control, and the Jev replays; not started. Each names the evidence and the cheapest run that would show the fix working.
 
 1. **Store what the assistant produced.** Recommendations, lists, and content the assistant wrote are almost never stored (2 single-session-assistant misses; about 49 of 14,236 records). Change: server instructions and the `remember` description. Check: rewrite S ($6.5).
 2. **Keep specifics.** A fragment kept the coupon's amount and date but dropped the store. Same change and check as 1.
@@ -13,6 +13,17 @@ Found by baseline-1021 and its full-context control; not started. Each names the
 5. **Association noise.** 72% of returned fragments came through `via`; only 4 of 92 returned evidence fragments came through `via` alone. Jev replay done (section 6): at `medium` it removes about 75% of associated fragments but dropped 2 of those 4; at `low` it removes about 30% and dropped none. Next check: the answer step with Jev on ($0.15), and a second replay for Jev's stability.
 6. **Harness.** Add a "stale fact" stage to `report.ts`; label evidence against the answer sessions, not the whole memory; add "answer only against another run's memory".
 7. **Scale.** S fits in a 1M context, so full context ties memsys. Run a small LongMemEval_M sample (about $25 for 2 per type) after 1 to 3 land.
+
+From reading [DolphinBench](https://mem0.ai/blog/introducing-dolphinbench-mapping-the-pareto-frontier-of-agent-memory) (Mem0, October 2026). DolphinBench grades actions in simulated apps, certifies every test to pass with the history and fail without it, and reports cost and latency with accuracy.
+
+8. **No-history control.** A question the model answers without memory does not measure memory. Answer the 60 questions with no memory and no history (about $0.10). Report the questions that pass without memory apart from the score, or drop them. Preference and abstention questions are the likely ones.
+9. **Questions that do not ask for memory.** Every LongMemEval question says to look back ("What degree did I graduate with?"), so the "not recalled" stage was 0 in all 60. A personal assistant gets requests such as "recommend a play for this weekend", where knowing that a stored fact applies is the hard step. Rewrite a sample of questions as such requests, with the same evidence and a rubric judge. This is the test for the server instructions and the tool descriptions.
+10. **Tokens returned per recall.** Report the tokens of memory the agent reads per recall and per question, next to accuracy and cost. Mem0 reports about 7K per recall. The Jev decision (`low` or `medium`) needs this number.
+11. **A weaker model.** In DolphinBench, a memory layer raised GPT-5.6-Luna from 65.7% to 70.7%, but MiniMax M3 from 26.5% to 47.8%. Run memsys with a cheaper or weaker model too; this is the "Accessible" tenet.
+12. **Known limit: writing after the fact.** Pi reads each finished transcript and then writes. A real assistant writes during the conversation, and DolphinBench feeds user messages one at a time through a normal harness. Keep this in mind when reading write-side results.
+13. **DolphinBench itself, later.** About 500k tokens per persona, so it still fits a 1M context. It supports Hermes and Claude Code, so Pi needs an adapter, and it has 13.5k messages to write. Consider a sample after 1 to 3 land; check the repository and the cost first.
+
+Outside the eval: memsys is a memory for a long-running personal assistant, not for coding agents only. `docs/VISION.md` still names the coding-agent user as primary, so update it.
 
 ## baseline-1021 (2026-10-21)
 
