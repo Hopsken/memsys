@@ -17,6 +17,8 @@ Output goes to `runs/<name>/`, one directory per question. Runs are ignored by G
 
 `node eval/longmemeval/full-context.ts --run <name>` is the control: the same questions, answered with every session in the prompt and no memory, written to `runs/<name>/full-context.md`. About $2 for 60 questions.
 
+`RUN=<name> pnpm exec vitest run --config eval/longmemeval/vitest.config.ts` replays a run's answer-time recalls against its saved memory under several plugin setups, with no agent, and writes `runs/<name>/replay.md`. Jev setups call Workers AI through a remote binding, so they need `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` with Workers AI and Workers Scripts edit permissions. Run it directly, not as an auto-restarting service: a second overlapping run breaks the first one's remote session.
+
 Write what each run teaches in [LEARNINGS.md](LEARNINGS.md) before starting the next one.
 
 ## Steps
