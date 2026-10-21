@@ -52,7 +52,7 @@ Three kinds of payload in practice:
 | Facts about the person's world | sister Mei lives in Lisbon; the dentist is Dr. Okafor | moderate, stable, scoped by person, place, or project |
 | Episodic lessons | the hotel the assistant booked in Porto was too noisy | many, ever-growing, triggered by situation rather than keyword |
 
-Whether a fragment can be recalled is decided as much when it is written as when it is queried: recall works on the overlap between cue and encoding. A preference written as "favorite fruit is watermelon #food" is found by a dinner plan that recalls `#food`; written without the anchor, it waits for a cue that says "fruit". The write path deserves the same design attention as the read path.
+Whether a fragment can be recalled is decided as much when it is written as when it is queried: recall works on the overlap between cue and encoding. The write path deserves the same design attention as the read path.
 
 ## Boundaries
 
