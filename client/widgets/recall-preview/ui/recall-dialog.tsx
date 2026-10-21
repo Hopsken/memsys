@@ -4,6 +4,7 @@ import { ArrowDown, Search, SearchX, XIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import type { FormEvent, ReactNode, RefObject } from "react";
 
+import { MemoryLength } from "@/entities/memory";
 import { SessionExpired } from "@/features/auth";
 import { api, isExpired } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
@@ -74,13 +75,12 @@ const MemoryRow = ({
         </span>
       ) : null}
     </span>
-    <time
-      className="text-muted-foreground shrink-0 text-xs"
-      dateTime={item.at}
-      title={new Date(item.at).toLocaleString()}
-    >
-      {formatRelativeDate(item.at)}
-    </time>
+    <span className="text-muted-foreground flex shrink-0 items-center gap-3 text-xs">
+      <MemoryLength text={item.fragment} />
+      <time dateTime={item.at} title={new Date(item.at).toLocaleString()}>
+        {formatRelativeDate(item.at)}
+      </time>
+    </span>
   </button>
 );
 

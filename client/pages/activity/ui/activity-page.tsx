@@ -4,7 +4,7 @@ import { cn } from "cn";
 import { Activity, ArrowDown } from "lucide-react";
 import { Link, Outlet } from "react-router";
 
-import { byline, OpBadge } from "@/entities/memory";
+import { byline, MemoryLength, OpBadge } from "@/entities/memory";
 import { SessionExpired } from "@/features/auth";
 import { api, isExpired } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
@@ -57,6 +57,7 @@ const EntryText = ({ entry }: { entry: ActivityEntry }) => {
 const EntryRow = ({ entry }: { entry: ActivityEntry }) => {
   const open = useOpenHistory();
   const to = `${entry.ref}?${new URLSearchParams({ at: entry.at })}`;
+  const text = entry.fragment ?? entry.previous;
   return (
     <li>
       <div className={listCardLink} onClick={open(to)}>
@@ -72,13 +73,16 @@ const EntryRow = ({ entry }: { entry: ActivityEntry }) => {
               {time(entry.at)}
             </time>
           </span>
-          <Link
-            className="hover:text-foreground focus-visible:ring-ring/50 rounded-sm font-mono outline-none focus-visible:ring-3"
-            id={memoryId(entry.ref, entry.at)}
-            to={to}
-          >
-            {entry.ref}
-          </Link>
+          <span className="flex items-center gap-3">
+            {text === null ? null : <MemoryLength text={text} />}
+            <Link
+              className="hover:text-foreground focus-visible:ring-ring/50 rounded-sm font-mono outline-none focus-visible:ring-3"
+              id={memoryId(entry.ref, entry.at)}
+              to={to}
+            >
+              {entry.ref}
+            </Link>
+          </span>
         </div>
         <EntryText entry={entry} />
       </div>
