@@ -1,0 +1,62 @@
+{
+  "abstain": false,
+  "answer": "The **family road trip across the American Southwest** came first.\n\nAccording to my notes:\n- The Southwest road trip (including the Grand Canyon) happened \"a few years before 2023\" — so roughly 2018–2020.\n- The solo Europe trip (two weeks backpacking through Italy, Switzerland, and Germany) was in **summer 2022**.\n\nSo the family road trip clearly preceded the solo Europe trip.",
+  "correct": true,
+  "cost": 0.10517045999999998,
+  "cues": [
+    {
+      "context": "User asks which trip the narrator took first: solo trip to Europe or family road trip across the American Southwest",
+      "cue": "family road trip American Southwest"
+    },
+    {
+      "context": "User asks which trip the narrator took first: solo trip to Europe or family road trip across the American Southwest",
+      "cue": "solo trip Europe"
+    },
+    {
+      "context": "Narrator story about trips",
+      "cue": "narrator travel story",
+      "limit": 20
+    },
+    {
+      "context": "Comparing timing of narrator's solo Europe trip vs family Southwest road trip",
+      "cue": "Grand Canyon road trip family",
+      "limit": 20
+    },
+    {
+      "context": "Earlier trips before Europe 2022",
+      "cue": "first trip abroad",
+      "limit": 20
+    },
+    {
+      "context": "Timeline of user's trips",
+      "cue": "backpacking trip Italy Switzerland",
+      "limit": 20
+    },
+    {
+      "context": "Southwest trip timing details",
+      "cue": "Southwest road trip years ago childhood",
+      "limit": 30
+    },
+    {
+      "context": "Solo Europe trip details and date",
+      "cue": "Europe solo travel",
+      "limit": 30
+    }
+  ],
+  "evidence": [
+    "x8x5ty8",
+    "c4kgnp8"
+  ],
+  "evidenceReturned": [
+    "x8x5ty8",
+    "c4kgnp8"
+  ],
+  "expected": "The family road trip across the American Southwest",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 242,
+  "piErrors": 0,
+  "question": "Which trip did the narrator take first, the solo trip to Europe or the family road trip across the American Southwest?",
+  "questionId": "gpt4_d31cdae3",
+  "type": "temporal-reasoning",
+  "writes": 255
+}

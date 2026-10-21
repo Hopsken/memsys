@@ -1,0 +1,45 @@
+{
+  "abstain": false,
+  "answer": "**4 days a week.**\n\nBased on what you've told me:\n- **Tuesday & Thursday** — Zumba at 6:30 pm (instructor Maria)\n- **Wednesday** — yoga class (started May 2023, for flexibility)\n- **Saturday** — weightlifting class at 10:00 am",
+  "correct": true,
+  "cost": 0.117322632,
+  "cues": [
+    {
+      "context": "User asks how many days a week they attend fitness classes",
+      "cue": "fitness classes days per week"
+    },
+    {
+      "cue": "gym workout exercise routine"
+    },
+    {
+      "cue": "#zumba #yoga #ballet attendance",
+      "limit": 30
+    },
+    {
+      "cue": "#fitness #schedule classes",
+      "limit": 30
+    },
+    {
+      "cue": "class Monday Friday 6:30 pm weightlifting",
+      "limit": 20
+    }
+  ],
+  "evidence": [
+    "ejhftb6",
+    "b9nm7gc",
+    "pwnpr67"
+  ],
+  "evidenceReturned": [
+    "ejhftb6",
+    "b9nm7gc",
+    "pwnpr67"
+  ],
+  "expected": "4 days.",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 242,
+  "piErrors": 0,
+  "question": "How many days a week do I attend fitness classes?",
+  "questionId": "a08a253f",
+  "type": "multi-session",
+  "writes": 272
+}

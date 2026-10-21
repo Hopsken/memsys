@@ -1,0 +1,57 @@
+{
+  "abstain": false,
+  "answer": "Since you already love Denver's music scene and have done the Red Rocks thing, here's a mix of old favorites and new ideas:\n\n**Lean into the music**\n- Check the **Red Rocks** calendar even if you don't have a show booked — the Film on the Rocks series and morning yoga at the amphitheatre are fun alternatives.\n- Smaller venues worth a night: **Bluebird Theater**, **Ogden Theatre**, **Larimer Lounge**, **Hi-Dive** (great for indie/alternative in the vein of The Killers).\n- **The Ship Rock Grille** patio is still my pick for a pre-show dinner with a view.\n\n**Food & drink**\n- **GQue BBQ** (Golden), **Moe's Original BBQ** (Wheat Ridge), and **Wayne's Smoke Shack** (Morrison) if you're heading toward Red Rocks again.\n- **RiNo** (River North Art District) for a walkable cluster of breweries, food halls (Denver Central Market), and street art.\n- **Larimer Square** and **Union Station** for a nicer sit-down meal.\n\n**Culture & outdoors**\n- **Denver Botanic Gardens** and **City Park** (with the Denver Zoo and Museum of Nature & Science next door) — good for a calm, centering morning.\n- **History Colorado Center** and the **Molly Brown House** if you want the history fix.\n- **Denver Art Museum** (the Hamilton Building's architecture alone is worth it).\n- **Mount Falcon / Evergreen / Boulder's Flatirons** for a half-day hike — easy access without committing to high-altitude 14ers.\n\n**Practical Denver notes**\n- Altitude is real: hydrate, take day one easy, and go light on alcohol.\n- Afternoon thunderstorms are common in summer — plan hikes for the morning.\n- The light rail from DIA to Union Station is cheap and easy if you don't want a rental car downtown.\n\nWant me to shape this into an itinerary based on how many days you'll be there and whether you'll have a car?",
+  "correct": true,
+  "cost": 0.10923124800000004,
+  "cues": [
+    {
+      "context": "User planning a trip to Denver and asking for suggestions",
+      "cue": "travel preferences"
+    },
+    {
+      "context": "User planning a trip to Denver and asking for suggestions",
+      "cue": "Denver trip"
+    },
+    {
+      "context": "User planning a trip to Denver and asking for suggestions",
+      "cue": "food restaurant diet"
+    },
+    {
+      "context": "User planning a trip to Denver and asking for suggestions",
+      "cue": "Colorado hiking mountains"
+    },
+    {
+      "context": "User planning a trip to Denver and asking for suggestions",
+      "cue": "#denver",
+      "limit": 40
+    },
+    {
+      "context": "Denver trip suggestions",
+      "cue": "outdoors nature hiking running"
+    },
+    {
+      "context": "Denver trip suggestions",
+      "cue": "museum history art"
+    }
+  ],
+  "evidence": [
+    "d4qcjb2",
+    "hcd5ugb",
+    "fsyhkk8",
+    "h8m7bwh"
+  ],
+  "evidenceReturned": [
+    "d4qcjb2",
+    "hcd5ugb",
+    "fsyhkk8",
+    "h8m7bwh"
+  ],
+  "expected": "The user would prefer responses that take into account their previous experience in Denver, specifically their interest in live music and memorable encounter with Brandon Flowers. They might appreciate suggestions that revisit or build upon this experience, such as revisiting the same bar or exploring similar music venues in the area. The user may not prefer general tourist recommendations or activities unrelated to their interest in live music.",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 237,
+  "piErrors": 0,
+  "question": "I'm planning a trip to Denver soon. Any suggestions on what to do there?",
+  "questionId": "a89d7624",
+  "type": "single-session-preference",
+  "writes": 249
+}

@@ -1,0 +1,23 @@
+{
+  "answer": "The fifth bottle was **absinthe**.\n\nThe five I recommended for the widest variety of gin-based cocktails were:\n\n1. Sweet vermouth\n2. Dry vermouth\n3. Campari\n4. Elderflower liqueur\n5. **Absinthe** ← fifth\n\n(Separately, I'd also suggested a five-bottle base-spirit lineup — gin, vodka, rum, whiskey, triple sec — but the gin-cocktail list is the one ending in absinthe.)",
+  "cost": 0.0010195559999999998,
+  "tools": [
+    {
+      "args": {
+        "cue": "gin-based cocktails recommendation bottles"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-05-23T03:26:02.814Z\",\"fragment\":\"On 2023/05/23 I recommended 5 bottles of liqueurs/aperitifs/digestifs for the widest variety of gin-based cocktails: sweet vermouth, dry vermouth, Campari, elderflower liqueur, absinthe. #gin-cocktails #bottle-recommendations\",\"ref\":\"huqa3dk\"},{\"at\":\"2023-05-23T03:26:02.813Z\",\"fragment\":\"On 2023/05/23 I recommended 5 bottles for the widest variety of cocktails: gin, vodka, rum, whiskey, triple sec. #cocktails #bottle-recommendations\",\"ref\":\"fztv9sy\"},{\"at\":\"2023-05-24T06:49:03.005Z\",\"fragment\":\"User asked about eco-friendly laptop sleeves/bags and eco-friendly durable, easy-to-clean water bottles. #sustainability #laptop-bag #water-bottle\",\"ref\":\"yxfagxm\",\"via\":[\"water-bottle\"]},{\"at\":\"2023-05-26T15:49:08.150Z\",\"fragment\":\"User is exploring herbal and botanical syrups for Campari cocktails: rosemary, thyme, sage, lemon balm, mint, hibiscus, elderflower, lavender, chamomile, dandelion. #campari #cocktail-syrups\",\"ref\":\"rz8b3dd\",\"via\":[\"cocktail-syrups\"]},{\"at\":\"2023-05-26T15:49:08.148Z\",\"fragment\":\"User wants unusual syrup flavors to pair with bitter Campari, e.g. yuzu, quince, pomegranate, cardamom, ginger, cinnamon, saffron, black sesame, matcha, pistachio. #campari #cocktail-syrups\",\"ref\":\"mfc9nxy\",\"via\":[\"cocktail-syrups\"]},{\"at\":\"2023-05-26T15:49:08.146Z\",\"fragment\":\"User is interested in making flavored salts (infusion or dehydration methods) and using them as cocktail rims and garnishes. #cocktail-garnishes #campari\",\"ref\":\"jg68tfa\",\"via\":[\"cocktail-garnishes\"]},{\"at\":\"2023-05-26T15:49:08.145Z\",\"fragment\":\"User experiments with flavored syrups and herbs, notably lavender and rosemary, to garnish and flavor their Campari cocktails. #campari #cocktail-garnishes\",\"ref\":\"exy36g4\",\"via\":[\"cocktail-garnishes\"]},{\"at\":\"2023-05-26T15:49:08.143Z\",\"fragment\":\"User enjoys home cocktail-making and is experimenting with a bottle of Campari, making Negronis plus other Campari drinks; plans to try the Jungle Bird and Campari Spritz. #campari #cocktails\",\"ref\":\"fj7nn5d\",\"via\":[\"cocktails\"]}],\"hasMore\":false}"
+    },
+    {
+      "args": {
+        "cue": "cocktail bar gin five bottles"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[],\"hasMore\":false}"
+    }
+  ],
+  "attempts": 1
+}

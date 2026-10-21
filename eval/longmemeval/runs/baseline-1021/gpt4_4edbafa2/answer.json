@@ -1,0 +1,16 @@
+{
+  "answer": "The first BBQ event you attended in June was on **June 3, 2023** — a colleague's backyard BBQ party with an impressive selection of BBQ sauces.",
+  "cost": 0.0008542559999999999,
+  "tools": [
+    {
+      "args": {
+        "cue": "BBQ June first",
+        "context": "User asks date of first BBQ event in June"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-07-01T06:18:05.118Z\",\"fragment\":\"User attended a colleague's backyard BBQ party on June 3 that had an impressive selection of BBQ sauces, which inspired them to explore new brands. #bbq\",\"ref\":\"n9p7bf2\"},{\"at\":\"2023-07-01T06:18:05.120Z\",\"fragment\":\"User made a Korean-style BBQ recipe on June 10 and enjoys Korean-style BBQ sauces and marinades such as gochujang-based ones. #bbq #cooking\",\"ref\":\"32d2wjg\"},{\"at\":\"2023-07-01T22:07:04.109Z\",\"fragment\":\"User's favorite BBQ sauce brand is Sweet Baby Ray's. They used up their bottle at a friend's place on Saturday, June 17, 2023, and needed to restock. #bbq\",\"ref\":\"x42h68c\"},{\"at\":\"2023-07-01T22:07:04.111Z\",\"fragment\":\"User tried apple wood chips for the first time and liked the fruity smoke flavor they gave grilled chicken. #bbq #woodchips\",\"ref\":\"cfq6dfg\"},{\"at\":\"2023-07-01T15:44:05.549Z\",\"fragment\":\"User is interested in making herb-infused olive oil for cooking (asked for a recipe and for tips on which herbs pair well together). #cooking #user-cooking\",\"ref\":\"p4xxfqq\",\"via\":[\"cooking\",\"user-cooking\"]},{\"at\":\"2023-07-01T15:44:05.547Z\",\"fragment\":\"On 2023/07/01 the user said they would try the rosemary + garlic herb-infused olive oil combination for their next roast. #cooking #user-cooking\",\"ref\":\"yn9px6s\",\"via\":[\"cooking\",\"user-cooking\"]},{\"at\":\"2023-07-01T06:18:05.119Z\",\"fragment\":\"User experiments with BBQ wood chips: tried apple wood chips and loved the fruity flavor on grilled chicken; plans to try hickory next. #bbq #cooking\",\"ref\":\"799hymn\",\"via\":[\"bbq\",\"cooking\"]},{\"at\":\"2023-07-01T06:18:05.117Z\",\"fragment\":\"User's favorite BBQ sauce brand is Sweet Baby Ray's, and they want to try new brands. They plan to try Kansas City Masterpiece next. #bbq #cooking\",\"ref\":\"qhjfcgq\",\"via\":[\"bbq\",\"cooking\"]},{\"at\":\"2023-07-01T19:08:21.608Z\",\"fragment\":\"The user bought groceries on Wednesday to use for Thursday's lunch; they recall buying vegetables and proteins (possibly chicken) but cannot remember the specific dish they planned. #meal-planning #groceries #user-cooking\",\"ref\":\"etjt54s\",\"via\":[\"user-cooking\"]},{\"at\":\"2023-07-01T06:34:05.002Z\",\"fragment\":\"The user has been using tofu in stir-fries for a while and likes how well it absorbs flavors. #tofu #user-cooking\",\"ref\":\"hhz3tay\",\"via\":[\"user-cooking\"]}],\"hasMore\":true}"
+    }
+  ],
+  "attempts": 1
+}

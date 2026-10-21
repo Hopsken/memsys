@@ -1,0 +1,49 @@
+{
+  "abstain": false,
+  "answer": "I don't have a record of the store. My notes only say that on Sunday, 2023-05-28 you redeemed a $5 coupon on coffee creamer that you'd found in your email inbox — no retailer was captured. If you remember which store it was, tell me and I'll note it.",
+  "correct": false,
+  "cost": 0.10622730000000001,
+  "cues": [
+    {
+      "cue": "coupon redeemed store"
+    },
+    {
+      "cue": "$5 coupon coffee creamer"
+    },
+    {
+      "cue": "grocery store shopping coffee creamer",
+      "limit": 20
+    },
+    {
+      "cue": "Sunday 2023-05-28",
+      "limit": 20
+    },
+    {
+      "cue": "Safeway Kroger Target Walmart CVS grocery",
+      "limit": 20
+    },
+    {
+      "cue": "redeemed",
+      "limit": 20
+    },
+    {
+      "cue": "coffee creamer",
+      "limit": 20
+    }
+  ],
+  "evidence": [
+    "svevrry",
+    "h2fqs5a"
+  ],
+  "evidenceReturned": [
+    "svevrry"
+  ],
+  "expected": "Target",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 254,
+  "piErrors": 0,
+  "question": "Where did I redeem a $5 coupon on coffee creamer?",
+  "questionId": "51a45a95",
+  "type": "single-session-user",
+  "writes": 272
+}

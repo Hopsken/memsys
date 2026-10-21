@@ -1,0 +1,28 @@
+{
+  "abstain": false,
+  "answer": "You attended a local community theater production of Tennessee Williams' **The Glass Menagerie** — and you were especially impressed by the lead actress's performance.",
+  "correct": true,
+  "cost": 0.11785654800000002,
+  "cues": [
+    {
+      "cue": "play community theater attended"
+    },
+    {
+      "cue": "theater"
+    }
+  ],
+  "evidence": [
+    "hg8z3mn"
+  ],
+  "evidenceReturned": [
+    "hg8z3mn"
+  ],
+  "expected": "The Glass Menagerie",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 246,
+  "piErrors": 0,
+  "question": "What play did I attend at the local community theater?",
+  "questionId": "58bf7951",
+  "type": "single-session-user",
+  "writes": 262
+}

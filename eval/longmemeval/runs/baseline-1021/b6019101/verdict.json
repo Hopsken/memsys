@@ -1,0 +1,28 @@
+{
+  "abstain": false,
+  "answer": "You watched **5 MCU films** in the last 3 months (as of May 2023) — part of 12 films total in that period.",
+  "correct": true,
+  "cost": 0.109130988,
+  "cues": [
+    {
+      "cue": "MCU films watched"
+    },
+    {
+      "cue": "Marvel movie"
+    }
+  ],
+  "evidence": [
+    "rh86q8f"
+  ],
+  "evidenceReturned": [
+    "rh86q8f"
+  ],
+  "expected": "5",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 241,
+  "piErrors": 0,
+  "question": "How many MCU films did I watch in the last 3 months?",
+  "questionId": "b6019101",
+  "type": "knowledge-update",
+  "writes": 266
+}

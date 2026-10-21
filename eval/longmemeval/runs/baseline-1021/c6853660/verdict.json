@@ -1,0 +1,31 @@
+{
+  "abstain": false,
+  "answer": "You most recently **increased** it.\n\n- May 25, 2023: you cut back to **one cup** in the morning (switched to a darker roast).\n- May 26, 2023 (most recent): you **raised your morning coffee limit to two cups**.",
+  "correct": true,
+  "cost": 0.10479027600000003,
+  "cues": [
+    {
+      "cue": "coffee cups limit morning"
+    },
+    {
+      "cue": "coffee limit cups #coffee",
+      "limit": 40
+    }
+  ],
+  "evidence": [
+    "f9ptwwv",
+    "r8v98p2"
+  ],
+  "evidenceReturned": [
+    "f9ptwwv",
+    "r8v98p2"
+  ],
+  "expected": "You increased the limit (from one cup to two cups)",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 250,
+  "piErrors": 0,
+  "question": "Did I mostly recently increase or decrease the limit on the number of cups of coffee in the morning?",
+  "questionId": "c6853660",
+  "type": "knowledge-update",
+  "writes": 267
+}

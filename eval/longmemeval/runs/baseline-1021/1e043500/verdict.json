@@ -1,0 +1,26 @@
+{
+  "abstain": false,
+  "answer": "The playlist you created on Spotify is called **\"Summer Vibes\"** — it has chill tracks good for relaxing or working out.",
+  "correct": true,
+  "cost": 0.11087685599999995,
+  "cues": [
+    {
+      "context": "User asks for the name of a Spotify playlist they created",
+      "cue": "Spotify playlist"
+    }
+  ],
+  "evidence": [
+    "bdp8tve"
+  ],
+  "evidenceReturned": [
+    "bdp8tve"
+  ],
+  "expected": "Summer Vibes",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 259,
+  "piErrors": 0,
+  "question": "What is the name of the playlist I created on Spotify?",
+  "questionId": "1e043500",
+  "type": "single-session-user",
+  "writes": 292
+}

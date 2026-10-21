@@ -1,0 +1,34 @@
+{
+  "abstain": false,
+  "answer": "Your jumpsuit designation was **\"LIV\" inside a square** — LIV is the Roman numeral for 54, which is what led you to File 54 in Records (the one labeled \"A\" that says \"EXPERIMENT IN PROGRESS\").",
+  "correct": true,
+  "cost": 0.11441055599999995,
+  "cues": [
+    {
+      "context": "User asking about a designation on their jumpsuit that helped find a file number in the records room",
+      "cue": "jumpsuit designation file number records room"
+    },
+    {
+      "context": "Recalling records room file number search",
+      "cue": "records room file"
+    },
+    {
+      "context": "Recalling designation on jumpsuit related to records room file number",
+      "cue": "jumpsuit"
+    }
+  ],
+  "evidence": [
+    "v8j8ypg"
+  ],
+  "evidenceReturned": [
+    "v8j8ypg"
+  ],
+  "expected": "The designation on your jumpsuit was 'LIV'.",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 243,
+  "piErrors": 0,
+  "question": "I'm trying to recall what the designation on my jumpsuit was that helped me find the file number in the records room?",
+  "questionId": "ac031881",
+  "type": "single-session-assistant",
+  "writes": 259
+}

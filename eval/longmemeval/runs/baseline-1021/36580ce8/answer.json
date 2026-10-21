@@ -1,0 +1,15 @@
+{
+  "answer": "You initially thought it was just a cold, but it turned out to be **bronchitis** — and a much more serious case than a cold.",
+  "cost": 0.000666156,
+  "tools": [
+    {
+      "args": {
+        "cue": "thought it was just a cold health issue"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-05-30T00:08:03.363Z\",\"fragment\":\"User recently had a bad case of bronchitis that they initially thought was just a cold, but it turned out to be much more serious. #health #bronchitis\",\"ref\":\"5rdph5c\"},{\"at\":\"2023-05-24T06:43:05.172Z\",\"fragment\":\"The user is interested in whether virtual interactions (video calls, social media, online communities, gaming, therapy apps) can substitute for in-person contact in reducing loneliness. #isolation #social-life #mental-health\",\"ref\":\"nnty64k\",\"via\":[\"mental-health\"]},{\"at\":\"2023-05-24T06:43:05.170Z\",\"fragment\":\"On 2023-05-24 the user asked about the psychological effects of long-term isolation and how to mitigate them — suggesting they were personally experiencing extended isolation at the time. #isolation #mental-health #social-life\",\"ref\":\"3kq4c3j\",\"via\":[\"mental-health\"]},{\"at\":\"2023-05-30T00:08:03.365Z\",\"fragment\":\"User is trying to cook more meals at home and cut back on processed foods to support their immune system. #nutrition #health\",\"ref\":\"vmmyjwc\",\"via\":[\"health\"]},{\"at\":\"2023-05-30T00:08:03.362Z\",\"fragment\":\"User is getting back into a fitness routine after several months of health issues; wants gentle at-home exercises, especially for flexibility, and is cautious about overexerting. #health #fitness\",\"ref\":\"f675cux\",\"via\":[\"health\"]}],\"hasMore\":false}"
+    }
+  ],
+  "attempts": 1
+}

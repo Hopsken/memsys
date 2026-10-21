@@ -1,0 +1,35 @@
+{
+  "abstain": false,
+  "answer": "Given that you're planning to swap the crowded bus for your hybrid bike on that ~2.6-mile ride (home at 123 Oak St → office at 456 Main St, aiming to arrive by 8:30 am), here are activities that fit well:\n\n**If you're on the bike (~15–20 min)**\n- **Audio:** a podcast, audiobook, or music via one earbud (keep the other ear open for traffic). Save longer series for the ride, and you'll look forward to the commute.\n- **Cadence practice:** pick one stretch of the creek bike path to work on a steady gear/cadence — turns the ride into light training.\n- **Mental prep:** use the last few minutes on quiet Main St to run through your top 3 priorities for the day.\n- **Coffee detour:** since you're avoiding busy roads anyway, find a quiet side street with a café for a quick stop 1–2× a week.\n\n**If you still take the bus some days**\n- Read (ebook or physical) — easier than on a bike.\n- Language app or flashcards (10 min chunks work well).\n- Catch up on email/news, or listen to a podcast/album without traffic worries.\n- Plan meals or your to-do list for the evening.\n\n**Small extras that fit either way**\n- Voice memos to capture ideas or a journal entry (safest on the bus).\n- A quick stretch/breathing routine — box breathing on the ride home helps decompress.\n\nWant me to suggest a couple of specific podcasts or audiobooks, or build a weekly commute plan around the bike route?",
+  "correct": true,
+  "cost": 0.11477423999999999,
+  "cues": [
+    {
+      "cue": "commute train bus driving"
+    },
+    {
+      "context": "Suggesting activities for the user's commute",
+      "cue": "commute to work"
+    },
+    {
+      "cue": "learning language morning routine"
+    },
+    {
+      "cue": "podcast audiobook reading hobby interests"
+    }
+  ],
+  "evidence": [
+    "kq2x9wm",
+    "vkqe3du",
+    "df7p2uq"
+  ],
+  "evidenceReturned": [],
+  "expected": "The user would prefer suggestions related to listening to new podcasts or audiobooks, especially the genre beyond true crime or self-improvement, such as history. They may not be interested in activities that require visual attention, such as reading or watching videos, as they are commuting. The user would not prefer general podcast topics such as true crime or self-improvement, as the user wants to explore other topics.",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 237,
+  "piErrors": 0,
+  "question": "Can you suggest some activities I can do during my commute to work?",
+  "questionId": "1c0ddc50",
+  "type": "single-session-preference",
+  "writes": 247
+}

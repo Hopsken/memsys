@@ -1,0 +1,30 @@
+{
+  "abstain": false,
+  "answer": "Based on what we've noted about your trip:\n\n- **Taxi** from Narita to your Shinjuku hotel: **~$60**\n- **Train**: ~**$10** on the local Keisei line (or ~**$28** on the Narita Express)\n\nSo you'd save roughly **$50** taking the local train, or about **$32** with the faster Narita Express — not counting any luggage hassle you'd wanted to avoid with the taxi.\n\nWant me to factor in luggage/stops when comparing the two train options?",
+  "correct": true,
+  "cost": 0.103734756,
+  "cues": [
+    {
+      "cue": "airport transfer cost"
+    },
+    {
+      "cue": "train airport hotel taxi"
+    }
+  ],
+  "evidence": [
+    "b4k9txf",
+    "zuh7xku"
+  ],
+  "evidenceReturned": [
+    "b4k9txf",
+    "zuh7xku"
+  ],
+  "expected": "$50",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 209,
+  "piErrors": 0,
+  "question": "How much will I save by taking the train from the airport to my hotel instead of a taxi?",
+  "questionId": "09ba9854",
+  "type": "multi-session",
+  "writes": 217
+}

@@ -1,0 +1,30 @@
+{
+  "abstain": false,
+  "answer": "You're reading **\"The Seven Husbands of Evelyn Hugo\"** — as of our last note on May 23, you were finding it hard to put down. 📚\n\n(No newer update since then, so let me know if you've since moved on to something else.)",
+  "correct": true,
+  "cost": 0.103266924,
+  "cues": [
+    {
+      "context": "User asking what book they are currently reading",
+      "cue": "currently reading book"
+    },
+    {
+      "context": "Checking for recent reading updates",
+      "cue": "Evelyn Hugo finished book started"
+    }
+  ],
+  "evidence": [
+    "s4w2qbf"
+  ],
+  "evidenceReturned": [
+    "s4w2qbf"
+  ],
+  "expected": "The Seven Husbands of Evelyn Hugo",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 238,
+  "piErrors": 0,
+  "question": "What book am I currently reading?",
+  "questionId": "86f00804",
+  "type": "single-session-user",
+  "writes": 256
+}

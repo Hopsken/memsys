@@ -1,0 +1,31 @@
+{
+  "abstain": false,
+  "answer": "The most recent thing I have is from **May 25, 2023**: your Instagram follower count was **close to 1,300 and growing** (an earlier note from that same day said 1,250).\n\nI don't have any newer figure — if you've checked since then, tell me and I'll update it.",
+  "correct": false,
+  "cost": 0.10110613200000002,
+  "cues": [
+    {
+      "cue": "Instagram"
+    },
+    {
+      "cue": "Instagram followers"
+    },
+    {
+      "cue": "follower count update growth milestone"
+    }
+  ],
+  "evidence": [
+    "gjy4nsx"
+  ],
+  "evidenceReturned": [
+    "gjy4nsx"
+  ],
+  "expected": "1300",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 238,
+  "piErrors": 0,
+  "question": "How many followers do I have on Instagram now?",
+  "questionId": "a2f3aa27",
+  "type": "knowledge-update",
+  "writes": 253
+}

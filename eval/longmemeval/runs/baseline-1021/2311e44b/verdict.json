@@ -1,0 +1,30 @@
+{
+  "abstain": false,
+  "answer": "You have **190 pages left** — *The Nightingale* is 440 pages and you were on page 250 as of today (2023/05/30).",
+  "correct": true,
+  "cost": 0.11024882399999995,
+  "cues": [
+    {
+      "cue": "The Nightingale"
+    },
+    {
+      "cue": "The Nightingale pages read"
+    }
+  ],
+  "evidence": [
+    "zmpn33f",
+    "wz99msp"
+  ],
+  "evidenceReturned": [
+    "zmpn33f",
+    "wz99msp"
+  ],
+  "expected": "190",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 244,
+  "piErrors": 0,
+  "question": "How many pages do I have left to read in 'The Nightingale'?",
+  "questionId": "2311e44b",
+  "type": "multi-session",
+  "writes": 267
+}

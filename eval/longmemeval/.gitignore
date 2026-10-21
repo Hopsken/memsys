@@ -1,0 +1,6 @@
+data/
+# Runs are scratch unless kept on purpose; keep one by adding it below.
+runs/*
+!runs/baseline-1021/
+# Pi's per-conversation config, including its auth.json.
+runs/*/.pi/

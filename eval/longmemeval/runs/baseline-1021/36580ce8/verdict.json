@@ -1,0 +1,25 @@
+{
+  "abstain": false,
+  "answer": "You initially thought it was just a cold, but it turned out to be **bronchitis** — and a much more serious case than a cold.",
+  "correct": true,
+  "cost": 0.11863450799999996,
+  "cues": [
+    {
+      "cue": "thought it was just a cold health issue"
+    }
+  ],
+  "evidence": [
+    "5rdph5c"
+  ],
+  "evidenceReturned": [
+    "5rdph5c"
+  ],
+  "expected": "bronchitis",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 263,
+  "piErrors": 0,
+  "question": "What health issue did I initially think was just a cold?",
+  "questionId": "36580ce8",
+  "type": "single-session-user",
+  "writes": 288
+}

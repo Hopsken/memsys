@@ -1,0 +1,30 @@
+{
+  "abstain": false,
+  "answer": "As of 2023-10-09, you've completed **5 painting projects** since starting your painting classes.",
+  "correct": true,
+  "cost": 0.11579557800000002,
+  "cues": [
+    {
+      "cue": "painting classes",
+      "limit": 40
+    },
+    {
+      "cue": "painting projects completed",
+      "limit": 40
+    }
+  ],
+  "evidence": [
+    "wa69s69"
+  ],
+  "evidenceReturned": [
+    "wa69s69"
+  ],
+  "expected": "5",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 208,
+  "piErrors": 0,
+  "question": "How many projects have I completed since starting painting classes?",
+  "questionId": "06db6396",
+  "type": "knowledge-update",
+  "writes": 230
+}

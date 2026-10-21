@@ -1,0 +1,43 @@
+{
+  "abstain": false,
+  "answer": "I don't have that trail name in memory — my notes about your Moncayo plans only record that you're planning a trip to the Natural Park of Moncayo in Aragón (considering autumn, hiking, and renting a rural cottage). No specific trail recommendation was saved, so I can't reliably recall the name I gave you.\n\nTwo options:\n1. If you remember any detail (where the trailhead was, roughly how long it took, a nearby village), I can search memory with that cue.\n2. Failing that, I can suggest well-known routes in the park from general knowledge — but I'd be re-recommending, not recalling, so tell me your preferred difficulty and starting point (e.g., Santuario de la Misericordia near Tarazona vs. the Vera de Moncayo side).",
+  "correct": false,
+  "cost": 0.10790493599999998,
+  "cues": [
+    {
+      "cue": "Moncayo hiking trail Natural Park Aragón"
+    },
+    {
+      "cue": "hiking trail recommendation panoramic views"
+    },
+    {
+      "cue": "Moncayo"
+    },
+    {
+      "cue": "#spain hiking trail route",
+      "limit": 40
+    },
+    {
+      "cue": "#moncayo trail",
+      "limit": 40
+    },
+    {
+      "cue": "trail recommendation",
+      "limit": 30
+    },
+    {
+      "cue": "#moncayo",
+      "limit": 30
+    }
+  ],
+  "evidence": [],
+  "evidenceReturned": [],
+  "expected": "The GR-90 trail.",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 226,
+  "piErrors": 0,
+  "question": "I'm planning to go back to the Natural Park of Moncayo mountain in Aragón and I was wondering, what was the name of that hiking trail you recommended that takes you through the park's most stunning landscapes and offers panoramic views of the surrounding mountainside?",
+  "questionId": "488d3006",
+  "type": "single-session-assistant",
+  "writes": 234
+}

@@ -1,0 +1,30 @@
+{
+  "abstain": false,
+  "answer": "Approximately **100 followers** — from about **250** at the start of the year (2023) to roughly **350** after two weeks of posting regularly.",
+  "correct": true,
+  "cost": 0.10526190000000002,
+  "cues": [
+    {
+      "cue": "Instagram followers increase two weeks"
+    },
+    {
+      "cue": "Instagram followers"
+    }
+  ],
+  "evidence": [
+    "hf6m579",
+    "8wsrs55"
+  ],
+  "evidenceReturned": [
+    "hf6m579",
+    "8wsrs55"
+  ],
+  "expected": "100",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 224,
+  "piErrors": 0,
+  "question": "What was the approximate increase in Instagram followers I experienced in two weeks?",
+  "questionId": "a11281a2",
+  "type": "multi-session",
+  "writes": 237
+}

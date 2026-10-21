@@ -1,0 +1,28 @@
+{
+  "abstain": true,
+  "answer": "I don't have any memory of baking for an uncle's birthday party. The closest thing I have on record is that you made a **lemon blueberry cake** for your **niece's** birthday party — it was a big hit thanks to the tangy lemon/sweet blueberry balance.\n\nDo you mean that one, or was the uncle's party a different occasion I don't have stored?",
+  "correct": true,
+  "cost": 0.12327022800000002,
+  "cues": [
+    {
+      "cue": "uncle birthday party bake"
+    },
+    {
+      "cue": "birthday party dessert",
+      "limit": 25
+    },
+    {
+      "cue": "uncle"
+    }
+  ],
+  "evidence": [],
+  "evidenceReturned": [],
+  "expected": "You did not mention this information. You mentioned baking for your niece's birthday party but not your uncle's",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 251,
+  "piErrors": 0,
+  "question": "What did I bake for my uncle's birthday party?",
+  "questionId": "bc8a6e93_abs",
+  "type": "single-session-user",
+  "writes": 276
+}

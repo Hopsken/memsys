@@ -1,0 +1,29 @@
+{
+  "abstain": false,
+  "answer": "Yes — you finished it. As of **March 30, 2023**, you'd completed *The Nightingale* and loved it; what resonated most were the bond between Vianne and Isabelle and the way the novel portrays daily wartime struggles alongside hope.\n\n(Back in January you'd paused partway through because it got too emotional, but you later finished it.)",
+  "correct": true,
+  "cost": 0.108591276,
+  "cues": [
+    {
+      "cue": "books finished reading"
+    },
+    {
+      "context": "User asks whether they finished reading 'The Nightingale' by Kristin Hannah",
+      "cue": "The Nightingale Kristin Hannah reading"
+    }
+  ],
+  "evidence": [
+    "vcbgzsx"
+  ],
+  "evidenceReturned": [
+    "vcbgzsx"
+  ],
+  "expected": "Yes",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 214,
+  "piErrors": 0,
+  "question": "Did I finish reading 'The Nightingale' by Kristin Hannah?",
+  "questionId": "b01defab",
+  "type": "knowledge-update",
+  "writes": 233
+}

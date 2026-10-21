@@ -1,0 +1,30 @@
+{
+  "abstain": false,
+  "answer": "**14 days.**\n\n- Started working with Rachel on **February 15, 2022**\n- Saw the house you loved on **March 1, 2022** (#homebuying)",
+  "correct": true,
+  "cost": 0.12068911200000002,
+  "cues": [
+    {
+      "cue": "find a house I loved days"
+    },
+    {
+      "cue": "Rachel house loved"
+    }
+  ],
+  "evidence": [
+    "s99hrzg",
+    "mwgkg27"
+  ],
+  "evidenceReturned": [
+    "s99hrzg",
+    "mwgkg27"
+  ],
+  "expected": "14 days. 15 days (including the last day) is also acceptable.",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 223,
+  "piErrors": 0,
+  "question": "How many days did it take for me to find a house I loved after starting to work with Rachel?",
+  "questionId": "2c63a862",
+  "type": "temporal-reasoning",
+  "writes": 232
+}

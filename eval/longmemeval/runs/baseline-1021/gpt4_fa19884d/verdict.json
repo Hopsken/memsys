@@ -1,0 +1,92 @@
+{
+  "abstain": false,
+  "answer": "Last Friday (March 31, 2023) is the day you mentioned discovering a **bluegrass band with a banjo player** and starting to enjoy them — that's the artist I have on record for that date. I don't have the band's actual name stored, though; and the closest named artist nearby in my notes is **Jinsang** (whose album *Life* you love), but that's not tied to last Friday.\n\nCan you remind me of the band's name so I can note it properly?",
+  "correct": true,
+  "cost": 0.11228913600000001,
+  "cues": [
+    {
+      "context": "User asks which artist they started listening to last Friday",
+      "cue": "artist started listening"
+    },
+    {
+      "cue": "music artist new discovery"
+    },
+    {
+      "cue": "Friday listening",
+      "limit": 30
+    },
+    {
+      "cue": "bluegrass band banjo recommendations"
+    },
+    {
+      "cue": "band",
+      "limit": 30
+    },
+    {
+      "cue": "#jinsang"
+    },
+    {
+      "cue": "#chataro"
+    },
+    {
+      "cue": "#elieballeh"
+    },
+    {
+      "cue": "#room40"
+    },
+    {
+      "cue": "#local-musicians"
+    },
+    {
+      "cue": "#vinyl"
+    },
+    {
+      "cue": "listened artist last week discover",
+      "limit": 30
+    },
+    {
+      "cue": "album recommendation artist new",
+      "limit": 40
+    },
+    {
+      "cue": "bluegrass",
+      "limit": 40
+    },
+    {
+      "cue": "#piano",
+      "limit": 20
+    },
+    {
+      "cue": "#fingerpicking"
+    },
+    {
+      "cue": "Arctic Monkeys The Car"
+    },
+    {
+      "cue": "started listening",
+      "limit": 25
+    },
+    {
+      "cue": "concert live show musician",
+      "limit": 20
+    },
+    {
+      "cue": "banjo player band",
+      "limit": 20
+    }
+  ],
+  "evidence": [
+    "k79atwk"
+  ],
+  "evidenceReturned": [
+    "k79atwk"
+  ],
+  "expected": "a bluegrass band that features a banjo player",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 238,
+  "piErrors": 0,
+  "question": "What is the artist that I started to listen to last Friday?",
+  "questionId": "gpt4_fa19884d",
+  "type": "temporal-reasoning",
+  "writes": 255
+}

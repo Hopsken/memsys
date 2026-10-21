@@ -1,0 +1,32 @@
+{
+  "answer": "I don't have any memory of baking for an uncle's birthday party. The closest thing I have on record is that you made a **lemon blueberry cake** for your **niece's** birthday party — it was a big hit thanks to the tangy lemon/sweet blueberry balance.\n\nDo you mean that one, or was the uncle's party a different occasion I don't have stored?",
+  "cost": 0.0011790479999999998,
+  "tools": [
+    {
+      "args": {
+        "cue": "uncle birthday party bake"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-05-23T06:24:07.104Z\",\"fragment\":\"User made a lemon blueberry cake for their niece's birthday party and it was a big hit; they attribute it to the tangy lemon/sweet blueberry balance. #recipes #lemon #baking #family\",\"ref\":\"hdwp5gv\"},{\"at\":\"2023-05-23T06:24:07.103Z\",\"fragment\":\"User bakes lemon-based desserts regularly and considers them a specialty, with several successes. #recipes #lemon #baking\",\"ref\":\"rcxdrja\",\"via\":[\"baking\",\"lemon\",\"recipes\"]},{\"at\":\"2023-05-23T06:24:07.107Z\",\"fragment\":\"User has been experimenting with different types of flour (bread vs all-purpose vs cake/pastry) and different sugars in baking. #recipes #baking\",\"ref\":\"b5am7sb\",\"via\":[\"baking\",\"recipes\"]},{\"at\":\"2023-05-23T06:24:07.109Z\",\"fragment\":\"As of late May 2023, user was planning lemon-based desserts (curd-filled cakes/tarts) for an upcoming dinner party. #recipes #lemon #dinner-party\",\"ref\":\"benueaq\",\"via\":[\"lemon\",\"recipes\"]},{\"at\":\"2023-05-23T06:24:07.106Z\",\"fragment\":\"User prefers pairing honey with granulated sugar in lemon desserts, believing the mix balances both flavor and texture. #recipes #honey #lemon\",\"ref\":\"gy4tfye\",\"via\":[\"lemon\",\"recipes\"]},{\"at\":\"2023-05-23T06:24:07.105Z\",\"fragment\":\"User made lemon curd with a combination of granulated sugar and honey, and it turned out really well. #recipes #lemon #honey\",\"ref\":\"3mru4n2\",\"via\":[\"lemon\",\"recipes\"]},{\"at\":\"2023-05-30T00:01:06.564Z\",\"fragment\":\"User's wife gave him a pair of Allen Edmonds leather dress shoes as a Valentine's Day gift; he finds them comfortable and stylish. #shoes #dress-shoes #family\",\"ref\":\"uyby5qq\",\"via\":[\"family\"]},{\"at\":\"2023-05-23T03:52:06.396Z\",\"fragment\":\"User is interested in Japanese-inspired recipes, especially soups and noodle dishes (ramen, udon, soba, yakisoba). #japanese-cooking #recipes\",\"ref\":\"uxxgcwq\",\"via\":[\"recipes\"]}],\"hasMore\":false}"
+    },
+    {
+      "args": {
+        "cue": "birthday party dessert",
+        "limit": 25
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-05-23T06:24:07.109Z\",\"fragment\":\"As of late May 2023, user was planning lemon-based desserts (curd-filled cakes/tarts) for an upcoming dinner party. #recipes #lemon #dinner-party\",\"ref\":\"benueaq\"},{\"at\":\"2023-05-23T06:24:07.104Z\",\"fragment\":\"User made a lemon blueberry cake for their niece's birthday party and it was a big hit; they attribute it to the tangy lemon/sweet blueberry balance. #recipes #lemon #baking #family\",\"ref\":\"hdwp5gv\"},{\"at\":\"2023-05-23T06:24:07.103Z\",\"fragment\":\"User bakes lemon-based desserts regularly and considers them a specialty, with several successes. #recipes #lemon #baking\",\"ref\":\"rcxdrja\",\"via\":[\"baking\",\"lemon\",\"recipes\"]},{\"at\":\"2023-05-23T06:24:07.107Z\",\"fragment\":\"User has been experimenting with different types of flour (bread vs all-purpose vs cake/pastry) and different sugars in baking. #recipes #baking\",\"ref\":\"b5am7sb\",\"via\":[\"baking\",\"recipes\"]},{\"at\":\"2023-05-23T06:24:07.106Z\",\"fragment\":\"User prefers pairing honey with granulated sugar in lemon desserts, believing the mix balances both flavor and texture. #recipes #honey #lemon\",\"ref\":\"gy4tfye\",\"via\":[\"lemon\",\"recipes\"]},{\"at\":\"2023-05-23T06:24:07.105Z\",\"fragment\":\"User made lemon curd with a combination of granulated sugar and honey, and it turned out really well. #recipes #lemon #honey\",\"ref\":\"3mru4n2\",\"via\":[\"lemon\",\"recipes\"]},{\"at\":\"2023-05-30T00:01:06.564Z\",\"fragment\":\"User's wife gave him a pair of Allen Edmonds leather dress shoes as a Valentine's Day gift; he finds them comfortable and stylish. #shoes #dress-shoes #family\",\"ref\":\"uyby5qq\",\"via\":[\"family\"]},{\"at\":\"2023-05-23T03:52:06.396Z\",\"fragment\":\"User is interested in Japanese-inspired recipes, especially soups and noodle dishes (ramen, udon, soba, yakisoba). #japanese-cooking #recipes\",\"ref\":\"uxxgcwq\",\"via\":[\"recipes\"]}],\"hasMore\":false}"
+    },
+    {
+      "args": {
+        "cue": "uncle"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[],\"hasMore\":false}"
+    }
+  ],
+  "attempts": 1
+}

@@ -1,0 +1,34 @@
+{
+  "abstain": false,
+  "answer": "Congrats on hosting! A few thoughts, leaning on what's worked for you before:\n\n**Go with a proven crowd-pleaser**\n- Your **lemon poppyseed cake** was already a hit with colleagues at the going-away party — that's basically a pre-tested recipe with an audience that's about to be in your living room. Low risk, high payoff.\n- The **chocolate cake with caramel ganache frosting** is a crowd-pleaser too, but it's a bigger production and messier to serve at a standing-around gathering.\n\n**Practical tips for a colleague gathering**\n- **Finger food > plated.** Cookies, bar cookies, mini muffins, or a loaf cake sliced thin are easier than a frosted layer cake when people are standing with drinks.\n- **Two things, done well,** beats four things done frantically. One showpiece (the lemon poppyseed cake) + one easy batch (your weekend cookies) is a nice combo.\n- Your **chocolate chip cookies** — chewy is the right call for a party; make the dough a day ahead and bake them fresh right before people arrive so the house smells good.\n- If you want something new, **oatmeal raisin with nuts** (you've been meaning to try it) makes a nice contrast to a lemon cake — and it's sturdy for a buffet.\n- **Label anything with nuts**, and it's worth a quick group message asking about allergies since you're mixing work folks who may not know each other.\n\nOne thing I don't have on file: any dietary restrictions among your colleagues. Want me to note anything if you find out?",
+  "correct": true,
+  "cost": 0.09576370799999999,
+  "cues": [
+    {
+      "context": "User asking for tips on what to bake for a small gathering with colleagues",
+      "cue": "baking"
+    },
+    {
+      "context": "User hosting colleagues at home",
+      "cue": "colleagues gathering party"
+    },
+    {
+      "context": "Planning baked goods for a gathering, checking for allergies or dietary restrictions",
+      "cue": "allergy gluten vegetarian dietary"
+    }
+  ],
+  "evidence": [
+    "t8jwyng"
+  ],
+  "evidenceReturned": [
+    "t8jwyng"
+  ],
+  "expected": "The user would prefer baking suggestions that take into account their previous success with the lemon poppyseed cake, such as variations of that recipe or other desserts that share similar qualities. They might prefer suggestions that balance impressiveness with manageability, considering their previous experience. The user may not prefer overly complex or unfamiliar recipes, or suggestions that do not build upon their existing baking experience.",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 219,
+  "piErrors": 0,
+  "question": "I'm thinking of inviting my colleagues over for a small gathering. Any tips on what to bake?",
+  "questionId": "d24813b1",
+  "type": "single-session-preference",
+  "writes": 233
+}

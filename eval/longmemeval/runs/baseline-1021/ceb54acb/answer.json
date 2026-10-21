@@ -1,0 +1,16 @@
+{
+  "answer": "Besides \"sexual compulsions,\" the other four options I suggested were:\n\n1. Sexual fixations\n2. Problematic sexual behaviors\n3. Sexual impulsivity\n4. Compulsive sexuality",
+  "cost": 0.0008803559999999999,
+  "tools": [
+    {
+      "args": {
+        "cue": "sexual compulsions alternative terms behaviors",
+        "context": "User asks to recall alternative terms I previously suggested, including 'sexual compulsions'"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-05-27T11:16:05.252Z\",\"fragment\":\"Alternative terms offered for hard-to-control sexual behavior patterns: sexual fixations, problematic sexual behaviors, sexual impulsivity, compulsive sexuality. #mental-health #habits\",\"ref\":\"a5ws92m\"},{\"at\":\"2023-05-27T11:16:05.249Z\",\"fragment\":\"On 2023/05/27 the user was looking for a concise term to describe a pattern of sexual behaviors that feel driven and hard to control; they rejected \\\"sexual compulsions\\\" as \\\"actually longer\\\" and pushed for a better option. #mental-health #habits\",\"ref\":\"zp7xm2n\"},{\"at\":\"2023-05-22T11:05:05.643Z\",\"fragment\":\"Plans to start with The 7 Habits of Highly Effective People, listening at a comfortable speed (1x, maybe 1.25x) and adjusting as needed. #audiobooks #seven-habits #self-improvement\",\"ref\":\"scayggy\",\"via\":[\"seven-habits\"]},{\"at\":\"2023-05-23T16:21:04.147Z\",\"fragment\":\"User read a New Yorker article about the impact of social media on mental health (around May 2023) that prompted them to reconsider their own social media habits. #new-yorker #social-media #mental-health\",\"ref\":\"b72brfm\",\"via\":[\"mental-health\"]},{\"at\":\"2023-05-29T19:02:05.540Z\",\"fragment\":\"User plans to set aside time each day to journal and reflect on their thoughts, feelings, and insights after reading \\\"The Power of Now\\\" to integrate the concepts into their life. #journaling #habits #spirituality #PowerOfNow\",\"ref\":\"67ar23d\",\"via\":[\"habits\"]},{\"at\":\"2023-05-23T16:21:07.123Z\",\"fragment\":\"User is focusing on more meaningful activities instead of screen time and hopes to build healthier, lasting habits. #screen-time #habits\",\"ref\":\"yme3pz9\",\"via\":[\"habits\"]}],\"hasMore\":false}"
+    }
+  ],
+  "attempts": 1
+}

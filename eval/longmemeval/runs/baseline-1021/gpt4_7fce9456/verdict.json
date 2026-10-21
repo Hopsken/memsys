@@ -1,0 +1,176 @@
+{
+  "abstain": false,
+  "answer": "You viewed **4 other properties** before making the offer on the Brookside townhouse:\n\n1. **Oakwood bungalow** — January 22\n2. **Cedar Creek property** — February 1\n3. **1-bedroom condo** — February 10\n4. **2-bedroom condo** — February 15\n\nYou then viewed the **Brookside townhouse on February 22** and made your offer on **February 25** — so that's **5 properties total** counting the townhouse itself.",
+  "correct": true,
+  "cost": 0.12288543600000001,
+  "cues": [
+    {
+      "cue": "townhouse Brookside offer"
+    },
+    {
+      "cue": "Brookside townhouse offer properties viewed"
+    },
+    {
+      "cue": "#home-search",
+      "limit": 40
+    },
+    {
+      "cue": "viewed properties home search February",
+      "limit": 40
+    },
+    {
+      "cue": "viewed a house condo tour",
+      "limit": 40
+    },
+    {
+      "cue": "neighborhood property listing real estate agent",
+      "limit": 40
+    },
+    {
+      "cue": "viewed",
+      "limit": 40
+    },
+    {
+      "cue": "properties",
+      "limit": 40
+    },
+    {
+      "cue": "house hunting",
+      "limit": 40
+    },
+    {
+      "cue": "looked at property",
+      "limit": 40
+    },
+    {
+      "cue": "saw a house",
+      "limit": 40
+    },
+    {
+      "cue": "Cedar Creek",
+      "limit": 40
+    },
+    {
+      "cue": "condo",
+      "limit": 40
+    },
+    {
+      "cue": "offer",
+      "limit": 40
+    },
+    {
+      "cue": "bungalow",
+      "limit": 40
+    },
+    {
+      "cue": "budget",
+      "limit": 40
+    },
+    {
+      "cue": "January 22",
+      "limit": 40
+    },
+    {
+      "cue": "February 1",
+      "limit": 40
+    },
+    {
+      "cue": "total number properties saw before",
+      "limit": 40
+    },
+    {
+      "cue": "February 22",
+      "limit": 40
+    },
+    {
+      "cue": "four properties",
+      "limit": 40
+    },
+    {
+      "cue": "viewings",
+      "limit": 40
+    },
+    {
+      "cue": "first property second property third property",
+      "limit": 40
+    },
+    {
+      "cue": "near-miss",
+      "limit": 40
+    },
+    {
+      "cue": "saw",
+      "limit": 40
+    },
+    {
+      "cue": "visited",
+      "limit": 40
+    },
+    {
+      "cue": "home",
+      "limit": 40
+    },
+    {
+      "cue": "other properties",
+      "limit": 40
+    },
+    {
+      "cue": "properties before",
+      "limit": 40
+    },
+    {
+      "cue": "I viewed",
+      "limit": 40
+    },
+    {
+      "cue": "house hunt",
+      "limit": 40
+    },
+    {
+      "cue": "several properties",
+      "limit": 40
+    },
+    {
+      "cue": "a few properties",
+      "limit": 40
+    },
+    {
+      "cue": "number of",
+      "limit": 40
+    },
+    {
+      "cue": "looked",
+      "limit": 40
+    },
+    {
+      "cue": "property",
+      "limit": 40
+    },
+    {
+      "cue": "townhouse",
+      "limit": 40
+    }
+  ],
+  "evidence": [
+    "pvtsme3",
+    "hpfcsge",
+    "qfctjm4",
+    "svr7v8t",
+    "rujdpvc"
+  ],
+  "evidenceReturned": [
+    "pvtsme3",
+    "hpfcsge",
+    "qfctjm4",
+    "svr7v8t",
+    "rujdpvc"
+  ],
+  "expected": "I viewed four properties before making an offer on the townhouse in the Brookside neighborhood. The reasons I didn't make an offer on them were: the kitchen of the bungalow needed serious renovation, the property in Cedar Creek was out of my budget, the noise from the highway was a deal-breaker for the 1-bedroom condo, and my offer on the 2-bedroom condo was rejected due to a higher bid.",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 219,
+  "piErrors": 0,
+  "question": "How many properties did I view before making an offer on the townhouse in the Brookside neighborhood?",
+  "questionId": "gpt4_7fce9456",
+  "type": "multi-session",
+  "writes": 234
+}

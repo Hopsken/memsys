@@ -1,0 +1,210 @@
+// One Pi conversation with memsys as its only tools, read from Pi's JSON
+// event stream (docs/json.md in the Pi package).
+
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+
+import { z } from "zod";
+
+export const toolCall = z.object({
+  args: z.json(),
+  isError: z.boolean(),
+  // Without the mcp__memsys__ prefix: remember, recall, revise, forget.
+  name: z.string(),
+  // The tool result's text blocks, joined.
+  result: z.string(),
+});
+export type ToolCall = z.infer<typeof toolCall>;
+
+export const piRun = z.object({
+  // The last assistant text.
+  answer: z.string(),
+  attempts: z.number(),
+  cost: z.number(),
+  error: z.string().optional(),
+  tools: z.array(toolCall),
+});
+export type PiRun = z.infer<typeof piRun>;
+
+const block = z.looseObject({ text: z.string().optional(), type: z.string() });
+const texts = (blocks: z.infer<typeof block>[]) =>
+  blocks
+    .filter((item) => item.type === "text")
+    .map((item) => item.text ?? "")
+    .join("");
+
+// The events this harness reads; Pi emits others, which are skipped.
+const event = z.discriminatedUnion("type", [
+  z.object({
+    args: z.json(),
+    toolCallId: z.string(),
+    toolName: z.string(),
+    type: z.literal("tool_execution_start"),
+  }),
+  z.object({
+    isError: z.boolean().default(false),
+    result: z.looseObject({ content: z.array(block).default([]) }).nullish(),
+    toolCallId: z.string(),
+    toolName: z.string(),
+    type: z.literal("tool_execution_end"),
+  }),
+  z.object({
+    message: z.looseObject({
+      content: z
+        .union([
+          z.string(),
+          z.array(block).transform((blocks) => texts(blocks)),
+        ])
+        .default(""),
+      errorMessage: z.string().optional(),
+      role: z.string(),
+      stopReason: z.string().optional(),
+      usage: z.object({ cost: z.object({ total: z.number() }) }).optional(),
+    }),
+    type: z.literal("message_end"),
+  }),
+  z.object({ type: z.literal("agent_settled") }),
+]);
+type PiEvent = z.infer<typeof event>;
+const KNOWN = new Set([
+  "agent_settled",
+  "message_end",
+  "tool_execution_end",
+  "tool_execution_start",
+]);
+const eventType = z.looseObject({ type: z.string() });
+
+const parseEvents = (stdout: string): PiEvent[] =>
+  stdout
+    .split("\n")
+    .filter((line) => line.trim().startsWith("{"))
+    .map((line) => z.json().parse(JSON.parse(line)))
+    .filter((json) => KNOWN.has(eventType.parse(json).type))
+    .map((json) => event.parse(json));
+
+const summarize = (events: PiEvent[]) => {
+  const starts = new Map<string, PiEvent & { type: "tool_execution_start" }>();
+  const tools: ToolCall[] = [];
+  const errors: string[] = [];
+  let answer = "";
+  let cost = 0;
+  let settled = false;
+  for (const item of events) {
+    if (item.type === "tool_execution_start") {
+      starts.set(item.toolCallId, item);
+    } else if (item.type === "tool_execution_end") {
+      tools.push({
+        args: starts.get(item.toolCallId)?.args ?? null,
+        isError: item.isError,
+        name: item.toolName.replace(/^mcp__memsys__/u, ""),
+        result: texts(item.result?.content ?? []),
+      });
+    } else if (
+      item.type === "message_end" &&
+      item.message.role === "assistant"
+    ) {
+      const { content, errorMessage, stopReason, usage } = item.message;
+      cost += usage?.cost.total ?? 0;
+      answer = content || answer;
+      if (stopReason === "error") {
+        errors.push(errorMessage ?? "assistant error");
+      }
+    } else if (item.type === "agent_settled") {
+      settled = true;
+    }
+  }
+  return { answer, cost, errors, settled, tools };
+};
+
+export interface PiOptions {
+  // Pi's config directory for this conversation; it holds mcp.json.
+  dir: string;
+  mcpUrl: string;
+  model: string;
+  prompt: string;
+  // Prepended to the prompt, as Pi does with piped input.
+  stdin: string;
+  system: string;
+  thinking: string;
+}
+
+const runOnce = async (
+  options: PiOptions
+): Promise<Omit<PiRun, "attempts">> => {
+  await mkdir(options.dir, { recursive: true });
+  await writeFile(
+    path.join(options.dir, "mcp.json"),
+    JSON.stringify({
+      mcpServers: { memsys: { exposure: "direct", url: options.mcpUrl } },
+    })
+  );
+  const child = spawn(
+    "pi",
+    [
+      "--mode",
+      "json",
+      "--print",
+      "--no-session",
+      // Nothing from this machine: no files, shell, context, or extensions.
+      "--no-builtin-tools",
+      "--no-context-files",
+      "--no-skills",
+      "--no-prompt-templates",
+      "--no-extensions",
+      "-e",
+      "builtin:mcp",
+      "--model",
+      options.model,
+      "--thinking",
+      options.thinking,
+      "--append-system-prompt",
+      options.system,
+      options.prompt,
+    ],
+    {
+      cwd: options.dir,
+      env: { ...process.env, PI_CODING_AGENT_DIR: options.dir },
+    }
+  );
+  child.stdin.end(options.stdin);
+  let stdout = "";
+  let stderr = "";
+  child.stdout.on("data", (chunk: Buffer) => {
+    stdout += chunk.toString();
+  });
+  child.stderr.on("data", (chunk: Buffer) => {
+    stderr += chunk.toString();
+  });
+  const [code]: unknown[] = await once(child, "close");
+  const { answer, cost, errors, settled, tools } = summarize(
+    parseEvents(stdout)
+  );
+  const failed = code !== 0 || !settled || errors.length > 0;
+  const detail = [...errors, stderr.trim().slice(-500)]
+    .filter(Boolean)
+    .join("\n");
+  return {
+    answer,
+    cost,
+    tools,
+    ...(failed && { error: `exit ${String(code)}: ${detail}` }),
+  };
+};
+
+const ATTEMPTS = 3;
+
+// A failed conversation is run again from the start, up to three times. Its
+// earlier writes stay in memory, as they would for a real agent.
+export const runPi = async (options: PiOptions): Promise<PiRun> => {
+  let result = await runOnce(options);
+  let attempts = 1;
+  while (result.error !== undefined && attempts < ATTEMPTS) {
+    attempts += 1;
+    // Retries are sequential by design.
+    // oxlint-disable-next-line no-await-in-loop
+    result = await runOnce(options);
+  }
+  return { ...result, attempts };
+};

@@ -1,0 +1,38 @@
+{
+  "abstain": false,
+  "answer": "About **two weeks**.\n\n- You got the new binoculars around **April 29, 2023** (you'd owned them exactly three weeks as of May 20).\n- You saw the American goldfinches returning on an after-dinner walk **about a week before May 20**, i.e. around **May 13**.\n\nSo roughly **two weeks** of using the new binoculars before that goldfinch sighting.",
+  "correct": true,
+  "cost": 0.11847523200000001,
+  "cues": [
+    {
+      "context": "User asks how long they used new binoculars before seeing American goldfinches returning",
+      "cue": "binoculars American goldfinches"
+    },
+    {
+      "context": "How long user used new binoculars before seeing American goldfinches",
+      "cue": "new binoculars",
+      "limit": 25
+    },
+    {
+      "context": "Goldfinch sighting timing relative to binocular purchase",
+      "cue": "goldfinches returning spring",
+      "limit": 20
+    }
+  ],
+  "evidence": [
+    "vdnekur",
+    "gtevfjh"
+  ],
+  "evidenceReturned": [
+    "vdnekur",
+    "gtevfjh"
+  ],
+  "expected": "Two weeks",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 227,
+  "piErrors": 0,
+  "question": "How long did I use my new binoculars before I saw the American goldfinches returning to the area?",
+  "questionId": "gpt4_cd90e484",
+  "type": "temporal-reasoning",
+  "writes": 252
+}

@@ -1,0 +1,25 @@
+{
+  "abstain": false,
+  "answer": "Your favorite running shoe brand is **Nike** — you currently run your daily 5Ks in a pair of Nike shoes and have said they've held up well. You bought them at an outlet mall in April 2023 for 20% off.",
+  "correct": true,
+  "cost": 0.111210108,
+  "cues": [
+    {
+      "cue": "favorite running shoes brand"
+    }
+  ],
+  "evidence": [
+    "xtuxus5"
+  ],
+  "evidenceReturned": [
+    "xtuxus5"
+  ],
+  "expected": "Nike",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 249,
+  "piErrors": 0,
+  "question": "What brand are my favorite running shoes?",
+  "questionId": "c8c3f81d",
+  "type": "single-session-user",
+  "writes": 268
+}

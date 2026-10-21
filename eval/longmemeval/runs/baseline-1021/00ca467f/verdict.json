@@ -1,0 +1,40 @@
+{
+  "abstain": false,
+  "answer": "Based on what I remember, you had **2 doctor's appointments in March 2023**:\n\n1. **March 3** – Saw your primary care physician, Dr. Smith, who diagnosed you with bronchitis after your lingering cough.\n2. **March 20** – Follow-up with your orthopedic surgeon, Dr. Thompson, where you learned your knee was healing well.\n\nOther health-related items weren't doctor's appointments: physical therapy (twice weekly starting March 25), your EMG with Dr. Johnson (scheduled April 1), and the appointment you planned to schedule with Dr. Patel (no date set).",
+  "correct": true,
+  "cost": 0.09806128199999999,
+  "cues": [
+    {
+      "cue": "doctor's appointment",
+      "limit": 40
+    },
+    {
+      "cue": "doctor appointment March",
+      "limit": 40
+    },
+    {
+      "cue": "appointment scheduled",
+      "limit": 40
+    },
+    {
+      "cue": "March 2023 visit",
+      "limit": 40
+    }
+  ],
+  "evidence": [
+    "eutbn4a",
+    "n6rmt58"
+  ],
+  "evidenceReturned": [
+    "eutbn4a",
+    "n6rmt58"
+  ],
+  "expected": "2",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 221,
+  "piErrors": 0,
+  "question": "How many doctor's appointments did I go to in March?",
+  "questionId": "00ca467f",
+  "type": "multi-session",
+  "writes": 239
+}

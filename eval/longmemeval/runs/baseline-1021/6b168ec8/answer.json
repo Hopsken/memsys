@@ -1,0 +1,23 @@
+{
+  "answer": "You own three bikes: a road bike (Trek Emonda), a mountain bike, and a commuter bike — each used for different types of rides.",
+  "cost": 0.000684456,
+  "tools": [
+    {
+      "args": {
+        "cue": "bikes"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-05-27T07:08:04.196Z\",\"fragment\":\"User owns three bikes: a road bike, a mountain bike, and a commuter bike, used for different types of rides. #bikes\",\"ref\":\"eu389yp\"},{\"at\":\"2023-05-27T07:08:05.981Z\",\"fragment\":\"User decided to buy the Abus SmartX bike lock with GPS tracking, choosing it for its balance of security, convenience and features; they want GPS tracking to monitor their bikes when away. #bikes #AbusSmartX #bikelock\",\"ref\":\"2kzmrhc\"},{\"at\":\"2023-05-27T07:08:05.980Z\",\"fragment\":\"User is planning to upgrade their road bike with carbon fiber wheels and intends to make the purchase within a few months (as of 2023/05/27). #bikes #carbonwheels\",\"ref\":\"nbxtwjm\"},{\"at\":\"2023-05-27T07:08:04.197Z\",\"fragment\":\"User's road bike is a Trek Emonda; they consider it perfect for long-distance road rides and planned to use it for a long ride the weekend of 2023/05/27. #bikes #TrekEmonda\",\"ref\":\"vb53bmn\"}],\"hasMore\":false}"
+    },
+    {
+      "args": {
+        "cue": "bicycle"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[],\"hasMore\":false}"
+    }
+  ],
+  "attempts": 1
+}

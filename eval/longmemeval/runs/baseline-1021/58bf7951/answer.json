@@ -1,0 +1,23 @@
+{
+  "answer": "You attended a local community theater production of Tennessee Williams' **The Glass Menagerie** — and you were especially impressed by the lead actress's performance.",
+  "cost": 0.000655224,
+  "tools": [
+    {
+      "args": {
+        "cue": "play community theater attended"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-05-26T07:31:05.626Z\",\"fragment\":\"User attended a local community theater production of Tennessee Williams' The Glass Menagerie and was impressed by the lead actress's performance. #theater #glass-menagerie\",\"ref\":\"hg8z3mn\"},{\"at\":\"2023-05-26T07:31:05.627Z\",\"fragment\":\"User has a friend named Emily who is an aspiring actress; the community theater lead actress reminded them of Emily, and the user planned to encourage Emily to audition for roles. #theater #emily\",\"ref\":\"gzhgjv4\",\"via\":[\"theater\"]}],\"hasMore\":false}"
+    },
+    {
+      "args": {
+        "cue": "theater"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-05-26T07:31:05.626Z\",\"fragment\":\"User attended a local community theater production of Tennessee Williams' The Glass Menagerie and was impressed by the lead actress's performance. #theater #glass-menagerie\",\"ref\":\"hg8z3mn\"},{\"at\":\"2023-05-26T07:31:05.627Z\",\"fragment\":\"User has a friend named Emily who is an aspiring actress; the community theater lead actress reminded them of Emily, and the user planned to encourage Emily to audition for roles. #theater #emily\",\"ref\":\"gzhgjv4\"}],\"hasMore\":false}"
+    }
+  ],
+  "attempts": 1
+}

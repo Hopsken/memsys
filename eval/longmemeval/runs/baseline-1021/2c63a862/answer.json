@@ -1,0 +1,23 @@
+{
+  "answer": "**14 days.**\n\n- Started working with Rachel on **February 15, 2022**\n- Saw the house you loved on **March 1, 2022** (#homebuying)",
+  "cost": 0.0009622559999999999,
+  "tools": [
+    {
+      "args": {
+        "cue": "find a house I loved days"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[],\"hasMore\":false}"
+    },
+    {
+      "args": {
+        "cue": "Rachel house loved"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2022-03-02T04:42:04.931Z\",\"fragment\":\"User saw a house they really love on March 1, 2022; it checks all the boxes. Asking price is $335,000. #homebuying\",\"ref\":\"mwgkg27\"},{\"at\":\"2022-03-02T04:42:04.933Z\",\"fragment\":\"User planned to offer $320,000 on the house they loved (asking price $335,000), calling it a fair price based on market value research. #homebuying\",\"ref\":\"97wdurt\"},{\"at\":\"2022-03-02T06:05:05.360Z\",\"fragment\":\"User wants Rachel's input on new construction listings, current market trends, and upcoming developments in the Irvine-area neighborhoods. #homebuying #newconstruction #Rachel\",\"ref\":\"skzufcp\",\"via\":[\"homebuying\"]},{\"at\":\"2022-03-02T06:05:05.359Z\",\"fragment\":\"Neighborhoods discussed as possible fits near Irvine: Tustin, Lake Forest, Mission Viejo, Rancho Santa Margarita, and Ladera Ranch. #homebuying #Irvine #neighborhood\",\"ref\":\"92jsz4j\",\"via\":[\"homebuying\"]},{\"at\":\"2022-03-02T06:05:05.358Z\",\"fragment\":\"User started working with real estate agent Rachel on February 15 (2022). #homebuying #agent #Rachel\",\"ref\":\"s99hrzg\",\"via\":[\"homebuying\"]},{\"at\":\"2022-03-02T06:05:05.357Z\",\"fragment\":\"User is looking for a family-friendly neighborhood with good schools and parks, within a 30-minute drive of their Irvine office. #homebuying #Irvine #neighborhood\",\"ref\":\"pp6mqvn\",\"via\":[\"homebuying\"]},{\"at\":\"2022-03-02T06:05:05.355Z\",\"fragment\":\"User works in Irvine, California. #homebuying #Irvine #workplace\",\"ref\":\"kfgh4up\",\"via\":[\"homebuying\"]},{\"at\":\"2022-03-02T04:42:04.932Z\",\"fragment\":\"User decided to make their offer contingent on inspection and to attach their pre-approval letter. They submitted the offer on March 2, 2022, with Rachel presenting it to the seller. #homebuying\",\"ref\":\"5nm8byp\",\"via\":[\"homebuying\"]},{\"at\":\"2022-03-02T04:42:04.930Z\",\"fragment\":\"User's real estate agent is named Rachel, who has been helping them find homes fitting their criteria. #homebuying #agent\",\"ref\":\"gew54dx\",\"via\":[\"homebuying\"]},{\"at\":\"2022-03-02T04:42:04.928Z\",\"fragment\":\"User is in the process of buying a home and got pre-approved for a mortgage on February 10, 2022, for $350,000 (slightly higher than they expected). #homebuying\",\"ref\":\"vnvp6g5\",\"via\":[\"homebuying\"]}],\"hasMore\":false}"
+    }
+  ],
+  "attempts": 1
+}

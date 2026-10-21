@@ -1,0 +1,23 @@
+{
+  "answer": "You've most recently said **120 stars** — that was your correction on July 30 (you'd earlier mentioned 300, and before that 125 on July 11).\n\nNote there's a discrepancy in what you've told me over time (120 vs. 125), so it's worth double-checking in the app if precision matters. #starbucks-rewards",
+  "cost": 0.001174956,
+  "tools": [
+    {
+      "args": {
+        "cue": "Starbucks"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-07-11T00:07:03.965Z\",\"fragment\":\"User uses the Starbucks Rewards app and is working toward reaching Gold level. #starbucks #starbucks-rewards\",\"ref\":\"fbqypz3\"},{\"at\":\"2023-07-30T02:08:05.616Z\",\"fragment\":\"User plans to stop by Starbucks after shopping at Sephora and wants to earn stars efficiently in the Starbucks Rewards app. #starbucks-rewards #shopping\",\"ref\":\"rmawhga\"},{\"at\":\"2023-07-11T00:07:03.966Z\",\"fragment\":\"Per the user's own correction, 125 stars are needed to reach Starbucks Rewards Gold level (not 400 as earlier stated). #starbucks #starbucks-rewards\",\"ref\":\"fuwydcu\"},{\"at\":\"2023-07-30T02:08:05.617Z\",\"fragment\":\"User states they need 120 stars to reach Starbucks Rewards Gold level, and corrected an earlier claim that it was 300. #starbucks-rewards #gold\",\"ref\":\"scsshnx\"},{\"at\":\"2023-07-30T02:08:05.621Z\",\"fragment\":\"User asked how many Fetch Rewards points are needed to redeem a $10 gift card. #fetch-rewards #loyalty-programs\",\"ref\":\"9gug5zg\",\"via\":[\"fetch-rewards\"]},{\"at\":\"2023-07-23T07:37:05.961Z\",\"fragment\":\"Buys morning coffee at a coffee shop near their bus stop and earns a free coffee every fifth purchase; plans to ask staff about other rewards or discounts. #coffee-shop #commute\",\"ref\":\"u577zgq\",\"via\":[\"coffee-shop\"]},{\"at\":\"2023-07-30T02:08:05.615Z\",\"fragment\":\"User planned a weekend shopping trip to Sephora (as of 2023-07-30) and asked for product ideas across skincare, makeup, fragrance, tools and trending items. #sephora #shopping\",\"ref\":\"bbyp46y\",\"via\":[\"shopping\"]},{\"at\":\"2023-07-29T07:36:06.400Z\",\"fragment\":\"User values supporting local businesses and prefers eco-friendly, sustainable choices (e.g., buying from a local brand to reduce carbon footprint, avoiding single-use plastic bags). #values #sustainability #eco-friendly #shopping\",\"ref\":\"742fmya\",\"via\":[\"shopping\"]},{\"at\":\"2023-07-29T07:36:05.100Z\",\"fragment\":\"User prefers a minimalist approach to packing for daily errands: wallet, phone, reusable shopping bags, shopping list/coupons, water bottle and a small snack are enough; extra items only if needed. #user-preferences #shopping\",\"ref\":\"4965dxt\",\"via\":[\"shopping\"]},{\"at\":\"2023-07-29T07:36:05.098Z\",\"fragment\":\"User plans to buy a canvas tote bag from a local brand for daily errands and grocery shopping (as of 2023-07-29), and intends to follow canvas-care tips (spot clean, no machine washing, air dry, condition every 2-3 months) to make it last. #canvas-tote-bag #shopping #groceries\",\"ref\":\"x8y6zcp\",\"via\":[\"shopping\"]}],\"hasMore\":true}"
+    },
+    {
+      "args": {
+        "cue": "Starbucks Rewards gold level stars"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-07-30T02:08:05.617Z\",\"fragment\":\"User states they need 120 stars to reach Starbucks Rewards Gold level, and corrected an earlier claim that it was 300. #starbucks-rewards #gold\",\"ref\":\"scsshnx\"},{\"at\":\"2023-07-11T00:07:03.966Z\",\"fragment\":\"Per the user's own correction, 125 stars are needed to reach Starbucks Rewards Gold level (not 400 as earlier stated). #starbucks #starbucks-rewards\",\"ref\":\"fuwydcu\"},{\"at\":\"2023-07-11T00:07:03.965Z\",\"fragment\":\"User uses the Starbucks Rewards app and is working toward reaching Gold level. #starbucks #starbucks-rewards\",\"ref\":\"fbqypz3\"},{\"at\":\"2023-07-30T02:08:05.621Z\",\"fragment\":\"User asked how many Fetch Rewards points are needed to redeem a $10 gift card. #fetch-rewards #loyalty-programs\",\"ref\":\"9gug5zg\",\"via\":[\"fetch-rewards\"]},{\"at\":\"2023-07-30T02:08:05.616Z\",\"fragment\":\"User plans to stop by Starbucks after shopping at Sephora and wants to earn stars efficiently in the Starbucks Rewards app. #starbucks-rewards #shopping\",\"ref\":\"rmawhga\",\"via\":[\"starbucks-rewards\"]}],\"hasMore\":false}"
+    }
+  ],
+  "attempts": 1
+}

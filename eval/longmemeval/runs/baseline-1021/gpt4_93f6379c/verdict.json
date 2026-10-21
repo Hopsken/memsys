@@ -1,0 +1,30 @@
+{
+  "abstain": false,
+  "answer": "You joined **'Page Turners'** first.\n\n- **Page Turners** – joined mid-May 2023 (about a week before May 25)\n- **Marketing Professionals** – joined May 24, 2023 (one day before May 25)",
+  "correct": true,
+  "cost": 0.10296367199999998,
+  "cues": [
+    {
+      "cue": "Marketing Professionals"
+    },
+    {
+      "cue": "Page Turners"
+    }
+  ],
+  "evidence": [
+    "dsz6rm4",
+    "phmusk6"
+  ],
+  "evidenceReturned": [
+    "dsz6rm4",
+    "phmusk6"
+  ],
+  "expected": "Page Turners",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 204,
+  "piErrors": 0,
+  "question": "Which group did I join first, 'Page Turners' or 'Marketing Professionals'?",
+  "questionId": "gpt4_93f6379c",
+  "type": "temporal-reasoning",
+  "writes": 215
+}

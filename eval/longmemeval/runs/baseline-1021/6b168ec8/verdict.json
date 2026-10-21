@@ -1,0 +1,28 @@
+{
+  "abstain": false,
+  "answer": "You own three bikes: a road bike (Trek Emonda), a mountain bike, and a commuter bike — each used for different types of rides.",
+  "correct": true,
+  "cost": 0.10474644000000001,
+  "cues": [
+    {
+      "cue": "bikes"
+    },
+    {
+      "cue": "bicycle"
+    }
+  ],
+  "evidence": [
+    "eu389yp"
+  ],
+  "evidenceReturned": [
+    "eu389yp"
+  ],
+  "expected": "three",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 229,
+  "piErrors": 0,
+  "question": "How many bikes do I own?",
+  "questionId": "6b168ec8",
+  "type": "single-session-user",
+  "writes": 253
+}

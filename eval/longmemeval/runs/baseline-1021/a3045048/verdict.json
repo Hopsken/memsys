@@ -1,0 +1,30 @@
+{
+  "abstain": false,
+  "answer": "You ordered her gift (a personalized photo album from Shutterfly) on April 15, and her birthday party was on April 22 — so **7 days before** the party.",
+  "correct": true,
+  "cost": 0.11207511599999999,
+  "cues": [
+    {
+      "cue": "best friend birthday party gift order"
+    },
+    {
+      "cue": "#bestfriend birthday"
+    }
+  ],
+  "evidence": [
+    "5xsbekm",
+    "5zj8vh5"
+  ],
+  "evidenceReturned": [
+    "5xsbekm",
+    "5zj8vh5"
+  ],
+  "expected": "7 days. 8 days (including the last day) is also acceptable.",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 245,
+  "piErrors": 0,
+  "question": "How many days before my best friend's birthday party did I order her gift?",
+  "questionId": "a3045048",
+  "type": "temporal-reasoning",
+  "writes": 268
+}

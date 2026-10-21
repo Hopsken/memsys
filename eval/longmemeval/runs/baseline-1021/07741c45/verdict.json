@@ -1,0 +1,31 @@
+{
+  "abstain": false,
+  "answer": "You keep them on a shoe rack inside your closet — as of May 29 you were planning to move them there from under your bed to free up space.",
+  "correct": true,
+  "cost": 0.10226426399999997,
+  "cues": [
+    {
+      "cue": "old sneakers"
+    },
+    {
+      "cue": "sneakers storage keep"
+    },
+    {
+      "cue": "shoe rack closet sneakers moved"
+    }
+  ],
+  "evidence": [
+    "7t8a2ht"
+  ],
+  "evidenceReturned": [
+    "7t8a2ht"
+  ],
+  "expected": "in a shoe rack in my closet",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 256,
+  "piErrors": 0,
+  "question": "Where do I currently keep my old sneakers?",
+  "questionId": "07741c45",
+  "type": "knowledge-update",
+  "writes": 263
+}

@@ -1,0 +1,23 @@
+{
+  "answer": "SIAC_GEE implements the **6S** radiative transfer model (not MAJA or Sen2Cor). It's a JavaScript tool for Google Earth Engine, created by MarcYin, that processes Sentinel-2 Level-1C data and is open-source with batch processing support.",
+  "cost": 0.000927456,
+  "tools": [
+    {
+      "args": {
+        "cue": "SIAC_GEE atmospheric correction"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-05-27T13:33:04.518Z\",\"fragment\":\"User compared 6S, MAJA, and Sen2Cor algorithms for Sentinel-2 atmospheric correction. MAJA is developed by CNES (French Space Agency) and SIAC-GEE implements 6S. #sentinel-2 #atmospheric-correction\",\"ref\":\"3ucwjhv\"},{\"at\":\"2023-05-27T13:33:06.518Z\",\"fragment\":\"User compared SIAC-GEE (by MarcYin) with Sen2Cor for Sentinel-2 atmospheric correction. SIAC-GEE is JavaScript on Google Earth Engine, uses the 6S model, processes Level-1C, is open-source, and supports batch processing. #sentinel-2 #atmospheric-correction\",\"ref\":\"c37eb5g\"},{\"at\":\"2023-05-27T13:33:04.514Z\",\"fragment\":\"User works in remote sensing / Earth observation, with hands-on interest in atmospheric correction of satellite imagery (as of May 2023). #remote-sensing #user-research\",\"ref\":\"mefzyst\"},{\"at\":\"2023-05-27T13:33:04.520Z\",\"fragment\":\"User asked whether Sentinel-2 Level-2 data is always available and about its coverage; was told L2A is not guaranteed everywhere and they may need to apply atmospheric correction to Level-1 data themselves. #sentinel-2 #remote-sensing\",\"ref\":\"xmtrbj9\"},{\"at\":\"2023-05-28T06:24:08.613Z\",\"fragment\":\"User wore a new navy blue suit to their best friend's wedding; it was bought specifically for the occasion from a local tailor in the user's hometown. #clothing #user #user-interests\",\"ref\":\"ftv7mur\",\"via\":[\"user\",\"user-interests\"]},{\"at\":\"2023-05-22T03:29:05.549Z\",\"fragment\":\"The user's company sells an AI-powered project management tool. #project-management-tool #user-company\",\"ref\":\"x46sjq9\",\"via\":[\"user-company\"]},{\"at\":\"2023-05-30T04:13:06.853Z\",\"fragment\":\"User lives in Seattle, WA, zip code 98122. #seattle #user-location #location\",\"ref\":\"5vdu8kj\",\"via\":[\"user-location\"]},{\"at\":\"2023-05-30T02:19:06.789Z\",\"fragment\":\"User writes and works with Python code for #azure-durable-functions and Azure Functions. They prefer explanations done step by step, in easy language, with each step's purpose explained. #user-work #tech-skills\",\"ref\":\"jhywvfz\",\"via\":[\"user-work\"]},{\"at\":\"2023-05-28T19:34:06.824Z\",\"fragment\":\"User asked about tech job market and training resources in \\\"City E\\\" (context of a career question on 2023-05-28); no city-specific data was available. #user-location #city-E\",\"ref\":\"nfsc4az\",\"via\":[\"user-location\"]},{\"at\":\"2023-05-28T19:34:06.822Z\",\"fragment\":\"User wants to track and measure learning progress through courses and bootcamps (quizzes, projects, feedback, self-reflection). #user-goals #tech-skills\",\"ref\":\"pnuduwu\",\"via\":[\"user-goals\"]}],\"hasMore\":true}"
+    },
+    {
+      "args": {
+        "cue": "6S MAJA Sen2Cor algorithms atmospheric correction remote sensing"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[],\"hasMore\":false}"
+    }
+  ],
+  "attempts": 1
+}

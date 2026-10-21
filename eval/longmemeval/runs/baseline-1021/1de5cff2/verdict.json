@@ -1,0 +1,43 @@
+{
+  "abstain": false,
+  "answer": "Based on my notes from our conversation about sustainable fashion, the brand you're thinking of is **Veja**.\n\nVeja is the French sneaker brand known for sourcing **wild rubber tapped from rubber trees in the Amazon rainforest** (working with local seringueiro cooperatives), alongside other eco-friendly materials. It was one of the sustainability-focused brands you mentioned being interested in, along with Stella McCartney, Eileen Fisher, Patagonia, and Reformation.",
+  "correct": true,
+  "cost": 0.10658278799999998,
+  "cues": [
+    {
+      "cue": "wild rubber Amazon rainforest fashion brand"
+    },
+    {
+      "cue": "high-end fashion brands"
+    },
+    {
+      "cue": "fashion"
+    },
+    {
+      "cue": "rubber"
+    },
+    {
+      "cue": "Amazon"
+    },
+    {
+      "cue": "Veja"
+    },
+    {
+      "cue": "sustainability fashion brands Stella McCartney"
+    }
+  ],
+  "evidence": [
+    "6fjs4hb"
+  ],
+  "evidenceReturned": [
+    "6fjs4hb"
+  ],
+  "expected": "Veja",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 223,
+  "piErrors": 0,
+  "question": "I was going through our previous conversation about high-end fashion brands, and I was wondering if you could remind me of the brand that uses wild rubber sourced from the Amazon rainforest?",
+  "questionId": "1de5cff2",
+  "type": "single-session-assistant",
+  "writes": 242
+}

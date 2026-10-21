@@ -1,0 +1,15 @@
+{
+  "answer": "Your favorite running shoe brand is **Nike** — you currently run your daily 5Ks in a pair of Nike shoes and have said they've held up well. You bought them at an outlet mall in April 2023 for 20% off.",
+  "cost": 0.0007858559999999999,
+  "tools": [
+    {
+      "args": {
+        "cue": "favorite running shoes brand"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-05-29T19:47:06.050Z\",\"fragment\":\"User's current Nike running shoes are used for daily 5K runs and have held up well; Nike is their favorite brand for running shoes. #running #shoes #nike\",\"ref\":\"xtuxus5\"},{\"at\":\"2023-05-29T19:47:06.049Z\",\"fragment\":\"User bought their current Nike running shoes at an outlet mall in April 2023, on sale for 20% off, and wants to find the same model or a similar deal again. #running #shoes #nike\",\"ref\":\"8aq64rm\",\"via\":[\"nike\",\"running\",\"shoes\"]},{\"at\":\"2023-05-30T20:55:05.227Z\",\"fragment\":\"User recently bought a new pair of shoes and is unsure whether they match their event outfit; plans to try them on with the outfit to check. #dress-shoes #wardrobe\",\"ref\":\"45bzaw5\",\"via\":[\"dress-shoes\"]},{\"at\":\"2023-05-26T15:51:05.647Z\",\"fragment\":\"User wants to add strength training to their routine, focusing on core and glute exercises, to improve running efficiency and reduce injury risk. #strength-training #running\",\"ref\":\"ykyz5y9\",\"via\":[\"running\"]},{\"at\":\"2023-05-26T15:51:05.638Z\",\"fragment\":\"User is planning to run a 10K road race in June. They had only done trail runs recently before that. #running #10K\",\"ref\":\"hqykpe9\",\"via\":[\"running\"]},{\"at\":\"2023-05-26T15:51:05.630Z\",\"fragment\":\"User ran a 5K in January 2023 finishing in 31 minutes 45 seconds, and wants to build on that performance. #running #5K\",\"ref\":\"96uxdcr\",\"via\":[\"running\"]},{\"at\":\"2023-05-29T08:47:03.003Z\",\"fragment\":\"User got a new pair of sandals they are excited to wear in summer (#shoes, #sandals).\",\"ref\":\"4fne465\",\"via\":[\"shoes\"]},{\"at\":\"2023-05-29T08:47:03.002Z\",\"fragment\":\"User plans to buy new gym shoes and is interested in Reebok CrossFit shoes (Nano/Legacy lines); they have had good past experience with Nike (#shoes, #gym).\",\"ref\":\"87je3hd\",\"via\":[\"shoes\"]},{\"at\":\"2023-05-29T08:47:03.001Z\",\"fragment\":\"User plans to clean out and reorganize their cluttered shoe rack over the weekend because it's hard to find the shoes they need (#shoes, #organization).\",\"ref\":\"j7tvr5b\",\"via\":[\"shoes\"]},{\"at\":\"2023-05-29T08:47:03.000Z\",\"fragment\":\"User owns new black leather boots that they describe as very comfortable; they wore them for the first time on a fancy-restaurant dinner date with friends on 2023/05/29 (#shoes, #boots).\",\"ref\":\"8z2vqa2\",\"via\":[\"shoes\"]}],\"hasMore\":true}"
+    }
+  ],
+  "attempts": 1
+}

@@ -1,0 +1,48 @@
+{
+  "abstain": false,
+  "answer": "**Total: $75**\n\n- Vet visit (mid-May 2023, consultation fee at discounted regular-customer rate): **$50**\n- Flea and tick prevention for Lola (3-month supply): **$25**\n\n$50 + $25 = **$75**",
+  "correct": true,
+  "cost": 0.10323907199999997,
+  "cues": [
+    {
+      "cue": "flea medication cost",
+      "limit": 20
+    },
+    {
+      "cue": "Lola vet visit cost",
+      "limit": 20
+    },
+    {
+      "cue": "vet",
+      "limit": 40
+    },
+    {
+      "cue": "Lola",
+      "limit": 40
+    },
+    {
+      "cue": "Lola checkup total",
+      "limit": 20
+    },
+    {
+      "cue": "vet visit vaccination fee",
+      "limit": 20
+    }
+  ],
+  "evidence": [
+    "dsz79zr",
+    "mrmq7zx"
+  ],
+  "evidenceReturned": [
+    "dsz79zr",
+    "mrmq7zx"
+  ],
+  "expected": "$75",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 225,
+  "piErrors": 0,
+  "question": "What is the total cost of Lola's vet visit and flea medication?",
+  "questionId": "720133ac",
+  "type": "multi-session",
+  "writes": 242
+}

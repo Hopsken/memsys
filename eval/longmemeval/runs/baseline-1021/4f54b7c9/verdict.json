@@ -1,0 +1,52 @@
+{
+  "abstain": false,
+  "answer": "You inherited or acquired **5 antique/vintage items** from family members:\n\n1. **Vintage diamond necklace** — from your grandmother\n2. **Antique music box** — from your great-aunt\n3. **Depression-era glassware** — from your mom\n4. **Antique tea set** — from your cousin Rachel\n5. **Vintage typewriter** — that belonged to your dad\n\n(You've mentioned wanting to appraise/insure some of these, and possibly sell some heirlooms while decluttering.)",
+  "correct": true,
+  "cost": 0.09549020399999998,
+  "cues": [
+    {
+      "cue": "antique inheritance"
+    },
+    {
+      "cue": "antique items inherited family"
+    },
+    {
+      "cue": "heirlooms",
+      "limit": 40
+    },
+    {
+      "cue": "antique",
+      "limit": 40
+    },
+    {
+      "cue": "vintage collectible belonged",
+      "limit": 40
+    },
+    {
+      "cue": "grandmother grandmother grandfather aunt",
+      "limit": 40
+    }
+  ],
+  "evidence": [
+    "ab3ngad",
+    "75z75ej",
+    "43gzmm5",
+    "vwgfcsy",
+    "cc6puwb"
+  ],
+  "evidenceReturned": [
+    "ab3ngad",
+    "75z75ej",
+    "43gzmm5",
+    "vwgfcsy",
+    "cc6puwb"
+  ],
+  "expected": "5",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 199,
+  "piErrors": 0,
+  "question": "How many antique items did I inherit or acquire from my family members?",
+  "questionId": "4f54b7c9",
+  "type": "multi-session",
+  "writes": 211
+}

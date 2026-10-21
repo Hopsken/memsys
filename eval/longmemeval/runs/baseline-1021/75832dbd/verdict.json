@@ -1,0 +1,35 @@
+{
+  "abstain": false,
+  "answer": "Based on what I remember about your interests — **BCI decoders / nano neural interfaces**, **multi-agent & multimodal RL** (your Edinburgh MSc goal), and **AI/robotics for environmental sustainability** — here's a shortlist. I can't browse live, so double-check dates/CFPs before committing.\n\n**Neural engineering / BCI**\n- **IEEE EMBC 2023** (Sydney, late July 2023) — broad biomedical engineering, heavy neural-interface and nanotransducer content.\n- **Graz BCI Conference** (biennial, Graz) — the most targeted BCI venue; strong on decoders and stimulation.\n- **IEEE BioCAS** — where magnetoelectric/piezoelectric nanotransducer stimulation work tends to show up.\n- **SfN Annual Meeting 2023** (Washington DC, November) — best for C. elegans connectome and imaging (GEVI vs. calcium imaging) work.\n- Journals to watch: *Journal of Neural Engineering*, *Nature Neuroscience*, *Nature Biomedical Engineering* — the 2022–23 magnetoelectric-nanoparticle stimulation papers are directly in your proposal's space.\n\n**RL / multi-agent / robotics** (Albrecht's group territory)\n- **AAMAS 2023** (London, this week) and **AAMAS 2024** — core multi-agent RL venue.\n- **CoRL 2023** (Atlanta, November) — robot learning, sim-to-real, multi-modal policies.\n- **ICML 2023** (Honolulu, July) and **NeurIPS 2023** (New Orleans, December) — decoder/representation-learning and RL-adjacent work; also good for meeting Edinburgh/Pittsburgh people.\n- **ICLR 2024** (Vienna, May) — submission deadline is usually late September, worth noting if you want to publish during your MSc.\n\n**Sustainability + robotics**\n- **ICRA 2024** (Yokohama) and **IROS 2023** (Detroit, October) — waste-collection robots, aerial ecosystem monitoring.\n- **ACM COMPASS** / **IEEE Sustech** — smaller, but squarely on AI for sustainability.\n\n**Cross-cutting, good for networking as an IEEE/ACM volunteer**\n- **IEEE SMC** and **ACM SIGAI** workshop tracks; also the **DARPA N³**-adjacent program pages for nonsurgical neurotech funding signals.\n\nWant me to narrow this to just one track (e.g., BCI decoders) and sketch a reading list of specific 2022–23 papers plus their authors to follow?",
+  "correct": false,
+  "cost": 0.11332291200000001,
+  "cues": [
+    {
+      "cue": "research interests conferences"
+    },
+    {
+      "cue": "papers publications reading"
+    },
+    {
+      "cue": "neuroscience AI conference attended",
+      "limit": 30
+    },
+    {
+      "cue": "#research",
+      "limit": 40
+    }
+  ],
+  "evidence": [
+    "gxyjaxq",
+    "n8dqun3"
+  ],
+  "evidenceReturned": [],
+  "expected": "The user would prefer suggestions related to recent research papers, articles, or conferences that focus on artificial intelligence in healthcare, particularly those that involve deep learning for medical image analysis. They would not be interested in general AI topics or those unrelated to healthcare.",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 272,
+  "piErrors": 0,
+  "question": "Can you recommend some recent publications or conferences that I might find interesting?",
+  "questionId": "75832dbd",
+  "type": "single-session-preference",
+  "writes": 298
+}

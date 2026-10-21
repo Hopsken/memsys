@@ -1,0 +1,15 @@
+{
+  "answer": "You switched to **less water** per tablespoon of coffee.\n\n- February 2023: 1 tbsp per **6 oz** of water\n- June 2023: 1 tbsp per **5 oz** of water — which you said you had \"down to a science\"\n\nSo over time you reduced the water, making your brew slightly stronger.",
+  "cost": 0.0007846559999999999,
+  "tools": [
+    {
+      "args": {
+        "cue": "French press coffee-to-water ratio tablespoon"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-02-11T11:41:05.984Z\",\"fragment\":\"#coffee #french-press The user's preferred French press ratio is 1 tablespoon of coffee per 6 ounces of water, which they found through experimentation and consider perfect.\",\"ref\":\"579juph\"},{\"at\":\"2023-06-30T13:14:03.491Z\",\"fragment\":\"User's French press coffee ratio is 1 tablespoon of coffee per 5 ounces of water, which they consider \\\"down to a science.\\\" #coffee #frenchpress\",\"ref\":\"yprqbfa\"},{\"at\":\"2023-06-30T13:14:03.511Z\",\"fragment\":\"User wants to clean their French press thoroughly to remove old coffee oils. #coffee #frenchpress #cleaning\",\"ref\":\"j4cp4c6\",\"via\":[\"coffee\",\"frenchpress\"]},{\"at\":\"2023-02-11T11:41:05.990Z\",\"fragment\":\"#coffee The user asked for tips on storing coffee beans to preserve freshness; they keep beans for their French press brewing.\",\"ref\":\"pmystf3\",\"via\":[\"coffee\"]},{\"at\":\"2023-02-11T11:41:05.989Z\",\"fragment\":\"#coffee #subscription As of 2023-02-11, the user had signed up for a coffee subscription service the previous month (Jan 2023) and received their first shipment of beans on 2023-02-10.\",\"ref\":\"ukn44v5\",\"via\":[\"coffee\"]},{\"at\":\"2023-02-11T11:41:05.986Z\",\"fragment\":\"#coffee The user planned to try Kenyan coffee (chosen from a list of citrus-friendly origins) first, and to brew the new beans in their French press.\",\"ref\":\"wj8nmth\",\"via\":[\"coffee\"]},{\"at\":\"2023-02-11T11:41:05.985Z\",\"fragment\":\"#coffee #citrus The user is experimenting with adding citrus notes to coffee and wants bean pairings that complement citrus.\",\"ref\":\"svdubb4\",\"via\":[\"coffee\"]}],\"hasMore\":false}"
+    }
+  ],
+  "attempts": 1
+}

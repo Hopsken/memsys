@@ -1,0 +1,36 @@
+{
+  "abstain": false,
+  "answer": "I don't have an exact brand name on file. The closest match in memory: you use a **lavender-scented shampoo bought at Trader Joe's** (noted ~May 22), and you mentioned it works great for your hair. It's likely Trader Joe's own store brand, but I never recorded the specific label — want me to note it for next time?",
+  "correct": true,
+  "cost": 0.107754396,
+  "cues": [
+    {
+      "cue": "#shampoo"
+    },
+    {
+      "cue": "shampoo brand"
+    },
+    {
+      "cue": "hair care",
+      "limit": 25
+    },
+    {
+      "cue": "Trader Joe's shampoo lavender",
+      "limit": 25
+    }
+  ],
+  "evidence": [
+    "9wgsk8h"
+  ],
+  "evidenceReturned": [
+    "9wgsk8h"
+  ],
+  "expected": "Trader Joe's",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 238,
+  "piErrors": 0,
+  "question": "What brand of shampoo do I currently use?",
+  "questionId": "c14c00dd",
+  "type": "single-session-user",
+  "writes": 252
+}

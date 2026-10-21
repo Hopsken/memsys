@@ -1,0 +1,66 @@
+{
+  "abstain": true,
+  "answer": "I don't have any record of museum or gallery visits in December, so I can't give you a count — from what I remember, that month isn't covered at all.\n\nThe art-related visits I do have are:\n- **Modern Art Museum** — guided workshop, January 2023\n- **Natural History Museum** — with your niece, 8 February 2023\n- **The Art Cube** — \"Disrupting Reality\" opening night, 15 February 2023\n\nIf you visited somewhere in December, tell me which and I'll add it.",
+  "correct": true,
+  "cost": 0.10499027999999999,
+  "cues": [
+    {
+      "cue": "museum gallery December visit",
+      "limit": 40
+    },
+    {
+      "cue": "#museum-exhibition",
+      "limit": 40
+    },
+    {
+      "cue": "museum",
+      "limit": 40
+    },
+    {
+      "cue": "#the_art_cube",
+      "limit": 20
+    },
+    {
+      "cue": "gallery art cube",
+      "limit": 20
+    },
+    {
+      "cue": "December",
+      "limit": 40
+    },
+    {
+      "cue": "visited exhibition opening",
+      "limit": 40
+    },
+    {
+      "cue": "art",
+      "limit": 40
+    },
+    {
+      "cue": "last month",
+      "limit": 40
+    },
+    {
+      "cue": "holiday Christmas winter",
+      "limit": 40
+    },
+    {
+      "cue": "visited",
+      "limit": 40
+    },
+    {
+      "cue": "New York City trip museums",
+      "limit": 40
+    }
+  ],
+  "evidence": [],
+  "evidenceReturned": [],
+  "expected": "0. You did not mention visitng any museum in December",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 210,
+  "piErrors": 0,
+  "question": "How many different museums or galleries did I visit in December?",
+  "questionId": "80ec1f4f_abs",
+  "type": "multi-session",
+  "writes": 227
+}

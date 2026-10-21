@@ -1,0 +1,41 @@
+{
+  "answer": "I don't have an exact brand name on file. The closest match in memory: you use a **lavender-scented shampoo bought at Trader Joe's** (noted ~May 22), and you mentioned it works great for your hair. It's likely Trader Joe's own store brand, but I never recorded the specific label — want me to note it for next time?",
+  "cost": 0.001125444,
+  "tools": [
+    {
+      "args": {
+        "cue": "#shampoo"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-05-22T08:57:03.917Z\",\"fragment\":\"User uses a lavender-scented shampoo bought at Trader Joe's and says it works great for their hair. #hair-care #trader-joes\",\"ref\":\"9wgsk8h\"},{\"at\":\"2023-05-22T08:57:03.921Z\",\"fragment\":\"User previously used a loofah for exfoliating and is open to trying exfoliating gloves or scrubbers instead. #skin-care #exfoliation\",\"ref\":\"g3g65nr\",\"via\":[\"skin-care\"]}],\"hasMore\":false}"
+    },
+    {
+      "args": {
+        "cue": "shampoo brand"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[],\"hasMore\":false}"
+    },
+    {
+      "args": {
+        "cue": "hair care",
+        "limit": 25
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-05-22T08:57:03.917Z\",\"fragment\":\"User uses a lavender-scented shampoo bought at Trader Joe's and says it works great for their hair. #hair-care #trader-joes\",\"ref\":\"9wgsk8h\"},{\"at\":\"2023-05-22T08:57:03.921Z\",\"fragment\":\"User previously used a loofah for exfoliating and is open to trying exfoliating gloves or scrubbers instead. #skin-care #exfoliation\",\"ref\":\"g3g65nr\",\"via\":[\"skin-care\"]}],\"hasMore\":false}"
+    },
+    {
+      "args": {
+        "cue": "Trader Joe's shampoo lavender",
+        "limit": 25
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-05-22T08:57:03.917Z\",\"fragment\":\"User uses a lavender-scented shampoo bought at Trader Joe's and says it works great for their hair. #hair-care #trader-joes\",\"ref\":\"9wgsk8h\"},{\"at\":\"2023-05-22T08:57:03.921Z\",\"fragment\":\"User previously used a loofah for exfoliating and is open to trying exfoliating gloves or scrubbers instead. #skin-care #exfoliation\",\"ref\":\"g3g65nr\",\"via\":[\"skin-care\"]}],\"hasMore\":false}"
+    }
+  ],
+  "attempts": 1
+}

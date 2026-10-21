@@ -1,0 +1,56 @@
+{
+  "answer": "Your new internet plan is **500 Mbps** — you upgraded around early May 2023 and mentioned it made a huge difference, especially for streaming Netflix.",
+  "cost": 0.0016188959999999999,
+  "tools": [
+    {
+      "args": {
+        "cue": "internet plan speed",
+        "context": "User asking about their new internet plan speed"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[],\"hasMore\":false}"
+    },
+    {
+      "args": {
+        "cue": "broadband ISP"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[],\"hasMore\":false}"
+    },
+    {
+      "args": {
+        "cue": "new internet"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[],\"hasMore\":false}"
+    },
+    {
+      "args": {},
+      "isError": false,
+      "name": "list_tags",
+      "result": "[\"agriculture\",\"amandavanwest\",\"andy-warhol\",\"anthropology\",\"antique-jewelry\",\"anytimefitness\",\"aquarium\",\"art\",\"art-supplies\",\"back-pain\",\"backup\",\"balance\",\"balcony-garden\",\"battery\",\"bct\",\"best-friend\",\"bike-shopping\",\"bodyimage\",\"boston-airport-shuttle\",\"cannibalism\",\"car-accident\",\"car-care\",\"car-maintenance\",\"car-registration\",\"catholic-charities\",\"chores\",\"clothing\",\"codeigniter\",\"coffee-table\",\"collectibles\",\"comic-books\",\"commute\",\"composting\",\"conflict\",\"confucianism\",\"content-calendar\",\"content-marketing\",\"cooking\",\"coping-strategies\",\"couch\",\"cycling\",\"database-schema\",\"desk\",\"diet\",\"disneyplus\",\"diy\",\"dnni\",\"dsm5\",\"early-christianity\",\"east-asia\",\"education\",\"electricstorm\",\"exercise\",\"fall-crops\",\"fitness\",\"food-delivery\",\"foodora\",\"freelance-writing\",\"galacticheroes\",\"gardening\",\"gear-maintenance\",\"gin\",\"grand-canyon-trip\",\"greenhouse\",\"guilt-shame\",\"guitar-amplifier\",\"habits\",\"headlines\",\"herod\",\"hexagram4\",\"hexagrams\",\"home\",\"home-network\",\"iching\",\"influencer-collab\",\"instagram\",\"internet\",\"interviewer\",\"jira\",\"job-search\",\"kitchen\",\"kuru\",\"laptop\",\"leave-management\",\"living-room\",\"lunch\",\"mcu\",\"measures\",\"meditation\",\"methods\",\"mizoram\",\"money-saving\",\"motorcycle\",\"movies\",\"music\",\"networking\",\"neurology\",\"neurosurgery\",\"nicknames\",\"nutrition\",\"organization\",\"patagonia\",\"philosophy\",\"photography\",\"photography-workshop\",\"php\",\"plants\",\"podcasts\",\"posture\",\"potassium\",\"prohibition\",\"project\",\"pvc\",\"queens\",\"rare-coins\",\"rcsi\",\"reading\",\"reels\",\"refugee\",\"religion\",\"resume\",\"road-trips\",\"roman-empire\",\"romantic_love_script\",\"running\",\"sakura\",\"script_reading_task\",\"script_writing\",\"serenity-tank\",\"servicenow\",\"shinepro\",\"shopping\",\"skateboarding\",\"skepticism\",\"soccer\",\"socialmedia\",\"socialmedialiteracy\",\"sources\",\"spiderman\",\"spirituality\",\"sports-gear\",\"storage\",\"sweatwithsamantha\",\"thesis\",\"ticket-sync\",\"time-management\",\"tools\",\"traffic\",\"triathlon\",\"tv\",\"twitter\",\"ultrak9pro\",\"user\",\"user-behavior\",\"user-beliefs\",\"user-emotions\",\"user-employment\",\"user-equipment\",\"user-health\",\"user-housing\",\"user-immigration\",\"user-interests\",\"user-location\",\"user-style\",\"vehicles\",\"vinyl\",\"viruses\",\"work-history\",\"yellowstone-trip\",\"yoga\",\"yoga-mat\",\"yoga-props\"]"
+    },
+    {
+      "args": {
+        "cue": "internet",
+        "limit": 40
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-05-24T03:21:04.738Z\",\"fragment\":\"User upgraded their home internet to 500 Mbps around early May 2023 (about three weeks before 2023-05-24) and says it made a huge difference, especially for streaming Netflix. #internet #home-network\",\"ref\":\"br89ake\"},{\"at\":\"2023-05-29T18:06:09.375Z\",\"fragment\":\"User wants to join online communities to network with other freelance writers; the communities discussed were Freelance Writers Den, ProBlogger Community, Freelance Writing Jobs, and Upwork. #freelance-writing #networking\",\"ref\":\"grwqby9\",\"via\":[\"networking\"]},{\"at\":\"2023-05-21T06:21:05.528Z\",\"fragment\":\"User tends to put off doing the dishes, letting them pile up in the sink. #home #chores #kitchen\",\"ref\":\"2dtq996\",\"via\":[\"home\"]},{\"at\":\"2023-05-21T06:21:05.450Z\",\"fragment\":\"User keeps old newspapers and magazines on their coffee table that are yellowing; they are considering digitizing or recycling them. #home #coffee-table #organization\",\"ref\":\"2qrmhf2\",\"via\":[\"home\"]},{\"at\":\"2023-05-21T06:21:05.448Z\",\"fragment\":\"User's desk has accumulated clutter over several months and they want to organize it. #home #desk #organization\",\"ref\":\"93gtd4s\",\"via\":[\"home\"]},{\"at\":\"2023-05-21T06:21:05.447Z\",\"fragment\":\"User has houseplants and decided to stick with manual watering for now, but is open to a self-watering system in the future. #home #plants\",\"ref\":\"97guske\",\"via\":[\"home\"]},{\"at\":\"2023-05-21T06:21:05.445Z\",\"fragment\":\"User decided to buy the West Elm Harmony Sofa (sleek low-profile style, roughly $1,299–$1,999) for their living room. #home #living-room #couch\",\"ref\":\"5wnfuhe\",\"via\":[\"home\"]},{\"at\":\"2023-05-21T06:21:05.443Z\",\"fragment\":\"User is shopping for a new couch for their living room and prefers sleek, low-profile designs over cozy oversized ones. #home #living-room #couch\",\"ref\":\"e42kk92\",\"via\":[\"home\"]}],\"hasMore\":false}"
+    },
+    {
+      "args": {
+        "cue": "#home-network",
+        "limit": 40
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-05-24T03:21:04.738Z\",\"fragment\":\"User upgraded their home internet to 500 Mbps around early May 2023 (about three weeks before 2023-05-24) and says it made a huge difference, especially for streaming Netflix. #internet #home-network\",\"ref\":\"br89ake\"},{\"at\":\"2023-05-29T18:06:09.375Z\",\"fragment\":\"User wants to join online communities to network with other freelance writers; the communities discussed were Freelance Writers Den, ProBlogger Community, Freelance Writing Jobs, and Upwork. #freelance-writing #networking\",\"ref\":\"grwqby9\",\"via\":[\"networking\"]},{\"at\":\"2023-05-21T06:21:05.528Z\",\"fragment\":\"User tends to put off doing the dishes, letting them pile up in the sink. #home #chores #kitchen\",\"ref\":\"2dtq996\",\"via\":[\"home\"]},{\"at\":\"2023-05-21T06:21:05.450Z\",\"fragment\":\"User keeps old newspapers and magazines on their coffee table that are yellowing; they are considering digitizing or recycling them. #home #coffee-table #organization\",\"ref\":\"2qrmhf2\",\"via\":[\"home\"]},{\"at\":\"2023-05-21T06:21:05.448Z\",\"fragment\":\"User's desk has accumulated clutter over several months and they want to organize it. #home #desk #organization\",\"ref\":\"93gtd4s\",\"via\":[\"home\"]},{\"at\":\"2023-05-21T06:21:05.447Z\",\"fragment\":\"User has houseplants and decided to stick with manual watering for now, but is open to a self-watering system in the future. #home #plants\",\"ref\":\"97guske\",\"via\":[\"home\"]},{\"at\":\"2023-05-21T06:21:05.445Z\",\"fragment\":\"User decided to buy the West Elm Harmony Sofa (sleek low-profile style, roughly $1,299–$1,999) for their living room. #home #living-room #couch\",\"ref\":\"5wnfuhe\",\"via\":[\"home\"]},{\"at\":\"2023-05-21T06:21:05.443Z\",\"fragment\":\"User is shopping for a new couch for their living room and prefers sleek, low-profile designs over cozy oversized ones. #home #living-room #couch\",\"ref\":\"e42kk92\",\"via\":[\"home\"]}],\"hasMore\":false}"
+    }
+  ],
+  "attempts": 1
+}

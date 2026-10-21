@@ -1,0 +1,30 @@
+{
+  "abstain": false,
+  "answer": "You've tried **4 different Korean restaurants** in your city so far — and you're always looking for new recommendations. (Earlier on, you'd mentioned trying three — bibimbap, kimchi jjigae, and japchae spots — so the count has since grown to four.)",
+  "correct": true,
+  "cost": 0.10077799199999994,
+  "cues": [
+    {
+      "cue": "Korean restaurants",
+      "limit": 40
+    },
+    {
+      "cue": "Korean food tried",
+      "limit": 40
+    }
+  ],
+  "evidence": [
+    "bkr63eb"
+  ],
+  "evidenceReturned": [
+    "bkr63eb"
+  ],
+  "expected": "four",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 216,
+  "piErrors": 0,
+  "question": "How many Korean restaurants have I tried in my city?",
+  "questionId": "6aeb4375",
+  "type": "knowledge-update",
+  "writes": 233
+}

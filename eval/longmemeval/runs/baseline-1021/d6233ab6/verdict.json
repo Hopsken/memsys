@@ -1,0 +1,30 @@
+{
+  "abstain": false,
+  "answer": "I'd lean toward yes — but first, one thing I noticed in what I know about you: as of this month you're transitioning out of high school into an Economics major. So a reunion right now would be a very *recent* one, or maybe a small gathering of your graduating class rather than the classic 10-year reunion. Worth being clear about which it is, because the advice shifts.\n\nA few thoughts:\n\n**Arguments for going**\n- You have genuinely fond memories of high school — the debate team and AP Economics especially. Nostalgia is usually a signal that something there mattered to you, and reunions are a rare chance to reconnect with that version of yourself.\n- You already keep in touch with close friends (Rachel, Emily and others), but reunions reach the people you *didn't* keep — often the more interesting conversations.\n- You're at a natural transition point: new major, possibly Sussex applications. Reconnecting while everyone is still in the same life chapter is easier than five years from now, when your old classmates scatter into jobs (many of them plan to work right after university rather than do grad school).\n\n**Reasons to pause**\n- If it's a large formal reunion and you're not someone who enjoys small talk, the cost/benefit may not be there. Smaller, casual meetups tend to be better value.\n- Nostalgia can also be a way of avoiding something current. Worth asking: is this about the people, or about wanting to revisit a time that felt simpler?\n\n**Practical suggestion:** if the full event feels like a lot, go for the low-stakes version — a dinner with the two or three people you actually miss, or just the informal pre-reunion drinks. You can always leave early.\n\nWhich kind of reunion is it, and is there anyone specific you're hoping to see?",
+  "correct": true,
+  "cost": 0.10023197999999998,
+  "cues": [
+    {
+      "context": "User asks whether attending their high school reunion is a good idea",
+      "cue": "high school reunion"
+    },
+    {
+      "context": "User feeling nostalgic",
+      "cue": "high school nostalgia memories"
+    }
+  ],
+  "evidence": [
+    "j55rmez"
+  ],
+  "evidenceReturned": [
+    "j55rmez"
+  ],
+  "expected": "The user would prefer responses that draw upon their personal experiences and memories, specifically their positive high school experiences such as being part of the debate team and taking advanced placement courses. They would prefer suggestions that highlight the potential benefits of attending the reunion, such as reconnecting with old friends and revisiting favorite subjects like history and economics. The user might not prefer generic or vague responses that do not take into account their individual experiences and interests.",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 194,
+  "piErrors": 0,
+  "question": "I've been feeling nostalgic lately. Do you think it would be a good idea to attend my high school reunion?",
+  "questionId": "d6233ab6",
+  "type": "single-session-preference",
+  "writes": 213
+}

@@ -1,0 +1,43 @@
+{
+  "abstain": false,
+  "answer": "Based on what I remember: **5 tomato plants** and **3 cucumber plants**.",
+  "correct": true,
+  "cost": 0.09862121999999998,
+  "cues": [
+    {
+      "cue": "tomatoes cucumbers plants planted"
+    },
+    {
+      "cue": "initially planted tomato cucumber count",
+      "limit": 30
+    },
+    {
+      "cue": "garden planting number plants",
+      "limit": 30
+    },
+    {
+      "cue": "bought more seedlings transplanted added plants",
+      "limit": 30
+    },
+    {
+      "cue": "raised bed tomato seedlings planted May 2023",
+      "limit": 30
+    }
+  ],
+  "evidence": [
+    "b3q3cp5",
+    "mygj7sj"
+  ],
+  "evidenceReturned": [
+    "b3q3cp5",
+    "mygj7sj"
+  ],
+  "expected": "8",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 239,
+  "piErrors": 0,
+  "question": "How many plants did I initially plant for tomatoes and cucumbers?",
+  "questionId": "6456829e",
+  "type": "multi-session",
+  "writes": 255
+}

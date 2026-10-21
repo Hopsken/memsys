@@ -1,0 +1,31 @@
+{
+  "answer": "You keep them on a shoe rack inside your closet — as of May 29 you were planning to move them there from under your bed to free up space.",
+  "cost": 0.001181652,
+  "tools": [
+    {
+      "args": {
+        "cue": "old sneakers"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-05-25T10:04:05.316Z\",\"fragment\":\"User stores old sneakers under their bed, and the sneakers have started to smell. #shoes #sneakers\",\"ref\":\"dcjn3dk\"},{\"at\":\"2023-05-25T10:04:05.317Z\",\"fragment\":\"As of 2023-05-25, user planned to take old sneakers to a cobbler that weekend for polishing and conditioning. #shoes #sneakers\",\"ref\":\"bbnudkv\"},{\"at\":\"2023-05-29T15:01:07.993Z\",\"fragment\":\"As of 2023-05-29, user is looking for a good cobbler near them to polish and condition their old sneakers, and is open to mail-in shoe repair services. #shoes #sneakers #cobbler\",\"ref\":\"gt6bs6u\"},{\"at\":\"2023-05-29T15:01:06.034Z\",\"fragment\":\"As of 2023-05-29, user plans to store their old sneakers in a shoe rack inside their closet (they previously sat under the bed) to free up space. #shoes #closet #sneakers\",\"ref\":\"7t8a2ht\"},{\"at\":\"2023-05-25T10:04:05.321Z\",\"fragment\":\"User plans to organize their closet by shoe type, grouping all boots together and all sneakers together. #shoes #closet\",\"ref\":\"8bbp8gy\",\"via\":[\"closet\",\"shoes\"]},{\"at\":\"2023-05-25T10:04:05.320Z\",\"fragment\":\"User plans to inventory their shoe collection and declutter pairs they have not worn in a long time. #shoes #closet\",\"ref\":\"ws953q4\",\"via\":[\"closet\",\"shoes\"]},{\"at\":\"2023-05-28T12:43:03.716Z\",\"fragment\":\"User's favorite fashion trend is utility chic; they like wearing white sneakers with cargo pants. #fashion #utility-chic #sneakers\",\"ref\":\"u4zk4dg\",\"via\":[\"sneakers\"]},{\"at\":\"2023-05-28T12:43:03.715Z\",\"fragment\":\"On the same shopping day as the Adidas sneakers, user bought a grey t-shirt from H&M; chose it because it was on sale, comfortable, fits well with the new sneakers, and helped update their wardrobe with basics. #fashion #shopping #sneakers\",\"ref\":\"nnxchaf\",\"via\":[\"sneakers\"]},{\"at\":\"2023-05-28T12:43:03.714Z\",\"fragment\":\"User bought a pair of white sneakers on sale at the Adidas store in a mall on Saturday 2023/05/27, and has been wearing them nonstop. #fashion #shopping #sneakers\",\"ref\":\"kvuywqb\",\"via\":[\"sneakers\"]},{\"at\":\"2023-05-29T15:01:06.057Z\",\"fragment\":\"As of 2023-05-29, user plans to donate old but still wearable dress shoes to a local charity thrift store on Saturday 2023-06-03, and intends to call the store ahead and check its website for donation guidelines first. #shoes #charity\",\"ref\":\"dfwry53\",\"via\":[\"shoes\"]}],\"hasMore\":true}"
+    },
+    {
+      "args": {
+        "cue": "sneakers storage keep"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[],\"hasMore\":false}"
+    },
+    {
+      "args": {
+        "cue": "shoe rack closet sneakers moved"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-05-29T15:01:06.034Z\",\"fragment\":\"As of 2023-05-29, user plans to store their old sneakers in a shoe rack inside their closet (they previously sat under the bed) to free up space. #shoes #closet #sneakers\",\"ref\":\"7t8a2ht\"},{\"at\":\"2023-05-25T10:04:05.321Z\",\"fragment\":\"User plans to organize their closet by shoe type, grouping all boots together and all sneakers together. #shoes #closet\",\"ref\":\"8bbp8gy\",\"via\":[\"closet\",\"shoes\"]},{\"at\":\"2023-05-25T10:04:05.320Z\",\"fragment\":\"User plans to inventory their shoe collection and declutter pairs they have not worn in a long time. #shoes #closet\",\"ref\":\"ws953q4\",\"via\":[\"closet\",\"shoes\"]},{\"at\":\"2023-05-29T15:01:07.993Z\",\"fragment\":\"As of 2023-05-29, user is looking for a good cobbler near them to polish and condition their old sneakers, and is open to mail-in shoe repair services. #shoes #sneakers #cobbler\",\"ref\":\"gt6bs6u\",\"via\":[\"shoes\",\"sneakers\"]},{\"at\":\"2023-05-25T10:04:05.317Z\",\"fragment\":\"As of 2023-05-25, user planned to take old sneakers to a cobbler that weekend for polishing and conditioning. #shoes #sneakers\",\"ref\":\"bbnudkv\",\"via\":[\"shoes\",\"sneakers\"]},{\"at\":\"2023-05-25T10:04:05.316Z\",\"fragment\":\"User stores old sneakers under their bed, and the sneakers have started to smell. #shoes #sneakers\",\"ref\":\"dcjn3dk\",\"via\":[\"shoes\",\"sneakers\"]},{\"at\":\"2023-05-28T12:43:03.716Z\",\"fragment\":\"User's favorite fashion trend is utility chic; they like wearing white sneakers with cargo pants. #fashion #utility-chic #sneakers\",\"ref\":\"u4zk4dg\",\"via\":[\"sneakers\"]},{\"at\":\"2023-05-28T12:43:03.715Z\",\"fragment\":\"On the same shopping day as the Adidas sneakers, user bought a grey t-shirt from H&M; chose it because it was on sale, comfortable, fits well with the new sneakers, and helped update their wardrobe with basics. #fashion #shopping #sneakers\",\"ref\":\"nnxchaf\",\"via\":[\"sneakers\"]},{\"at\":\"2023-05-28T12:43:03.714Z\",\"fragment\":\"User bought a pair of white sneakers on sale at the Adidas store in a mall on Saturday 2023/05/27, and has been wearing them nonstop. #fashion #shopping #sneakers\",\"ref\":\"kvuywqb\",\"via\":[\"sneakers\"]},{\"at\":\"2023-05-29T15:01:06.057Z\",\"fragment\":\"As of 2023-05-29, user plans to donate old but still wearable dress shoes to a local charity thrift store on Saturday 2023-06-03, and intends to call the store ahead and check its website for donation guidelines first. #shoes #charity\",\"ref\":\"dfwry53\",\"via\":[\"shoes\"]}],\"hasMore\":true}"
+    }
+  ],
+  "attempts": 1
+}

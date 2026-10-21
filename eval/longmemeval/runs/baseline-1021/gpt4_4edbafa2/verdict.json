@@ -1,0 +1,26 @@
+{
+  "abstain": false,
+  "answer": "The first BBQ event you attended in June was on **June 3, 2023** — a colleague's backyard BBQ party with an impressive selection of BBQ sauces.",
+  "correct": true,
+  "cost": 0.10531399200000002,
+  "cues": [
+    {
+      "context": "User asks date of first BBQ event in June",
+      "cue": "BBQ June first"
+    }
+  ],
+  "evidence": [
+    "n9p7bf2"
+  ],
+  "evidenceReturned": [
+    "n9p7bf2"
+  ],
+  "expected": "June 3rd",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 188,
+  "piErrors": 0,
+  "question": "What was the date on which I attended the first BBQ event in June?",
+  "questionId": "gpt4_4edbafa2",
+  "type": "temporal-reasoning",
+  "writes": 201
+}

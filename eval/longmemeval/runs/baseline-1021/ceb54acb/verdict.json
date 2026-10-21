@@ -1,0 +1,26 @@
+{
+  "abstain": false,
+  "answer": "Besides \"sexual compulsions,\" the other four options I suggested were:\n\n1. Sexual fixations\n2. Problematic sexual behaviors\n3. Sexual impulsivity\n4. Compulsive sexuality",
+  "correct": true,
+  "cost": 0.11595440400000001,
+  "cues": [
+    {
+      "context": "User asks to recall alternative terms I previously suggested, including 'sexual compulsions'",
+      "cue": "sexual compulsions alternative terms behaviors"
+    }
+  ],
+  "evidence": [
+    "a5ws92m"
+  ],
+  "evidenceReturned": [
+    "a5ws92m"
+  ],
+  "expected": "I suggested 'sexual fixations', 'problematic sexual behaviors', 'sexual impulsivity', and 'compulsive sexuality'.",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 243,
+  "piErrors": 0,
+  "question": "In our previous chat, you suggested 'sexual compulsions' and a few other options for alternative terms for certain behaviors. Can you remind me what the other four options were?",
+  "questionId": "ceb54acb",
+  "type": "single-session-assistant",
+  "writes": 268
+}

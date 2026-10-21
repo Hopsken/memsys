@@ -1,0 +1,40 @@
+{
+  "abstain": false,
+  "answer": "The only Nasi Goreng spot I have on record from your Bandung plans is **Miss Bee Providore** — you'd noted wanting Miss Bee's Nasi Goreng and their chocolate brownie.\n\nOne caveat: I don't have anything linking it to Cihampelas Walk (Ciwalk). Your notes treat those as two separate Bandung stops — Ciwalk for the denim street, and Miss Bee Providore for the food. So if there's a specific restaurant *inside* Ciwalk you're thinking of, I don't have it stored. Miss Bee Providore is likely the one you mean, just not at Ciwalk.",
+  "correct": true,
+  "cost": 0.10783156799999999,
+  "cues": [
+    {
+      "context": "User planning a return visit to Bandung, asking for a restaurant name at Cihampelas Walk",
+      "cue": "Cihampelas Walk restaurant Nasi Goreng"
+    },
+    {
+      "context": "User planning a return visit to Bandung",
+      "cue": "Bandung"
+    },
+    {
+      "context": "Checking for restaurant names associated with Cihampelas Walk",
+      "cue": "Ciwalk denim street shopping",
+      "limit": 25
+    },
+    {
+      "context": "Checking whether the Nasi Goreng restaurant is at Cihampelas Walk or elsewhere",
+      "cue": "Nasi Goreng restaurant recommendation",
+      "limit": 25
+    }
+  ],
+  "evidence": [
+    "ry9e24a"
+  ],
+  "evidenceReturned": [
+    "ry9e24a"
+  ],
+  "expected": "Miss Bee Providore",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 249,
+  "piErrors": 0,
+  "question": "I'm planning to visit Bandung again and I was wondering if you could remind me of the name of that restaurant in Cihampelas Walk that serves a great Nasi Goreng?",
+  "questionId": "c4f10528",
+  "type": "single-session-assistant",
+  "writes": 263
+}

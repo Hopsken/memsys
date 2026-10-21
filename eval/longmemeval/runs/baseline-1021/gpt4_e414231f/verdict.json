@@ -1,0 +1,54 @@
+{
+  "abstain": false,
+  "answer": "Your **road bike** — on Sunday, 2023/03/19, you took it to a local bike shop for a maintenance check (spongy brakes needing a bleed, skipping gear shifts, chain/cassette wear check) and upgraded it to Shimano Ultegra clipless pedals.\n\nThe mountain bike repair (flat tire/inner tube) was earlier, around 2023/03/15, not this past weekend.",
+  "correct": true,
+  "cost": 0.10345345200000002,
+  "cues": [
+    {
+      "cue": "bicycle maintenance repair"
+    },
+    {
+      "cue": "bike fixed serviced weekend"
+    },
+    {
+      "cue": "cycling",
+      "limit": 40
+    },
+    {
+      "cue": "bike",
+      "limit": 40
+    },
+    {
+      "cue": "bike shop mechanic maintenance check",
+      "limit": 40
+    },
+    {
+      "cue": "mountain bike flat tire inner tube chain",
+      "limit": 40
+    },
+    {
+      "cue": "past weekend fixed",
+      "limit": 40
+    },
+    {
+      "cue": "road bike shop service bleed brakes",
+      "limit": 40
+    }
+  ],
+  "evidence": [
+    "7d8gnn3",
+    "tspexh7"
+  ],
+  "evidenceReturned": [
+    "7d8gnn3",
+    "tspexh7"
+  ],
+  "expected": "road bike",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 227,
+  "piErrors": 0,
+  "question": "Which bike did I fixed or serviced the past weekend?",
+  "questionId": "gpt4_e414231f",
+  "type": "temporal-reasoning",
+  "writes": 243
+}

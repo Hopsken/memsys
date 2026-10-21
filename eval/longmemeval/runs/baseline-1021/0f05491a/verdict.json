@@ -1,0 +1,28 @@
+{
+  "abstain": false,
+  "answer": "You've most recently said **120 stars** — that was your correction on July 30 (you'd earlier mentioned 300, and before that 125 on July 11).\n\nNote there's a discrepancy in what you've told me over time (120 vs. 125), so it's worth double-checking in the app if precision matters. #starbucks-rewards",
+  "correct": true,
+  "cost": 0.088403268,
+  "cues": [
+    {
+      "cue": "Starbucks"
+    },
+    {
+      "cue": "Starbucks Rewards gold level stars"
+    }
+  ],
+  "evidence": [
+    "scsshnx"
+  ],
+  "evidenceReturned": [
+    "scsshnx"
+  ],
+  "expected": "120",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 200,
+  "piErrors": 0,
+  "question": "How many stars do I need to reach the gold level on my Starbucks Rewards app?",
+  "questionId": "0f05491a",
+  "type": "knowledge-update",
+  "writes": 207
+}

@@ -1,0 +1,16 @@
+{
+  "answer": "The playlist you created on Spotify is called **\"Summer Vibes\"** — it has chill tracks good for relaxing or working out.",
+  "cost": 0.000662856,
+  "tools": [
+    {
+      "args": {
+        "cue": "Spotify playlist",
+        "context": "User asks for the name of a Spotify playlist they created"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-05-21T13:13:03.985Z\",\"fragment\":\"The user uses Spotify and created a playlist called \\\"Summer Vibes\\\" containing chill tracks good for relaxing or working out. #spotify #music\",\"ref\":\"bdp8tve\"},{\"at\":\"2023-05-21T13:13:03.988Z\",\"fragment\":\"In April 2023 (the month before 2023/05/21) the user attended a music festival with friends and saw The Lumineers and The 1975; they described it as an amazing experience. #music-festival #music\",\"ref\":\"dac4zb6\",\"via\":[\"music\",\"music-festival\"]},{\"at\":\"2023-05-21T13:13:03.989Z\",\"fragment\":\"The user is interested in finding music festivals and concerts in their local area. #music-festival #concerts\",\"ref\":\"yr9qq9v\",\"via\":[\"music-festival\"]},{\"at\":\"2023-05-21T13:13:03.986Z\",\"fragment\":\"The user enjoys discovering new music, especially in the ambient and lo-fi genres. #music #ambient #lofi\",\"ref\":\"p3d3and\",\"via\":[\"music\"]}],\"hasMore\":false}"
+    }
+  ],
+  "attempts": 1
+}

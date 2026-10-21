@@ -1,0 +1,28 @@
+{
+  "abstain": false,
+  "answer": "You attended the bird watching workshop at your local Audubon society on **April 1, 2023** — that's **about 4 weeks ago** (30 days, or 4 weeks and 2 days) as of today, May 1, 2023.",
+  "correct": true,
+  "cost": 0.100072908,
+  "cues": [
+    {
+      "cue": "workshop"
+    },
+    {
+      "cue": "bird watching workshop Audubon society"
+    }
+  ],
+  "evidence": [
+    "2d5ehb6"
+  ],
+  "evidenceReturned": [
+    "2d5ehb6"
+  ],
+  "expected": "4",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 226,
+  "piErrors": 0,
+  "question": "How many weeks ago did I attend a bird watching workshop at the local Audubon society?",
+  "questionId": "bcbe585f",
+  "type": "temporal-reasoning",
+  "writes": 242
+}

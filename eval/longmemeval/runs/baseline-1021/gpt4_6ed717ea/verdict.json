@@ -1,0 +1,32 @@
+{
+  "abstain": false,
+  "answer": "The **training pads for Luna** came first.\n\n- **Training pads for Luna**: purchased around **late April 2023** — a set of 10 eco-friendly pads from Chewy.com for $25.\n- **Dog bed for Max**: purchased around **early May 2023** — an Orthopedic Memory Foam bed from Petco.",
+  "correct": true,
+  "cost": 0.11080943999999995,
+  "cues": [
+    {
+      "context": "User asks which pet item was purchased first: dog bed for Max or training pads for Luna",
+      "cue": "training pads Luna"
+    },
+    {
+      "context": "User asks which pet item was purchased first: dog bed for Max or training pads for Luna",
+      "cue": "dog bed Max"
+    }
+  ],
+  "evidence": [
+    "cxyxqbv",
+    "khbzf7y"
+  ],
+  "evidenceReturned": [
+    "cxyxqbv",
+    "khbzf7y"
+  ],
+  "expected": "Training pads for Luna",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 247,
+  "piErrors": 0,
+  "question": "Which item did I purchase first, the dog bed for Max or the training pads for Luna?",
+  "questionId": "gpt4_6ed717ea",
+  "type": "temporal-reasoning",
+  "writes": 260
+}

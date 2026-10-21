@@ -1,0 +1,44 @@
+{
+  "abstain": false,
+  "answer": "Noted that you're planning a get-together — if you tell me roughly how many people and whether you want a batched signature drink or a make-to-order one, I can get specific.",
+  "correct": false,
+  "cost": 0.11624880000000001,
+  "cues": [
+    {
+      "context": "User asking for cocktail suggestions",
+      "cue": "drink preferences"
+    },
+    {
+      "context": "User asking for cocktail suggestions for an upcoming get-together",
+      "cue": "cocktail"
+    },
+    {
+      "context": "User asking for cocktail suggestions for an upcoming get-together",
+      "cue": "summer cocktail project",
+      "limit": 20
+    },
+    {
+      "context": "User asking for cocktail suggestions for an upcoming get-together",
+      "cue": "get-together party hosting guests",
+      "limit": 20
+    }
+  ],
+  "evidence": [
+    "geaaqhk",
+    "47zfg24",
+    "m8bgkyw"
+  ],
+  "evidenceReturned": [
+    "geaaqhk",
+    "47zfg24",
+    "m8bgkyw"
+  ],
+  "expected": "Considering their mixology class background, the user would prefer cocktail suggestions that build upon their existing skills and interests, such as creative variations of classic cocktails or innovative twists on familiar flavors. They might appreciate recommendations that incorporate their experience with refreshing summer drinks like Pimm's Cup. The user would not prefer overly simplistic or basic cocktail recipes, and may not be interested in suggestions that don't take into account their mixology class background.",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 270,
+  "piErrors": 0,
+  "question": "I've been thinking about making a cocktail for an upcoming get-together, but I'm not sure which one to choose. Any suggestions?",
+  "questionId": "1a1907b4",
+  "type": "single-session-preference",
+  "writes": 287
+}

@@ -1,0 +1,40 @@
+{
+  "abstain": false,
+  "answer": "Your new internet plan is **500 Mbps** — you upgraded around early May 2023 and mentioned it made a huge difference, especially for streaming Netflix.",
+  "correct": true,
+  "cost": 0.09987220800000003,
+  "cues": [
+    {
+      "context": "User asking about their new internet plan speed",
+      "cue": "internet plan speed"
+    },
+    {
+      "cue": "broadband ISP"
+    },
+    {
+      "cue": "new internet"
+    },
+    {
+      "cue": "internet",
+      "limit": 40
+    },
+    {
+      "cue": "#home-network",
+      "limit": 40
+    }
+  ],
+  "evidence": [
+    "br89ake"
+  ],
+  "evidenceReturned": [
+    "br89ake"
+  ],
+  "expected": "500 Mbps",
+  "fingerprint": "e72d3c7f663d3e1383b00b3884cb4501",
+  "memories": 210,
+  "piErrors": 0,
+  "question": "What speed is my new internet plan?",
+  "questionId": "ad7109d1",
+  "type": "single-session-user",
+  "writes": 230
+}

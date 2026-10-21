@@ -1,0 +1,31 @@
+{
+  "answer": "The most recent thing I have is from **May 25, 2023**: your Instagram follower count was **close to 1,300 and growing** (an earlier note from that same day said 1,250).\n\nI don't have any newer figure — if you've checked since then, tell me and I'll update it.",
+  "cost": 0.001139052,
+  "tools": [
+    {
+      "args": {
+        "cue": "Instagram"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-05-25T05:26:05.375Z\",\"fragment\":\"As of 2023/05/25 the user has 1,250 Instagram followers. #instagram #followers\",\"ref\":\"t3qzauf\"},{\"at\":\"2023-05-25T05:26:05.376Z\",\"fragment\":\"The user already posts regularly and maintains a consistent visual aesthetic on Instagram. #instagram #content-strategy\",\"ref\":\"kken36w\"},{\"at\":\"2023-05-25T05:26:05.377Z\",\"fragment\":\"The user wants to use Instagram Live more often and is planning a Q&A session on their next live stream, asking how to get viewers to submit questions. #instagram #instagram-live #q-and-a\",\"ref\":\"79y69zu\"},{\"at\":\"2023-05-25T05:26:05.374Z\",\"fragment\":\"The user is actively working on growing an Instagram account and optimizing their content strategy (engagement, audience growth). #instagram #social-media\",\"ref\":\"nj8sxe4\"},{\"at\":\"2023-05-25T09:28:05.815Z\",\"fragment\":\"The user's Instagram audience is mostly based in the US, UK, and Australia.\",\"ref\":\"txbvgd8\"},{\"at\":\"2023-05-25T09:28:05.816Z\",\"fragment\":\"As of 2023/05/25 the user's Instagram follower count was close to 1300 and growing; they described recent growth and engagement as a reason to seek collaborations.\",\"ref\":\"gjy4nsx\"},{\"at\":\"2023-05-25T09:28:05.820Z\",\"fragment\":\"The user planned to reach out to micro-influencer Ashley Gaida (@ashleygaida) proposing a guest blog post for their blog about creating engaging Instagram content.\",\"ref\":\"8yv36hn\"},{\"at\":\"2023-05-25T09:28:05.817Z\",\"fragment\":\"The user attended a recent industry event in their niche and planned an Instagram post about it using a caption template (\\\"Just back from [Event Name] and still buzzing from the insights! ...\\\") with hashtags #contentcreation #digitalmarketing #socialmediastrategy.\",\"ref\":\"ex83xns\"},{\"at\":\"2023-05-25T09:28:05.814Z\",\"fragment\":\"The user runs a blog aimed at helping entrepreneurs and small business owners build their online presence; their niche is #contentcreation and #digitalmarketing.\",\"ref\":\"wdjgdp4\",\"via\":[\"contentcreation\",\"digitalmarketing\"]},{\"at\":\"2023-06-05T22:13:04.950Z\",\"fragment\":\"User is interested in IT careers and has prior computer experience from Kenya. Specifically wants a CompTIA A+ certification. Recommended free options: Per Scholas, NYC DOE Adult Education. Low-cost: City Tech, LaGuardia CC, BMCC, Institute for Career Advancement. #user #it #comptia-a-plus\",\"ref\":\"bg282by\",\"via\":[\"comptia-a-plus\"]}],\"hasMore\":false}"
+    },
+    {
+      "args": {
+        "cue": "Instagram followers"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[{\"at\":\"2023-05-25T05:26:05.375Z\",\"fragment\":\"As of 2023/05/25 the user has 1,250 Instagram followers. #instagram #followers\",\"ref\":\"t3qzauf\"},{\"at\":\"2023-05-25T09:28:05.816Z\",\"fragment\":\"As of 2023/05/25 the user's Instagram follower count was close to 1300 and growing; they described recent growth and engagement as a reason to seek collaborations.\",\"ref\":\"gjy4nsx\"},{\"at\":\"2023-05-25T05:26:05.377Z\",\"fragment\":\"The user wants to use Instagram Live more often and is planning a Q&A session on their next live stream, asking how to get viewers to submit questions. #instagram #instagram-live #q-and-a\",\"ref\":\"79y69zu\",\"via\":[\"instagram\",\"instagram-live\"]},{\"at\":\"2023-05-25T05:26:05.376Z\",\"fragment\":\"The user already posts regularly and maintains a consistent visual aesthetic on Instagram. #instagram #content-strategy\",\"ref\":\"kken36w\",\"via\":[\"instagram\"]},{\"at\":\"2023-05-25T05:26:05.374Z\",\"fragment\":\"The user is actively working on growing an Instagram account and optimizing their content strategy (engagement, audience growth). #instagram #social-media\",\"ref\":\"nj8sxe4\",\"via\":[\"instagram\"]}],\"hasMore\":false}"
+    },
+    {
+      "args": {
+        "cue": "follower count update growth milestone"
+      },
+      "isError": false,
+      "name": "recall",
+      "result": "{\"fragments\":[],\"hasMore\":false}"
+    }
+  ],
+  "attempts": 1
+}
