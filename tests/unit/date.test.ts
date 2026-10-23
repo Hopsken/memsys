@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatRelativeDate, formatRelativeDateInline } from "../lib/date";
+import { formatRelativeDate, formatRelativeDateInline } from "../../lib/date";
 
 const now = new Date(2026, 8, 24, 9, 30);
 

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { groupByMatch } from "../client/widgets/recall-preview/lib/group";
-import type { RecallItem } from "../contract/memory";
-import { recall } from "../worker/memory";
+import { groupByMatch } from "../../client/widgets/recall-preview/lib/group";
+import type { RecallItem } from "../../contract/memory";
+import { recall } from "../../worker/memory";
 
 const at = "2026-09-01T00:00:00.000Z";
 const corpus = [

@@ -1,21 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import type { Fragment, RecallItem } from "../contract/memory";
-import { definePlugin, PluginAbortError } from "../contract/plugin";
-import type { Json, Plugin, Verdict } from "../contract/plugin";
-import { plugins } from "../plugins";
-import { idf } from "../plugins/idf";
-import { listTags } from "../plugins/list-tags";
-import { sizeLimit } from "../plugins/size-limit";
+import type { Fragment, RecallItem } from "../../contract/memory";
+import { definePlugin, PluginAbortError } from "../../contract/plugin";
+import type { Json, Plugin, Verdict } from "../../contract/plugin";
+import { plugins } from "../../plugins";
+import { idf } from "../../plugins/idf";
+import { listTags } from "../../plugins/list-tags";
+import { sizeLimit } from "../../plugins/size-limit";
 import {
   assertRegistry,
   createCtx,
   resolvePlugins,
   runAfterRecall,
   runVerdicts,
-} from "../worker/plugin-host";
-import type { PluginState, StoredConfig } from "../worker/plugin-host";
+} from "../../worker/plugin-host";
+import type { PluginState, StoredConfig } from "../../worker/plugin-host";
 
 const corpus = new Map<string, Fragment>(
   [
