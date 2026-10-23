@@ -17,12 +17,12 @@ Pi's model is `--model`; the default `opencode-go/deepseek-v4.1-flash` needs `OP
 ```sh
 node eval/longmemeval/write.ts --set dev [--subset smoke] [--model ...] [--thinking high]
 node eval/longmemeval/label.ts --corpus <name>
-node eval/longmemeval/recall.ts --corpus <name> --run <run> [--set smoke] [--model ...] [--repeats 3] [--rounds 5]
+node eval/longmemeval/recall.ts --corpus <name> --run <run> [--set smoke] [--model ...] [--repeats 3] [--rounds 5] [--plugin jev='{"strictness":"low"}']
 ```
 
 - **write** replays each session of a set in a fresh Pi conversation with every memsys tool, then saves `hub/<name>/<question>/memory.ndjson` and `hub/<name>/corpus.json` with each record moved to its session's day. The name is the set, the write model, and a hash of the writer version (model, thinking, server instructions, write tool descriptions, `WRITER` in `write.ts`). About $0.07 per question. A question is skipped when its `memory.ndjson` exists, so an interrupted write continues.
 - **label** asks Jev which fragments written from each evidence session carry the answer, and writes `labels.json` (question → session → refs) and `labels-review.md`, every candidate with its score. Correct `labels.json` by hand; a rerun keeps hand edits. An empty list is a write miss and leaves the recall denominator.
-- **recall** runs Pi on each question with `list_tags` and `recall` only, `--rounds` recall calls at most (`budget.ts`), `--repeats` times. It writes `hub/runs/<run>/results.md`: found, read next to the dump size, rounds, stale fragments for knowledge-update, and the answer graded by Jev as a secondary metric. An interrupted run continues; delete `results.json` to grade again.
+- **recall** runs Pi on each question with `list_tags` and `recall` only, `--rounds` recall calls at most (`budget.ts`), `--repeats` times. It writes `hub/runs/<run>/results.md`: found, read next to the dump size, rounds, stale fragments for knowledge-update, and the answer graded by Jev as a secondary metric. An interrupted run continues; delete `results.json` to grade again. `--plugin` (repeatable) sets memsys plugins for the run: `name` turns one on with its defaults, `name={...}` with this config over them, `name=off` turns it off; the rest stay at their defaults. Each plugin setting gets its own memory spaces, so such runs can run side by side. The Jev plugin needs Workers AI: start the dev Worker with `JEV=1`.
 
 Sets: `smoke` (2 per type) is the head of `dev` (10 per type); `holdout` (10 per type) shares nothing with `dev`; `full` is all 500.
 

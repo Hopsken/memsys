@@ -43,6 +43,7 @@ Runs take minutes; start `write.ts` and `recall.ts` in a long-lived terminal ses
 | Change | Run | Cost |
 | --- | --- | --- |
 | Recall engine, ranking, `recall` description | `smoke` with `--repeats 1`, then `dev` against the last kept run on the same corpus | $0.01, ~$0.10 |
+| Plugin setting, such as Jev `low` | `dev` with `--plugin`, against a run without it on the same corpus and reader | ~$0.10, plus Workers AI for Jev |
 | Reader model comparison | `dev` per model, same corpus | ~$0.07–0.13 each |
 | Write side: server instructions, `remember`/`revise`/`forget`, write model | New corpus with `write.ts`, then `label.ts`, hand review, then recall | ~$0.07 per question |
 | Final check after several kept changes | `dev` with a second reader model, then `holdout` once | ~$0.10 each |
@@ -72,6 +73,7 @@ wc -l eval/longmemeval/hub/runs/<run>/recalls.jsonl     # progress: 180 lines fo
 ```
 
 - Read the report from `eval/longmemeval/hub/runs/<run>/results.md`; stdout also carries wrangler lines. Costs print with three decimals, so a one-question probe can show $0.000.
+- `--plugin` sets memsys plugins for a run: `--plugin jev` (defaults), `--plugin 'jev={"strictness":"low"}'`, `--plugin idf=off`; repeatable. For Jev, start the dev Worker with `JEV=1` (needs the Cloudflare variables). A failing plugin hook passes recall through unfiltered, so a Jev run on a Worker without `JEV=1` looks like Jev off: check the Worker log for `plugin.hook.failed`. Jev also makes each recall slower, so the run takes about twice as long.
 - Run names: `dev-<n>` for the main reader, `dev-<model>` for another reader, `<set>-<topic>` for an experiment. A new name per configuration; never reuse a run name with different flags, since an interrupted run resumes from `recalls.jsonl`.
 - List models with `pi --list-models | grep opencode-go`. Pi moves a thinking level the provider lacks to another one; `pi.ts` then fails the run. `deepseek-v4.1-flash` has `low`, `high`, `max`, no `medium`.
 - To compare with an earlier run, download it: `hf download Hopsken/memsys-longmemeval-corpora --repo-type dataset --include "runs/<run>/*" --local-dir eval/longmemeval/hub`. Rerunning `recall.ts` with the same `--corpus` and `--run` on a downloaded run only rebuilds `results.md`, at no model cost (the dev Worker must still be up, since it imports the corpus); this is how to apply a change in `score.ts` to old runs. Delete `results.json` to grade the answers with Jev again.

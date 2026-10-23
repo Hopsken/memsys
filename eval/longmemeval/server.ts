@@ -61,6 +61,48 @@ export const toolDescriptions = async () =>
       .tools.map((tool) => [tool.name, tool.description])
   );
 
+// What a run asks of each plugin: enabled with this config over the
+// plugin's defaults, or off.
+export type PluginSettings = Record<
+  string,
+  Record<string, z.core.util.JSONType> | false
+>;
+
+const pluginView = z.object({
+  defaults: z.object({ config: z.record(z.string(), z.json()) }),
+  name: z.string(),
+  updatedAt: z.number().nullable(),
+});
+
+// Puts a space's plugins in exactly the given state: named plugins as asked,
+// every other plugin back to its defaults.
+export const setPlugins = async (space: string, settings: PluginSettings) => {
+  const views = z
+    .array(pluginView)
+    .parse(JSON.parse(await server(`${space}/plugins`)));
+  const unknown = Object.keys(settings).filter(
+    (name) => !views.some((view) => view.name === name)
+  );
+  if (unknown.length > 0) {
+    throw new Error(`Unknown plugins: ${unknown.join(", ")}`);
+  }
+  for (const view of views) {
+    const asked = settings[view.name];
+    // oxlint-disable-next-line no-await-in-loop
+    await (asked === undefined
+      ? server(`${space}/plugins/${view.name}`, { method: "DELETE" })
+      : server(`${space}/plugins/${view.name}`, {
+          body: JSON.stringify({
+            config: { ...view.defaults.config, ...asked },
+            enabled: asked !== false,
+            updatedAt: view.updatedAt,
+          }),
+          headers: { "Content-Type": "application/json" },
+          method: "PUT",
+        }));
+  }
+};
+
 // A record as /export writes it; other fields pass through to /import.
 export const logRecord = z.looseObject({
   at: z.string(),
