@@ -34,7 +34,7 @@ import {
   REF_LENGTH,
   truncate,
 } from "../memory";
-import type { listInput } from "../memory";
+import type { listInput, RecallMatch } from "../memory";
 import {
   assertRegistry,
   createCtx,
@@ -232,11 +232,13 @@ export class MemoryDO extends DurableObject<Env> {
   }
 
   async recall(
-    raw: z.input<typeof inputs.recall>
+    raw: z.input<typeof inputs.recall>,
+    match?: RecallMatch
   ): Promise<RecallResult | { error: string }> {
     const { candidates, input, warnings } = recallCandidates(
       this.corpus.values(),
-      raw
+      raw,
+      match
     );
     const ranked = await runAfterRecall(
       this.plugins,

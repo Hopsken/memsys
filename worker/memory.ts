@@ -168,10 +168,16 @@ export const listFragments = <T extends Fragment>(
 const normalize = (text: string): string =>
   text.toLowerCase().replaceAll(/\s+/gu, " ").trim();
 
+// How many cue terms a direct match needs. "all" is the default; "any" lets
+// every fragment sharing one cue term in, ranked as below. "any" is an
+// experiment, set only by the eval harness.
+export type RecallMatch = "all" | "any";
+
 // Candidate generation: cue matches (best first), then one-hop associations.
 export const recallCandidates = (
   corpus: Iterable<Fragment>,
-  raw: z.input<typeof inputs.recall>
+  raw: z.input<typeof inputs.recall>,
+  match: RecallMatch = "all"
 ) => {
   const {
     associate = true,
@@ -194,7 +200,10 @@ export const recallCandidates = (
   const normalizedCue = normalize(cue);
   const cueTerms = [...new Set(terms(cue))];
   // Every cue term must appear; a cue of three or more terms may miss one.
-  const required = cueTerms.length >= 3 ? cueTerms.length - 1 : cueTerms.length;
+  let required = cueTerms.length >= 3 ? cueTerms.length - 1 : cueTerms.length;
+  if (match === "any") {
+    required = 1;
+  }
   const scored = new Map(
     bm25(ordered, cueTerms).map((entry) => [entry.item.ref, entry])
   );

@@ -13,6 +13,7 @@ import { z } from "zod";
 
 import type { Author } from "../contract/memory";
 import { sendSignInCode } from "./email";
+import type { RecallMatch } from "./memory";
 import type { MemoryDO } from "./memory-do";
 
 // What an MCP caller may do. API keys may do both.
@@ -30,6 +31,8 @@ export interface AppEnv {
     // Who writes through this request, recorded with each record.
     by: Author;
     memory: DurableObjectStub<MemoryDO>;
+    // Recall's term filter; only the eval routes set it.
+    recallMatch?: RecallMatch;
     scopes: ReadonlySet<Scope>;
     userId: string;
   };

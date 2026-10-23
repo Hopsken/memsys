@@ -164,6 +164,7 @@ export interface RunMeta {
   corpus: string;
   // Current fragments per question: what dumping everything would read.
   corpusSize: Record<string, number>;
+  match: "all" | "any";
   model: string;
   // Plugins the run set; the rest ran at their defaults.
   plugins: PluginSettings;
@@ -229,7 +230,7 @@ export const report = (
 
   return `# Recall run \`${meta.run}\`
 
-Corpus \`${meta.corpus}\`, model \`${meta.model}\` (thinking \`${meta.thinking}\`), ${meta.repeats} repeats per question, recall budget ${meta.recallRounds} rounds, plugins ${Object.keys(meta.plugins).length === 0 ? "at their defaults" : `\`${JSON.stringify(meta.plugins)}\` (the rest at their defaults)`}. ${groups.length} questions, ${allRuns.length} conversations, $${cost.toFixed(3)}. Regenerate with \`node eval/longmemeval/recall.ts --corpus ${meta.corpus} --run ${meta.run}\`.
+Corpus \`${meta.corpus}\`, model \`${meta.model}\` (thinking \`${meta.thinking}\`), ${meta.repeats} repeats per question, recall budget ${meta.recallRounds} rounds, recall matches ${meta.match === "any" ? "any cue term" : "every cue term"}, plugins ${Object.keys(meta.plugins).length === 0 ? "at their defaults" : `\`${JSON.stringify(meta.plugins)}\` (the rest at their defaults)`}. ${groups.length} questions, ${allRuns.length} conversations, $${cost.toFixed(3)}. Regenerate with \`node eval/longmemeval/recall.ts --corpus ${meta.corpus} --run ${meta.run}${meta.match === "any" ? " --match any" : ""}\`.
 
 Recall is scored on ${scorable.length} questions. Left out: ${abstain.length} abstention questions (nothing to find; their answers are graded below), ${writeMisses.length} write misses (a required evidence session has no answer-bearing fragment in the corpus: ${writeMisses.map(({ q }) => q.id).join(", ") || "none"}), ${errored.length} with a failed conversation (${errored.map(({ q }) => q.id).join(", ") || "none"}).
 

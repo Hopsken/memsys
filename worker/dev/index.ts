@@ -95,6 +95,10 @@ export const dev =
       c.set("memory", memoryOf(c.env, `eval:${c.req.param("space")}`));
       c.set("scopes", new Set([MEMORY_READ, MEMORY_WRITE]));
       c.set("by", "agent:eval");
+      // `?match=any` drops recall's every-term filter, for experiments.
+      if (c.req.query("match") === "any") {
+        c.set("recallMatch", "any");
+      }
       return next();
     })
     .route("/__dev/eval/:space/mcp", mcp)

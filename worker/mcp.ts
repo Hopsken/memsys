@@ -7,6 +7,7 @@ import { plugins } from "../plugins";
 import { MEMORY_READ, MEMORY_WRITE } from "./auth";
 import type { Scope } from "./auth";
 import { inputs } from "./memory";
+import type { RecallMatch } from "./memory";
 import type { MemoryDO, WriteResult } from "./memory-do";
 
 const error = (text: string): CallToolResult => ({
@@ -32,7 +33,8 @@ const result = (
 export const createMcpServer = async (
   memory: DurableObjectStub<MemoryDO>,
   scopes: ReadonlySet<Scope>,
-  by: Author
+  by: Author,
+  match?: RecallMatch
 ) => {
   const canRead = scopes.has(MEMORY_READ);
   const canWrite = scopes.has(MEMORY_WRITE);
@@ -67,7 +69,7 @@ Recall with short textual cues such as distinctive phrases, names, projects, con
         description: `Recall memories using a short textual cue. Prefer distinctive phrases, entities, concepts, or #anchors. Fragments matching the cue come first; fragments with \`via\` were associated through the listed shared #anchors. Returns at most ${RECALL_LIMIT_MAX} fragments per call. \`hasMore\` means more fragments matched: raise \`limit\`, or use a narrower cue once at ${RECALL_LIMIT_MAX}.`,
         inputSchema: inputs.recall,
       },
-      async (input) => result(await memory.recall(input))
+      async (input) => result(await memory.recall(input, match))
     );
   }
   if (canWrite) {

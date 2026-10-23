@@ -47,6 +47,9 @@ const { values: args } = parseArgs({
   options: {
     concurrency: { default: "6", type: "string" },
     corpus: { type: "string" },
+    // Recall's term filter: "all" (the product default) or "any", where a
+    // fragment sharing one cue term is a match.
+    match: { default: "all", type: "string" },
     model: { default: "opencode-go/deepseek-v4.1-flash", type: "string" },
     only: { type: "string" },
     // Repeatable: `jev` turns a plugin on with its defaults,
@@ -67,6 +70,7 @@ if (CORPUS === undefined || RUN === undefined) {
 }
 const RUN_DIR = path.join(RUNS_DIR, RUN);
 const REPEATS = Number(args.repeats);
+const MATCH = z.enum(["all", "any"]).parse(args.match);
 const PLUGINS: PluginSettings = Object.fromEntries(
   args.plugin
     .map((arg) => {
@@ -111,6 +115,7 @@ await writeFile(
   JSON.stringify(
     {
       corpus: CORPUS,
+      match: MATCH,
       model: args.model,
       plugins: PLUGINS,
       recallRounds: ROUNDS,
@@ -165,7 +170,7 @@ await pool(questions, Number(args.concurrency), async (q) => {
       // oxlint-disable-next-line no-await-in-loop
       const run = await runPi({
         dir: path.join(RUN_DIR, ".pi", q.id),
-        mcpUrl: `${SERVER}/__dev/eval/${space}/mcp`,
+        mcpUrl: `${SERVER}/__dev/eval/${space}/mcp${MATCH === "any" ? "?match=any" : ""}`,
         model: args.model,
         prompt: q.question,
         recallBudget: ROUNDS,
@@ -217,6 +222,7 @@ await writeFile(RESULTS, JSON.stringify(scores, null, 2));
 const markdown = report(all, scores, {
   corpus: CORPUS,
   corpusSize,
+  match: MATCH,
   model: args.model,
   plugins: PLUGINS,
   recallRounds: ROUNDS,
