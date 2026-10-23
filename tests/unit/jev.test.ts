@@ -145,8 +145,7 @@ describe("jev plugin", () => {
     ).resolves.toBe(RECALL_LIMIT_MAX + 1);
   });
 
-  it("rejects malformed responses so the host passes recall through", async () => {
-    const log = vi.spyOn(console, "error").mockReturnValue();
+  it("fails the recall on a malformed response instead of passing it through", async () => {
     const result = await runAfterRecall(
       [
         {
@@ -161,12 +160,10 @@ describe("jev plugin", () => {
       items,
       input
     );
-    expect(result).toStrictEqual(items);
-    expect(log).toHaveBeenCalledWith(
-      expect.objectContaining({
-        error: "Error: Unexpected Jev response (keys: answers)",
-      })
-    );
+    expect(result).toStrictEqual({
+      error:
+        "jev: the relevance check failed (Error: Unexpected Jev response (keys: answers)); this is temporary, so call recall again",
+    });
   });
 
   it("gives up after its time budget", async () => {

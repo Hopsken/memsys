@@ -20,7 +20,7 @@ On real recalls, misses scored about 0.15 or lower and hits about 0.9, which is 
 
 ## Failure
 
-Fail-open: a timeout (1.5 s), binding error, empty balance, or malformed response leaves recall as it would be without the plugin, and logs `plugin.hook.failed`. No retries.
+Fail-closed: a timeout (1.5 s), binding error, empty balance, or malformed response fails the recall with an error that tells the agent to call recall again. Unjudged candidates are not passed through. No retries.
 
 ## Development
 

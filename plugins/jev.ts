@@ -1,13 +1,14 @@
 import { z } from "zod";
 
 import type { RecallInput, RecallItem } from "../contract/memory";
-import { definePlugin } from "../contract/plugin";
+import { definePlugin, PluginAbortError } from "../contract/plugin";
 import type { Ctx, Json } from "../contract/plugin";
 import { RECALL_LIMIT_MAX } from "../lib/recall";
 
 // Relevance gate per RFC 1 Stage 2: one independent noul per candidate, so
-// "nothing is relevant" is a possible answer. Fail-open: any error, timeout,
-// or malformed response leaves the input unchanged via the plugin host.
+// "nothing is relevant" is a possible answer. Fail-closed: any error,
+// timeout, or malformed response fails the recall with a retryable error,
+// since unjudged candidates may be mostly noise.
 export const JEV_MODEL = "typesafe/jev";
 export const JEV_TIMEOUT_MS = 1500;
 
@@ -87,22 +88,30 @@ const gate = async (
   if (judged.length === 0) {
     return [...items];
   }
-  const output = await withTimeout(
-    ai.run(JEV_MODEL, {
-      questions: Object.fromEntries(
-        judged.map((item) => [item.ref, question(item.ref)])
-      ),
-      state: {
-        candidates: Object.fromEntries(
-          judged.map((item) => [item.ref, item.fragment])
-        ),
-        context: context ?? "",
-        cue,
-      },
-    }),
-    JEV_TIMEOUT_MS
-  );
-  const scores = parseScores(output);
+  let scores: z.infer<typeof answers>["answers"];
+  try {
+    scores = parseScores(
+      await withTimeout(
+        ai.run(JEV_MODEL, {
+          questions: Object.fromEntries(
+            judged.map((item) => [item.ref, question(item.ref)])
+          ),
+          state: {
+            candidates: Object.fromEntries(
+              judged.map((item) => [item.ref, item.fragment])
+            ),
+            context: context ?? "",
+            cue,
+          },
+        }),
+        JEV_TIMEOUT_MS
+      )
+    );
+  } catch (error) {
+    throw new PluginAbortError(
+      `the relevance check failed (${String(error)}); this is temporary, so call recall again`
+    );
+  }
   const threshold = STRICTNESS[strictness];
   // Ungated items stay; judged items the model left unanswered stay too.
   return items.filter(
