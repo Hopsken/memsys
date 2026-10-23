@@ -89,7 +89,7 @@ Before the first deployment:
 
 ## Development and checks
 
-Node.js 24 and pnpm 11 are pinned through Mise. Hono handles routing; Zod schemas are shared by REST, MCP, and the object. Drizzle handles SQLite. Vitest tests run in the Workers runtime.
+Node.js 24 and pnpm 12 are pinned through Mise. Hono handles routing; Zod schemas are shared by REST, MCP, and the object. Drizzle handles SQLite. Vitest tests run in the Workers runtime.
 
 ```sh
 mise install
