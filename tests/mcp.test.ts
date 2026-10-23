@@ -3,6 +3,7 @@ import type { JSONValue } from "hono/utils/types";
 import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "../contract/memory";
+import { JEV_UNAVAILABLE } from "../plugins/jev";
 import worker from "../worker/index";
 import {
   call,
@@ -180,18 +181,17 @@ describe("Stateless MCP", () => {
     });
     // Tests have no Workers AI binding, which retrying cannot fix.
     const failed = await call(user, "recall", { cue: "judged memory" });
-    const owner =
-      /^jev: Relevance check is unavailable \(.+\)\. Retrying will not help: the memory owner must fix Workers AI or turn off the relevance filter\.$/u;
+    const owner = `jev: ${JEV_UNAVAILABLE}`;
     expect({
       isError: failed.isError,
       text: failed.content[0]?.text,
-    }).toStrictEqual({ isError: true, text: expect.stringMatching(owner) });
+    }).toStrictEqual({ isError: true, text: owner });
     const response = await post("/api/recall", { cue: "judged memory" }, user);
     expect({
       body: await response.json(),
       status: response.status,
     }).toStrictEqual({
-      body: { error: expect.stringMatching(owner), retry: false },
+      body: { error: owner, retry: false },
       status: 502,
     });
   });

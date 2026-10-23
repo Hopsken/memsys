@@ -5,6 +5,8 @@ import type { Fragment, RecallItem } from "../../contract/memory";
 import type { Ctx, Json, StageOutput } from "../../contract/plugin";
 import {
   JEV_ATTEMPTS,
+  JEV_RETRY,
+  JEV_UNAVAILABLE,
   JEV_BUDGET,
   JEV_MODEL,
   JEV_TIMEOUT_MS,
@@ -67,9 +69,6 @@ const stage = (run: Run, rows: RecallItem[] = items, config: Json = {}) => {
 const refs = ({ items: rows }: StageOutput) => rows.map((row) => row.ref);
 
 const malformed = () => Promise.resolve({ answers: { f2: { noul: "yes" } } });
-
-const RETRY = "Retry this recall shortly.";
-const OWNER = "Retrying will not help";
 
 describe("jev plugin", () => {
   beforeEach(() => {
@@ -158,7 +157,7 @@ describe("jev plugin", () => {
       Promise.resolve(noul({ f2: 0.9, f7: 0.9, f8: 0.9 }))
     );
     await expect(stage(run)).rejects.toMatchObject({
-      message: expect.stringContaining(RETRY),
+      message: JEV_RETRY,
       retry: true,
     });
     expect(run).toHaveBeenCalledTimes(JEV_ATTEMPTS);
@@ -201,11 +200,16 @@ describe("jev plugin", () => {
     "fails at once on a persistent error named in %s",
     async (_name, error) => {
       const run = vi.fn<Run>(() => Promise.reject(error));
+      // The cause reaches only the log; nobody who reads the error can fix it.
       await expect(stage(run)).rejects.toMatchObject({
-        message: expect.stringContaining(OWNER),
+        message: JEV_UNAVAILABLE,
         retry: false,
       });
       expect(run).toHaveBeenCalledOnce();
+      expect(console.error).toHaveBeenCalledWith({
+        error: String(error),
+        event: "jev.unavailable",
+      });
     }
   );
 
@@ -214,7 +218,7 @@ describe("jev plugin", () => {
     await Promise.all([
       expect(
         stage(() => Promise.withResolvers<Json>().promise)
-      ).rejects.toThrow(`Jev timed out after ${JEV_TIMEOUT_MS} ms). ${RETRY}`),
+      ).rejects.toThrow(JEV_RETRY),
       // Each attempt times out, plus the waits between attempts.
       vi.advanceTimersByTimeAsync(JEV_TIMEOUT_MS * JEV_ATTEMPTS + 1000),
     ]);
@@ -273,9 +277,7 @@ describe("jev plugin", () => {
     );
     // A response that never parses means the model changed: the owner acts.
     expect(result).toStrictEqual({
-      error: expect.stringMatching(
-        /^jev: Relevance check is unavailable \(JevAttemptError: Unexpected Jev response \(keys: answers\)\)\. Retrying will not help/u
-      ),
+      error: `jev: ${JEV_UNAVAILABLE}`,
       retry: false,
     });
   });

@@ -22,7 +22,9 @@ On real recalls, misses scored about 0.15 or lower and hits about 0.9, which is 
 Jev never fails open: an unfiltered list would read as a checked one. Each failed attempt logs `jev.attempt.failed`.
 
 - **Transient** — a timeout (1.5 s per attempt), a Workers AI error with any other code (such as `3040`, out of capacity), an `InferenceUpstreamError`, or a fragment left unanswered. Jev tries up to `JEV_ATTEMPTS` (3) times, waiting 250 ms, then 500 ms; a retry asks only about fragments still unanswered. Then the recall fails with `retry: true`: HTTP 503 with `Retry-After`, and a message that says to retry shortly.
-- **Persistent** — Workers AI codes that retrying cannot fix: `3036` (no balance), `5007` and `3042` (no such model), and the account and plan errors `3023`, `3041`, `5016`, `5018`, `5035`. Also any error with no Workers AI code, such as a missing binding, and a response that never parses on any attempt, which means the model changed. The recall fails at once with `retry: false`: HTTP 502, and a message that says the owner must act. The web preview shows the message and no retry button.
+- **Persistent** — Workers AI codes that retrying cannot fix: `3036` (no balance), `5007` and `3042` (no such model), and the account and plan errors `3023`, `3041`, `5016`, `5018`, `5035`. Also any error with no Workers AI code, such as a missing binding, and a response that never parses on any attempt, which means the model changed. The recall fails at once with `retry: false`: HTTP 502, and a message that says the owner can turn the filter off. The web preview shows the message and no retry button.
+
+Error messages never carry the Workers AI error: the service pays for Workers AI, so neither the agent nor the owner can act on it. The cause goes to the log, as `jev.unavailable` for a persistent failure and `jev.attempt.failed` for each failed attempt.
 
 ## Development
 

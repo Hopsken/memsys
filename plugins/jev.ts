@@ -147,11 +147,18 @@ const ask = async (
   return parseScores(output);
 };
 
-const persistent = (cause: string) =>
-  new PluginAbortError(
-    `Relevance check is unavailable (${cause}). Retrying will not help: the memory owner must fix Workers AI or turn off the relevance filter.`,
-    { retry: false }
-  );
+// What the agent and the owner read. Neither can fix Workers AI: the service
+// pays for it. So the cause goes only to the log, and the message names the
+// one thing the owner can do.
+export const JEV_UNAVAILABLE =
+  "The relevance filter is unavailable, and retrying will not help. Recall works again once the owner turns the filter off in memsys settings.";
+export const JEV_RETRY =
+  "The relevance filter could not check the memories. Retry this recall shortly.";
+
+const persistent = (cause: string) => {
+  console.error({ error: cause, event: "jev.unavailable" });
+  return new PluginAbortError(JEV_UNAVAILABLE, { retry: false });
+};
 
 // A score for every candidate, or a PluginAbortError that says whether a
 // retry can help.
@@ -201,10 +208,7 @@ const judge = async (
     if (allMalformed) {
       throw persistent(failure);
     }
-    throw new PluginAbortError(
-      `Relevance check failed (${failure}). Retry this recall shortly.`,
-      { retry: true }
-    );
+    throw new PluginAbortError(JEV_RETRY, { retry: true });
   }
   return scores;
 };
