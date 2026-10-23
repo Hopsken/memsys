@@ -2,8 +2,17 @@ import { Hono } from "hono";
 import { setSignedCookie } from "hono/cookie";
 import { z } from "zod";
 
-import { defaultSpace, getAuth, isAllowedEmail, memoryOf } from "../auth";
+import {
+  MEMORY_READ,
+  MEMORY_WRITE,
+  defaultSpace,
+  getAuth,
+  isAllowedEmail,
+  memoryOf,
+} from "../auth";
 import type { AppEnv } from "../auth";
+import { mcp } from "../routes/mcp";
+import { plugins } from "../routes/plugins";
 import { corpus } from "./corpus";
 
 const seedInput = z.object({ email: z.email() });
@@ -78,4 +87,25 @@ export const dev =
       return c.redirect(
         returnPath(c.req.query("returnTo"), new URL(c.req.url).origin)
       );
-    });
+    })
+    // Throwaway memory spaces for eval/longmemeval, one per run, with no
+    // account behind them: MCP with every tool, plugin settings, and the whole
+    // log out and in.
+    .use("/__dev/eval/:space/*", (c, next) => {
+      c.set("memory", memoryOf(c.env, `eval:${c.req.param("space")}`));
+      c.set("scopes", new Set([MEMORY_READ, MEMORY_WRITE]));
+      c.set("by", "agent:eval");
+      return next();
+    })
+    .route("/__dev/eval/:space/mcp", mcp)
+    .route("/__dev/eval/:space/plugins", plugins)
+    .get("/__dev/eval/:space/export", async (c) =>
+      c.text(await c.get("memory").exportLog(true))
+    )
+    .post("/__dev/eval/:space/import", async (c) =>
+      c.json(
+        await c
+          .get("memory")
+          .importFragments({ content: await c.req.text(), format: "ndjson" })
+      )
+    );
