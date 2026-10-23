@@ -170,7 +170,7 @@ describe("Stateless MCP", () => {
     });
   });
 
-  it("fails recall with a retry hint instead of returning unjudged memories", async () => {
+  it("fails recall, saying the owner must act, instead of returning unjudged memories", async () => {
     const user = await signIn();
     await call(user, "remember", { fragment: "Judged memory #test" });
     await memoryOf(user).updatePlugin("jev", {
@@ -178,16 +178,21 @@ describe("Stateless MCP", () => {
       enabled: true,
       updatedAt: null,
     });
-    // Tests have no Workers AI, so every Jev attempt fails.
+    // Tests have no Workers AI binding, which retrying cannot fix.
     const failed = await call(user, "recall", { cue: "judged memory" });
+    const owner =
+      /^jev: Relevance check is unavailable \(.+\)\. Retrying will not help: the memory owner must fix Workers AI or turn off the relevance filter\.$/u;
     expect({
       isError: failed.isError,
       text: failed.content[0]?.text,
+    }).toStrictEqual({ isError: true, text: expect.stringMatching(owner) });
+    const response = await post("/api/recall", { cue: "judged memory" }, user);
+    expect({
+      body: await response.json(),
+      status: response.status,
     }).toStrictEqual({
-      isError: true,
-      text: expect.stringMatching(
-        /^jev: Relevance check failed \(.+\)\. Retry this recall shortly\.$/u
-      ),
+      body: { error: expect.stringMatching(owner), retry: false },
+      status: 502,
     });
   });
 

@@ -13,10 +13,15 @@ import "./styles.css";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // 4xx answers, expired sessions included, will not change on retry.
+      // 4xx answers, expired sessions included, will not change on retry,
+      // and neither will an answer that says so.
       retry: (count, error) => {
-        const { status } = failure(error);
-        return count < 2 && (status === null || status >= 500);
+        const { problem, status } = failure(error);
+        return (
+          count < 2 &&
+          problem.retry !== false &&
+          (status === null || status >= 500)
+        );
       },
     },
   },

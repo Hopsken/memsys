@@ -23,6 +23,14 @@ export interface RecallResult {
   truncated: boolean;
 }
 
+// A recall a stage stopped. `retry` is true when trying again shortly can
+// help, false when the owner must act, and absent when the request itself
+// was refused.
+export interface RecallFailure {
+  error: string;
+  retry?: boolean;
+}
+
 // A listed fragment also counts the records in its history, so a list can
 // tell edited fragments apart without loading each history.
 export type ListedFragment = Fragment & { versions: number };

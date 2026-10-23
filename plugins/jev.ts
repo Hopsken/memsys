@@ -20,6 +20,46 @@ const PERSISTENT = new Set([3023, 3036, 3041, 3042, 5007, 5016, 5018, 5035]);
 
 // The binding throws `AiError: 3036: …`; some versions also set `code`.
 const AI_ERROR_CODE = /(?:^|\s)(?<code>\d{4}):/u;
+// Gateway failures between the binding and the model carry no code.
+const UPSTREAM = /InferenceUpstreamError/u;
+// Waits before the second and third attempts, so a capacity error can clear.
+const BACKOFF_MS = 250;
+
+// An attempt that failed on Jev's side of the call.
+class JevAttemptError extends Error {
+  readonly kind: "timeout" | "malformed";
+
+  constructor(kind: "timeout" | "malformed", message: string) {
+    super(message);
+    this.name = "JevAttemptError";
+    this.kind = kind;
+  }
+}
+
+const isMalformed = (error: Error) =>
+  error instanceof JevAttemptError && error.kind === "malformed";
+
+const sleep = async (ms: number) => {
+  const { promise, resolve } = Promise.withResolvers<null>();
+  setTimeout(() => resolve(null), ms);
+  await promise;
+};
+
+// Whether retrying can fix a failed attempt. Anything not known to be an
+// outage is persistent: a missing binding or an unknown error does not
+// clear on its own, and an agent told to retry would retry forever.
+const isTransient = (error: Error) => {
+  if (error instanceof JevAttemptError) {
+    return true;
+  }
+  const code =
+    z.object({ code: z.number() }).safeParse(error).data?.code ??
+    Number(AI_ERROR_CODE.exec(String(error))?.groups?.["code"]);
+  if (Number.isInteger(code)) {
+    return !PERSISTENT.has(code);
+  }
+  return UPSTREAM.test(String(error));
+};
 
 // Named levels instead of a raw probability: 0.45 vs 0.48 means nothing to a
 // user. Measured on real recalls, misses score ≲0.15 and hits ≳0.9.
@@ -51,7 +91,10 @@ const parseScores = (value: Json) => {
   const parsed = response.safeParse(value);
   if (!parsed.success) {
     const keys = Object.keys(z.looseObject({}).safeParse(value).data ?? {});
-    throw new Error(`Unexpected Jev response (keys: ${keys.join(", ")})`);
+    throw new JevAttemptError(
+      "malformed",
+      `Unexpected Jev response (keys: ${keys.join(", ")})`
+    );
   }
   return parsed.data.answers;
 };
@@ -70,7 +113,8 @@ const question = (ref: string) => ({
 const withTimeout = async <T>(promise: Promise<T>, ms: number) => {
   const { promise: expired, reject } = Promise.withResolvers<never>();
   const timer = setTimeout(
-    () => reject(new Error(`Jev timed out after ${ms} ms`)),
+    () =>
+      reject(new JevAttemptError("timeout", `Jev timed out after ${ms} ms`)),
     ms
   );
   try {
@@ -103,6 +147,12 @@ const ask = async (
   return parseScores(output);
 };
 
+const persistent = (cause: string) =>
+  new PluginAbortError(
+    `Relevance check is unavailable (${cause}). Retrying will not help: the memory owner must fix Workers AI or turn off the relevance filter.`,
+    { retry: false }
+  );
+
 // A score for every candidate, or a PluginAbortError that says whether a
 // retry can help.
 const judge = async (
@@ -112,12 +162,18 @@ const judge = async (
 ) => {
   const scores = new Map<string, number>();
   let failure = "";
+  let allMalformed = true;
   for (let attempt = 1; attempt <= JEV_ATTEMPTS; attempt += 1) {
+    if (attempt > 1) {
+      // Sequential by design: each retry waits a little longer.
+      // oxlint-disable-next-line no-await-in-loop
+      await sleep(BACKOFF_MS * (attempt - 1));
+    }
     const pending = candidates.filter((item) => !scores.has(item.ref));
     try {
-      // Sequential by design: a retry asks only what is still unanswered.
       // oxlint-disable-next-line no-await-in-loop
       const reply = await ask(ai, pending, input);
+      allMalformed = false;
       for (const { ref } of pending) {
         const noul = reply[ref]?.noul;
         if (noul !== undefined) {
@@ -130,21 +186,24 @@ const judge = async (
       }
       failure = `left ${unanswered.length} memories unanswered`;
     } catch (error) {
-      const code =
-        z.object({ code: z.number() }).safeParse(error).data?.code ??
-        Number(AI_ERROR_CODE.exec(String(error))?.groups?.["code"]);
-      if (PERSISTENT.has(code)) {
-        throw new PluginAbortError(
-          `Relevance check is unavailable (${String(error)}). Retrying will not help: the memory owner must fix Workers AI or turn off the relevance filter.`
-        );
+      const cause =
+        z.instanceof(Error).safeParse(error).data ?? new Error(String(error));
+      if (!isTransient(cause)) {
+        throw persistent(String(cause));
       }
-      failure = String(error);
+      allMalformed &&= isMalformed(cause);
+      failure = String(cause);
     }
     console.error({ attempt, error: failure, event: "jev.attempt.failed" });
   }
   if (scores.size < candidates.length) {
+    // A response that never parses means the model changed, not an outage.
+    if (allMalformed) {
+      throw persistent(failure);
+    }
     throw new PluginAbortError(
-      `Relevance check failed (${failure}). Retry this recall shortly.`
+      `Relevance check failed (${failure}). Retry this recall shortly.`,
+      { retry: true }
     );
   }
   return scores;

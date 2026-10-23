@@ -6,7 +6,7 @@ import type { FormEvent, ReactNode, RefObject } from "react";
 
 import { MemoryLength } from "@/entities/memory";
 import { SessionExpired } from "@/features/auth";
-import { api, isExpired } from "@/shared/api";
+import { api, failure, isExpired } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
 import {
@@ -129,6 +129,34 @@ const Results = ({
   </>
 );
 
+// Shows the error your AI would get, and offers a retry only when it can help.
+const RecallError = ({
+  error,
+  onRetry,
+}: {
+  error: Error;
+  onRetry: () => void;
+}) => {
+  const { problem } = failure(error);
+  return (
+    <Alert className="flex flex-wrap items-center justify-between gap-3">
+      <AlertDescription className="text-foreground min-w-0 flex-1">
+        Couldn’t search your memories.
+        {problem.error ? (
+          <span className="text-muted-foreground mt-1 block text-xs [overflow-wrap:anywhere]">
+            {problem.error}
+          </span>
+        ) : null}
+      </AlertDescription>
+      {problem.retry === false ? null : (
+        <Button onClick={onRetry} size="sm" variant="outline">
+          Try again
+        </Button>
+      )}
+    </Alert>
+  );
+};
+
 // Runs a cue through the same recall your AI uses and shows what comes back.
 // Nothing is kept once the dialog closes.
 const RecallPanel = ({
@@ -234,20 +262,12 @@ const RecallPanel = ({
         ) : null}
         {isExpired(query.error) ? <SessionExpired /> : null}
         {query.isError && !isExpired(query.error) ? (
-          <Alert className="flex flex-wrap items-center justify-between gap-3">
-            <AlertDescription className="text-foreground">
-              Couldn’t search your memories.
-            </AlertDescription>
-            <Button
-              onClick={() => {
-                void query.refetch();
-              }}
-              size="sm"
-              variant="outline"
-            >
-              Try again
-            </Button>
-          </Alert>
+          <RecallError
+            error={query.error}
+            onRetry={() => {
+              void query.refetch();
+            }}
+          />
         ) : null}
         {request && query.isPending ? (
           <div className="space-y-3" role="status">

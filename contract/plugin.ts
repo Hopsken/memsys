@@ -80,13 +80,17 @@ export interface PluginView {
 }
 
 // Throw to stop the pipeline; any other exception only skips this plugin.
+// `retry` says whether calling again can help: true for an outage, false
+// when the owner must act. Leave it out when the input itself is refused.
 export class PluginAbortError extends Error {
   readonly reason: string;
+  readonly retry: boolean | undefined;
 
-  constructor(reason: string) {
+  constructor(reason: string, options: { retry?: boolean } = {}) {
     super(reason);
     this.name = "PluginAbortError";
     this.reason = reason;
+    this.retry = options.retry;
   }
 }
 

@@ -157,18 +157,25 @@ describe("jev plugin", () => {
     const run = vi.fn<Run>(() =>
       Promise.resolve(noul({ f2: 0.9, f7: 0.9, f8: 0.9 }))
     );
-    await expect(stage(run)).rejects.toThrow(RETRY);
+    await expect(stage(run)).rejects.toMatchObject({
+      message: expect.stringContaining(RETRY),
+      retry: true,
+    });
     expect(run).toHaveBeenCalledTimes(JEV_ATTEMPTS);
   });
 
-  it("retries a transient Workers AI error", async () => {
+  it.each([
+    [
+      "a capacity error",
+      new Error(
+        "AiError: 3040: Capacity temporarily exceeded, please try again."
+      ),
+    ],
+    ["an upstream error", new Error("InferenceUpstreamError: 502 Bad Gateway")],
+  ])("retries %s", async (_name, error) => {
     const run = vi
       .fn<Run>()
-      .mockRejectedValueOnce(
-        new Error(
-          "AiError: 3040: Capacity temporarily exceeded, please try again."
-        )
-      )
+      .mockRejectedValueOnce(error)
       .mockImplementationOnce(scored);
     await expect(stage(run).then(refs)).resolves.toStrictEqual([
       "f7",
@@ -187,11 +194,17 @@ describe("jev plugin", () => {
       "a code property",
       Object.assign(new Error("No such model"), { code: 5007 }),
     ],
+    // An error with no Workers AI code, such as a missing binding, does not
+    // clear on its own.
+    ["no code at all", new Error("Binding AI needs to be run remotely")],
   ])(
     "fails at once on a persistent error named in %s",
     async (_name, error) => {
       const run = vi.fn<Run>(() => Promise.reject(error));
-      await expect(stage(run)).rejects.toThrow(OWNER);
+      await expect(stage(run)).rejects.toMatchObject({
+        message: expect.stringContaining(OWNER),
+        retry: false,
+      });
       expect(run).toHaveBeenCalledOnce();
     }
   );
@@ -202,7 +215,8 @@ describe("jev plugin", () => {
       expect(
         stage(() => Promise.withResolvers<Json>().promise)
       ).rejects.toThrow(`Jev timed out after ${JEV_TIMEOUT_MS} ms). ${RETRY}`),
-      vi.advanceTimersByTimeAsync(JEV_TIMEOUT_MS * JEV_ATTEMPTS),
+      // Each attempt times out, plus the waits between attempts.
+      vi.advanceTimersByTimeAsync(JEV_TIMEOUT_MS * JEV_ATTEMPTS + 1000),
     ]);
   });
 
@@ -239,7 +253,7 @@ describe("jev plugin", () => {
     expect(run).not.toHaveBeenCalled();
   });
 
-  it("fails the recall through the host on malformed responses", async () => {
+  it("fails the recall through the host as persistent when no response parses", async () => {
     const result = await runRecall(
       [
         { builtin: "given", stage: () => Promise.resolve({ items }) },
@@ -257,8 +271,12 @@ describe("jev plugin", () => {
       { ai: { run: malformed }, corpus },
       input
     );
+    // A response that never parses means the model changed: the owner acts.
     expect(result).toStrictEqual({
-      error: `jev: Relevance check failed (Error: Unexpected Jev response (keys: answers)). ${RETRY}`,
+      error: expect.stringMatching(
+        /^jev: Relevance check is unavailable \(JevAttemptError: Unexpected Jev response \(keys: answers\)\)\. Retrying will not help/u
+      ),
+      retry: false,
     });
   });
 });

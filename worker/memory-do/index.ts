@@ -14,6 +14,7 @@ import type {
   History,
   ImportResult,
   Op,
+  RecallFailure,
   RecallResult,
   Restored,
   Version,
@@ -233,7 +234,7 @@ export class MemoryDO extends DurableObject<Env> {
 
   recall(
     raw: z.input<typeof inputs.recall>
-  ): Promise<RecallResult | { error: string }> {
+  ): Promise<RecallResult | RecallFailure> {
     // Stages may await a model while writes land; the recall reads one
     // snapshot throughout.
     return runRecall(

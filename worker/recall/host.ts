@@ -1,4 +1,5 @@
 import type {
+  RecallFailure,
   RecallInput,
   RecallItem,
   RecallResult,
@@ -69,7 +70,7 @@ export const runRecall = async (
   states: readonly PluginState[],
   env: PluginEnv,
   input: RecallInput
-): Promise<RecallResult | { error: string }> => {
+): Promise<RecallResult | RecallFailure> => {
   let items: RecallItem[] = [];
   let truncated = false;
   for (const step of pipeline) {
@@ -101,7 +102,10 @@ export const runRecall = async (
       }
       const plugin = step.plugin.name;
       if (error instanceof PluginAbortError) {
-        return { error: `${plugin}: ${error.reason}` };
+        return {
+          error: `${plugin}: ${error.reason}`,
+          ...(error.retry !== undefined && { retry: error.retry }),
+        };
       }
       console.error({
         error: String(error),
