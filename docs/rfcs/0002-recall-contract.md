@@ -70,7 +70,7 @@ A judging stage never passes on a candidate it did not judge. It may cut to its 
 
 ## Public contract
 
-- MCP `recall` and `POST /api/recall` take `{ cue, context? }` and return `{ fragments, truncated, warnings? }`. Stages receive `{ cue, context }`.
+- MCP `recall` and `POST /api/recall` take `{ cue, context? }` and return `{ fragments, truncated }`. Stages receive `{ cue, context }`.
 - The `cue` description gives its forms (a few distinctive words, a phrase, #anchors), how the built-in stages match it, and what to change when results are too few or too many.
 - The `context` description asks for it whenever the agent has a task.
 - A failed judging stage returns an error that says whether to retry.

@@ -63,7 +63,8 @@ const reportCut = (name: string, truncated: boolean) =>
 
 // A built-in stage that hands the given items to the next stage.
 const given = (items: readonly RecallItem[]) => ({
-  builtin: () => Promise.resolve({ items: [...items] }),
+  builtin: "given",
+  stage: () => Promise.resolve({ items: [...items] }),
 });
 
 const recallRow = (ref: string, fragment: string, via?: string[]) => ({
@@ -210,28 +211,20 @@ describe("Plugin host", () => {
 
   it("chains recall stages in pipeline order and ignores foreign items", async () => {
     const items = [...corpus.values()];
-    const states = [
-      state(reorder("reverse", (rows) => Promise.resolve(rows.toReversed()))),
-      state(
-        reorder("invent", (rows) =>
-          Promise.resolve([
-            ...rows.map((row) => ({ ...row, fragment: "rewritten" })),
-            { at: "", fragment: "fake", ref: "zz" },
-          ])
-        )
-      ),
-      state(
-        reorder("off", () => Promise.resolve([])),
-        false
-      ),
-    ];
+    const reverse = reorder("reverse", (rows) =>
+      Promise.resolve(rows.toReversed())
+    );
+    // An empty `via` must not turn a cue match into an association.
+    const invent = reorder("invent", (rows) =>
+      Promise.resolve([
+        ...rows.map((row) => ({ ...row, fragment: "rewritten", via: [] })),
+        { at: "", fragment: "fake", ref: "zz" },
+      ])
+    );
+    const off = reorder("off", () => Promise.resolve([]));
+    const states = [state(reverse), state(invent), state(off, false)];
     const result = await runRecall(
-      [
-        given(items),
-        { plugin: "reverse" },
-        { plugin: "invent" },
-        { plugin: "off" },
-      ],
+      [given(items), { plugin: reverse }, { plugin: invent }, { plugin: off }],
       states,
       env,
       recallInput
@@ -251,13 +244,12 @@ describe("Plugin host", () => {
       ai: offline,
       corpus: new Map(many.map((row) => [row.ref, row])),
     };
-    const states = [
-      state(reportCut("cut", true)),
-      state(reportCut("clear", false)),
-    ];
+    const cut = reportCut("cut", true);
+    const clear = reportCut("clear", false);
+    const states = [state(cut), state(clear)];
     await expect(
       runRecall(
-        [given(many.slice(0, 3)), { plugin: "cut" }, { plugin: "clear" }],
+        [given(many.slice(0, 3)), { plugin: cut }, { plugin: clear }],
         states,
         flood,
         recallInput
@@ -272,17 +264,14 @@ describe("Plugin host", () => {
   it("passes input through failing recall stages and stops on abort", async () => {
     const log = vi.spyOn(console, "error").mockReturnValue();
     const items = [...corpus.values()];
-    const states = [
-      state(reorder("broken", () => Promise.reject(new Error("bug")))),
-      state(
-        reorder("guard", () =>
-          Promise.reject(new PluginAbortError("unsafe cue"))
-        )
-      ),
-    ];
+    const broken = reorder("broken", () => Promise.reject(new Error("bug")));
+    const guard = reorder("guard", () =>
+      Promise.reject(new PluginAbortError("unsafe cue"))
+    );
+    const states = [state(broken), state(guard)];
     await expect(
       runRecall(
-        [given(items), { plugin: "broken" }],
+        [given(items), { plugin: broken }],
         states,
         env,
         recallInput
@@ -290,7 +279,7 @@ describe("Plugin host", () => {
     ).resolves.toStrictEqual(["a", "b"]);
     await expect(
       runRecall(
-        [given(items), { plugin: "guard" }, { plugin: "broken" }],
+        [given(items), { plugin: guard }, { plugin: broken }],
         states,
         env,
         recallInput

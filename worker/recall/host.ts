@@ -10,30 +10,33 @@ import type { PluginEnv, PluginState } from "../plugin-host";
 
 // A built-in stage always runs; a plugin's stage runs when the owner has
 // that plugin on.
-export type Step = { builtin: RecallStage<unknown> } | { plugin: string };
+export type Step =
+  | { builtin: string; stage: RecallStage<null> }
+  | { plugin: Plugin<Json> };
 export type Pipeline = readonly Step[];
 
 // No correct pipeline returns more; it keeps a broken stage from flooding the
 // agent's context.
 const RECALL_CEILING = 40;
 
-const pluginName = (step: Step) => ("plugin" in step ? step.plugin : null);
-
-// Every plugin with a recall stage has exactly one place in the pipeline,
-// and every name in it is such a plugin.
+// Every registered plugin with a recall stage has exactly one place in the
+// pipeline, and every plugin in it is registered and has a recall stage.
 export const assertPipeline = (
   pipeline: Pipeline,
   plugins: readonly Plugin<Json>[]
 ) => {
-  const named = pipeline.flatMap((step) => pluginName(step) ?? []);
-  const staged = plugins.filter((plugin) => plugin.recall);
-  for (const name of named) {
-    if (!staged.some((plugin) => plugin.name === name)) {
-      throw new Error(`Pipeline names ${name}, which has no recall stage`);
+  const named = pipeline.flatMap((step) =>
+    "plugin" in step ? [step.plugin] : []
+  );
+  for (const plugin of named) {
+    if (!plugin.recall || !plugins.includes(plugin)) {
+      throw new Error(
+        `Pipeline names ${plugin.name}, which has no recall stage`
+      );
     }
   }
-  for (const plugin of staged) {
-    if (named.filter((name) => name === plugin.name).length !== 1) {
+  for (const plugin of plugins.filter((item) => item.recall)) {
+    if (named.filter((item) => item === plugin).length !== 1) {
       throw new Error(`Plugin ${plugin.name} must appear once in the pipeline`);
     }
   }
@@ -47,9 +50,9 @@ const runStage = (
   input: RecallInput
 ) => {
   if ("builtin" in step) {
-    return step.builtin(createCtx(null, env), items, input);
+    return step.stage(createCtx(null, env), items, input);
   }
-  const state = states.find((item) => item.plugin.name === step.plugin);
+  const state = states.find((item) => item.plugin.name === step.plugin.name);
   if (!state?.enabled || !state.plugin.recall) {
     return null;
   }
@@ -82,15 +85,21 @@ export const runRecall = async (
             return [];
           }
           seen.add(ref);
-          return [via ? { ...fragment, via } : { ...fragment }];
+          // An empty `via` would turn a cue match into an association.
+          return [via?.length ? { ...fragment, via } : { ...fragment }];
         });
         truncated ||= result.truncated === true;
       }
     } catch (error) {
-      const plugin = pluginName(step);
-      if (!plugin) {
+      if ("builtin" in step) {
+        console.error({
+          error: String(error),
+          event: "recall.stage.failed",
+          stage: step.builtin,
+        });
         throw error;
       }
+      const plugin = step.plugin.name;
       if (error instanceof PluginAbortError) {
         return { error: `${plugin}: ${error.reason}` };
       }

@@ -3,10 +3,14 @@ import { associationKeys, extractAnchors } from "../../lib/anchor";
 import { newestFirst } from "./match";
 
 const SEEDS = 10;
+// A hub anchor can link most of the corpus; later stages need far fewer.
+const ADDED = 100;
 
 // Built-in stage: adds the fragments that share an anchor with one of the
-// first cue matches, one hop, newest first. `via` lists the shared anchors.
-export const spread: RecallStage<unknown> = ({ corpus }, items) => {
+// first cue matches, one hop, newest first, up to ADDED. `via` lists the
+// shared anchors. The cut is not reported: no better cue brings those
+// fragments back through spreading (RFC 0002, decision 6).
+export const spread: RecallStage<null> = ({ corpus }, items) => {
   const seeds = items.filter((item) => !item.via).slice(0, SEEDS);
   const keys = new Set(
     seeds.flatMap((item) =>
@@ -25,6 +29,7 @@ export const spread: RecallStage<unknown> = ({ corpus }, items) => {
         associationKeys(anchor).some((key) => keys.has(key))
       ),
     }))
-    .filter((item) => item.via.length > 0);
+    .filter((item) => item.via.length > 0)
+    .slice(0, ADDED);
   return Promise.resolve({ items: [...items, ...associated] });
 };

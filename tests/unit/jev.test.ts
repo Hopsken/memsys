@@ -241,7 +241,10 @@ describe("jev plugin", () => {
 
   it("fails the recall through the host on malformed responses", async () => {
     const result = await runRecall(
-      [{ builtin: () => Promise.resolve({ items }) }, { plugin: "jev" }],
+      [
+        { builtin: "given", stage: () => Promise.resolve({ items }) },
+        { plugin: jev },
+      ],
       [
         {
           config: jev.defaults.config,

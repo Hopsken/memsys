@@ -88,7 +88,7 @@ const normalize = (text: string): string =>
   text.toLowerCase().replaceAll(/\s+/gu, " ").trim();
 
 // Built-in stage: adds the fragments that match the cue, best first.
-export const match: RecallStage<unknown> = ({ corpus }, items, { cue }) => {
+export const match: RecallStage<null> = ({ corpus }, items, { cue }) => {
   const ordered = newestFirst(corpus.values());
   const normalizedCue = normalize(cue);
   const cueTerms = [...new Set(terms(cue))];
