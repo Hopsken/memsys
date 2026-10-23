@@ -9,9 +9,11 @@ import { z } from "zod";
 import type { Fragment } from "../contract/memory";
 import type { Json } from "../contract/plugin";
 import { plugins } from "../plugins";
-import { recallCandidates, truncate } from "../worker/memory";
-import { resolvePlugins, runAfterRecall } from "../worker/plugin-host";
+import { parseRecall } from "../worker/memory";
+import { resolvePlugins } from "../worker/plugin-host";
 import type { PluginEnv, StoredConfig } from "../worker/plugin-host";
+import { runRecall } from "../worker/recall/host";
+import { pipeline } from "../worker/recall/pipeline";
 import { cases, fragments } from "./dataset";
 import type { EvalCase } from "./dataset";
 import { report } from "./metrics";
@@ -83,25 +85,23 @@ const hookFailures = () =>
   ).length;
 
 const recallOnce = async (stored: StoredConfig[], item: EvalCase) => {
-  const { candidates, input } = recallCandidates(corpus.values(), {
+  const { input } = parseRecall({
     cue: item.cue,
     ...(item.context && { context: item.context }),
   });
   const failed = hookFailures();
-  const ranked = await runAfterRecall(
+  const result = await runRecall(
+    pipeline,
     resolvePlugins(plugins, stored),
     env,
-    candidates,
     input
   );
-  if ("error" in ranked) {
-    throw new Error(ranked.error);
+  if ("error" in result) {
+    throw new Error(result.error);
   }
   return {
     failed: hookFailures() > failed,
-    refs: truncate(ranked, input.limit).fragments.map(
-      (fragment) => fragment.ref
-    ),
+    refs: result.items.map((fragment) => fragment.ref),
   };
 };
 

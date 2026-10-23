@@ -10,7 +10,7 @@ export interface Fragment {
 // Items without `via` matched the cue; `via` lists the anchors that associated the rest.
 export type RecallItem = Fragment & { via?: string[] };
 
-// Recall input with defaults applied; what afterRecall hooks receive.
+// Recall input with defaults applied; what recall stages receive.
 export interface RecallInput {
   associate: boolean;
   context: string | null;

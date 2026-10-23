@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { groupByMatch } from "../../client/widgets/recall-preview/lib/group";
 import type { RecallItem } from "../../contract/memory";
-import { recall } from "../../worker/memory";
+import { recall } from "../../worker/recall/pipeline";
 
 const at = "2026-09-01T00:00:00.000Z";
 const corpus = [
@@ -20,14 +20,14 @@ const refs = (items: readonly RecallItem[]) =>
   ]);
 
 describe("Recall grouping", () => {
-  it("puts each related memory under the match that brought it in", () => {
-    const { fragments } = recall(corpus, { cue: "deploy" });
+  it("puts each related memory under the match that brought it in", async () => {
+    const { fragments } = await recall(corpus, { cue: "deploy" });
     expect(refs(fragments)).toStrictEqual([["m1", ["r1"]]]);
   });
 
-  it("follows tags the way recall associates them", () => {
+  it("follows tags the way recall associates them", async () => {
     // #auth-tokens reaches #auth through its split words.
-    const { fragments } = recall(corpus, { cue: "tokens" });
+    const { fragments } = await recall(corpus, { cue: "tokens" });
     expect(refs(fragments)).toStrictEqual([["m2", ["r2"]]]);
   });
 
@@ -43,8 +43,8 @@ describe("Recall grouping", () => {
     ]);
   });
 
-  it("keeps related memories whose match isn't in the result", () => {
-    const { fragments } = recall(corpus, { cue: "deploy" });
+  it("keeps related memories whose match isn't in the result", async () => {
+    const { fragments } = await recall(corpus, { cue: "deploy" });
     expect(refs(fragments.filter((item) => item.via))).toStrictEqual([
       [null, ["r1"]],
     ]);

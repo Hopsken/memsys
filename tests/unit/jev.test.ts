@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Fragment, RecallItem } from "../../contract/memory";
-import type { Ctx, Json } from "../../contract/plugin";
+import type { Ctx, Json, StageOutput } from "../../contract/plugin";
 import { RECALL_LIMIT_MAX } from "../../lib/recall";
 import { JEV_MODEL, JEV_TIMEOUT_MS, jev } from "../../plugins/jev";
-import { createCtx, runAfterRecall } from "../../worker/plugin-host";
+import { createCtx } from "../../worker/plugin-host";
+import { runRecall } from "../../worker/recall/host";
 
 const item = (ref: string, fragment: string, via?: string[]): RecallItem => ({
   at: "",
@@ -45,20 +46,16 @@ const malformed = () => Promise.resolve({ answers: { f2: { noul: "yes" } } });
 const ASSOCIATIONS = { matches: false, strictness: "medium" } as const;
 
 const hook = (run: Run, rows: RecallItem[], config: Json = ASSOCIATIONS) => {
-  if (!jev.afterRecall) {
-    throw new Error("jev has no afterRecall hook");
+  if (!jev.recall) {
+    throw new Error("jev has no recall stage");
   }
-  return jev.afterRecall(
-    createCtx(config, { ai: { run }, corpus }),
-    rows,
-    input
-  );
+  return jev.recall(createCtx(config, { ai: { run }, corpus }), rows, input);
 };
 
 const gate = (run: Run, config: Json = ASSOCIATIONS) =>
   hook(run, items, config);
 
-const refs = (rows: RecallItem[]) => rows.map((row) => row.ref);
+const refs = ({ items: rows }: StageOutput) => rows.map((row) => row.ref);
 
 describe("jev plugin", () => {
   afterEach(() => {
@@ -141,13 +138,16 @@ describe("jev plugin", () => {
     );
     const run = vi.fn<Run>(() => Promise.resolve(noul({})));
     await expect(
-      hook(run, [item("m", "Cue match"), ...many]).then((rows) => rows.length)
+      hook(run, [item("m", "Cue match"), ...many]).then(
+        ({ items: rows }) => rows.length
+      )
     ).resolves.toBe(RECALL_LIMIT_MAX + 1);
   });
 
   it("rejects malformed responses so the host passes recall through", async () => {
     const log = vi.spyOn(console, "error").mockReturnValue();
-    const result = await runAfterRecall(
+    const result = await runRecall(
+      [{ builtin: () => Promise.resolve({ items }) }, { plugin: "jev" }],
       [
         {
           config: jev.defaults.config,
@@ -158,10 +158,9 @@ describe("jev plugin", () => {
         },
       ],
       { ai: { run: malformed }, corpus },
-      items,
       input
     );
-    expect(result).toStrictEqual(items);
+    expect(result).toStrictEqual({ items, truncated: false });
     expect(log).toHaveBeenCalledWith(
       expect.objectContaining({
         error: "Error: Unexpected Jev response (keys: answers)",
@@ -182,7 +181,9 @@ describe("jev plugin", () => {
   it("skips the model when there is nothing to judge", async () => {
     const run = vi.fn<Run>(() => Promise.resolve(noul({})));
     const matchesOnly = items.filter((row) => !row.via);
-    await expect(hook(run, matchesOnly)).resolves.toStrictEqual(matchesOnly);
+    await expect(hook(run, matchesOnly)).resolves.toStrictEqual({
+      items: matchesOnly,
+    });
     expect(run).not.toHaveBeenCalled();
   });
 });

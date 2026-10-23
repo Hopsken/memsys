@@ -32,6 +32,22 @@ export interface ToolDef<C> {
   run: (ctx: Ctx<C>, input: z.output<z.ZodObject>) => Promise<Json>;
 }
 
+// What a recall stage hands on: refs in its order, each with the reason it is
+// there. The host looks the text up, so a stage cannot invent or rewrite a
+// fragment. `truncated` reports a cut a more specific cue would recover.
+export interface StageOutput {
+  items: { ref: string; via?: string[] }[];
+  truncated?: boolean;
+}
+
+// A recall stage receives the candidates so far. It may add fragments from
+// the corpus, drop candidates, or reorder them.
+export type RecallStage<C> = (
+  ctx: Ctx<C>,
+  items: readonly RecallItem[],
+  input: RecallInput
+) => Promise<StageOutput>;
+
 export interface Plugin<C> {
   name: string;
   title: string;
@@ -39,13 +55,8 @@ export interface Plugin<C> {
   config: z.ZodType<C>;
   defaults: { enabled: boolean; config: C };
   tools?: ToolDef<C>[];
-  // Runs in registry order on the previous hook's output. It may reorder or
-  // drop items; anything else it returns is ignored.
-  afterRecall?: (
-    ctx: Ctx<C>,
-    items: readonly RecallItem[],
-    input: RecallInput
-  ) => Promise<RecallItem[]>;
+  // Runs where the recall pipeline names this plugin.
+  recall?: RecallStage<C>;
   beforeRemember?: (ctx: Ctx<C>, text: string) => Promise<Verdict>;
   beforeRevise?: (
     ctx: Ctx<C>,
@@ -84,16 +95,15 @@ export class PluginAbortError extends Error {
 export const definePlugin = <C extends Json>(
   plugin: Plugin<C>
 ): Plugin<Json> => {
-  const { afterRecall, beforeRemember, beforeRevise, tools, ...rest } = plugin;
+  const { beforeRemember, beforeRevise, recall, tools, ...rest } = plugin;
   const narrow = (ctx: Ctx<Json>): Ctx<C> => ({
     ...ctx,
     config: plugin.config.parse(ctx.config),
   });
   return {
     ...rest,
-    ...(afterRecall && {
-      afterRecall: (ctx, items, input) =>
-        afterRecall(narrow(ctx), items, input),
+    ...(recall && {
+      recall: (ctx, items, input) => recall(narrow(ctx), items, input),
     }),
     ...(beforeRemember && {
       beforeRemember: (ctx, text) => beforeRemember(narrow(ctx), text),

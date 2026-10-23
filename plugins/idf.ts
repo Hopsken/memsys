@@ -34,11 +34,11 @@ const rank = (ctx: Ctx<unknown>, items: readonly RecallItem[]) => {
 };
 
 export const idf = definePlugin({
-  afterRecall: (ctx, items) => Promise.resolve(rank(ctx, items)),
   config: z.object({}),
   defaults: { config: {}, enabled: true },
   description:
     "When recalling, related memories that share a rare #tag come first; ones linked only by a common tag like #work sink.",
   name: "idf",
+  recall: (ctx, items) => Promise.resolve({ items: rank(ctx, items) }),
   title: "Prioritize specific links",
 });

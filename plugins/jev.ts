@@ -85,7 +85,7 @@ const gate = async (
   const judged = items.filter(gated).slice(0, RECALL_LIMIT_MAX);
   const refs = new Set(judged.map((item) => item.ref));
   if (judged.length === 0) {
-    return [...items];
+    return { items: [...items] };
   }
   const output = await withTimeout(
     ai.run(JEV_MODEL, {
@@ -105,15 +105,16 @@ const gate = async (
   const scores = parseScores(output);
   const threshold = STRICTNESS[strictness];
   // Ungated items stay; judged items the model left unanswered stay too.
-  return items.filter(
-    (item) =>
-      !gated(item) ||
-      (refs.has(item.ref) && (scores[item.ref]?.noul ?? 1) >= threshold)
-  );
+  return {
+    items: items.filter(
+      (item) =>
+        !gated(item) ||
+        (refs.has(item.ref) && (scores[item.ref]?.noul ?? 1) >= threshold)
+    ),
+  };
 };
 
 export const jev = definePlugin({
-  afterRecall: gate,
   config,
   defaults: {
     config: { matches: true, strictness: "medium" },
@@ -122,5 +123,6 @@ export const jev = definePlugin({
   description:
     "Uses a small AI model (Jev) to check each related memory against what your AI is looking for, and hides the ones that don’t help. Adds up to a second per recall and uses Workers AI credits.",
   name: "jev",
+  recall: gate,
   title: "Relevance filter (Jev)",
 });
