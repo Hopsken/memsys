@@ -63,7 +63,14 @@ export const memory = new Hono<AppEnv>()
     const result = await c
       .get("memory")
       .recall(inputs.recall.parse(await c.req.json()));
-    return "error" in result ? c.json(result, 422) : c.json(result);
+    if (!("error" in result)) {
+      return c.json(result);
+    }
+    // An outage is worth retrying; a stage the owner must fix is not.
+    if (result.retry === true) {
+      return c.json(result, 503, { "Retry-After": "5" });
+    }
+    return c.json(result, result.retry === false ? 502 : 422);
   })
   .post("/revise", async (c) => {
     const result = await c

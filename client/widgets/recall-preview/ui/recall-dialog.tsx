@@ -1,12 +1,12 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "cn";
-import { ArrowDown, Search, SearchX, XIcon } from "lucide-react";
+import { Search, SearchX, XIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import type { FormEvent, ReactNode, RefObject } from "react";
 
 import { MemoryLength } from "@/entities/memory";
 import { SessionExpired } from "@/features/auth";
-import { api, isExpired } from "@/shared/api";
+import { api, failure, isExpired } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
 import {
@@ -23,12 +23,8 @@ import type { RecallItem, RecallResult } from "@contract/memory";
 import type { PluginView } from "@contract/plugin";
 import { findAnchors } from "@lib/anchor";
 import { formatRelativeDate } from "@lib/date";
-import { RECALL_LIMIT_MAX } from "@lib/recall";
 
 import { groupByMatch } from "../lib/group";
-
-// Show more asks for this many more memories each time.
-const STEP = 10;
 
 interface Request {
   context: string;
@@ -87,24 +83,13 @@ const MemoryRow = ({
 // Each match with the memories it brought along, so the reach of every
 // match shows at a glance.
 const Results = ({
-  busy,
-  limit,
-  onMore,
   onOpen,
   result,
 }: {
-  busy: boolean;
-  limit: number;
-  onMore: () => void;
   onOpen: (ref: string) => void;
   result: RecallResult;
 }) => (
   <>
-    {result.warnings?.map((warning) => (
-      <p className="text-muted-foreground mb-3 text-xs" key={warning}>
-        {warning}
-      </p>
-    ))}
     {result.fragments.length === 0 ? (
       <div className="py-10 text-center">
         <SearchX
@@ -136,22 +121,41 @@ const Results = ({
         </li>
       ))}
     </ul>
-    {result.hasMore && limit < RECALL_LIMIT_MAX ? (
-      <div className="mt-4 flex justify-center">
-        <Button disabled={busy} onClick={onMore} variant="outline">
-          <ArrowDown aria-hidden="true" />
-          Show more
-        </Button>
-      </div>
-    ) : null}
-    {result.hasMore && limit >= RECALL_LIMIT_MAX ? (
+    {result.truncated ? (
       <p className="text-muted-foreground mt-4 text-center text-sm">
-        Your AI gets at most {RECALL_LIMIT_MAX} at a time. Try something more
-        specific.
+        More memories match. Try something more specific.
       </p>
     ) : null}
   </>
 );
+
+// Shows the error your AI would get, and offers a retry only when it can help.
+const RecallError = ({
+  error,
+  onRetry,
+}: {
+  error: Error;
+  onRetry: () => void;
+}) => {
+  const { problem } = failure(error);
+  return (
+    <Alert className="flex flex-wrap items-center justify-between gap-3">
+      <AlertDescription className="text-foreground min-w-0 flex-1">
+        Couldn’t search your memories.
+        {problem.error ? (
+          <span className="text-muted-foreground mt-1 block text-xs [overflow-wrap:anywhere]">
+            {problem.error}
+          </span>
+        ) : null}
+      </AlertDescription>
+      {problem.retry === false ? null : (
+        <Button onClick={onRetry} size="sm" variant="outline">
+          Try again
+        </Button>
+      )}
+    </Alert>
+  );
+};
 
 // Runs a cue through the same recall your AI uses and shows what comes back.
 // Nothing is kept once the dialog closes.
@@ -164,7 +168,6 @@ const RecallPanel = ({
 }) => {
   const [draft, setDraft] = useState<Request>({ context: "", cue: "" });
   const [request, setRequest] = useState<Request | null>(null);
-  const [limit, setLimit] = useState(STEP);
   const [opened, setOpened] = useState<string | null>(null);
   const plugins = useQuery({
     queryFn: ({ signal }) =>
@@ -177,20 +180,17 @@ const RecallPanel = ({
     false;
   const query = useQuery({
     enabled: request !== null,
-    // Show more keeps the current results until the longer list arrives.
-    placeholderData: keepPreviousData,
     queryFn: ({ signal }) =>
       api
         .post("/api/recall", {
           json: {
             cue: request?.cue,
-            limit,
             ...(request?.context && { context: request.context }),
           },
           signal,
         })
         .json<RecallResult>(),
-    queryKey: ["recall", request, limit],
+    queryKey: ["recall", request],
   });
 
   const submit = (event: FormEvent) => {
@@ -206,14 +206,12 @@ const RecallPanel = ({
     if (
       request &&
       next.cue === request.cue &&
-      next.context === request.context &&
-      limit === STEP
+      next.context === request.context
     ) {
       void query.refetch();
       return;
     }
     setRequest(next);
-    setLimit(STEP);
   };
 
   const result = query.data;
@@ -255,10 +253,7 @@ const RecallPanel = ({
       <section
         aria-busy={query.isFetching}
         aria-label="Results"
-        className={cn(
-          "min-h-0 flex-1 overflow-y-auto px-5 py-5 transition-opacity",
-          query.isPlaceholderData && "opacity-50"
-        )}
+        className="min-h-0 flex-1 overflow-y-auto px-5 py-5"
       >
         {request === null ? (
           <p className="text-muted-foreground py-10 text-center text-sm">
@@ -267,20 +262,12 @@ const RecallPanel = ({
         ) : null}
         {isExpired(query.error) ? <SessionExpired /> : null}
         {query.isError && !isExpired(query.error) ? (
-          <Alert className="flex flex-wrap items-center justify-between gap-3">
-            <AlertDescription className="text-foreground">
-              Couldn’t search your memories.
-            </AlertDescription>
-            <Button
-              onClick={() => {
-                void query.refetch();
-              }}
-              size="sm"
-              variant="outline"
-            >
-              Try again
-            </Button>
-          </Alert>
+          <RecallError
+            error={query.error}
+            onRetry={() => {
+              void query.refetch();
+            }}
+          />
         ) : null}
         {request && query.isPending ? (
           <div className="space-y-3" role="status">
@@ -293,15 +280,7 @@ const RecallPanel = ({
             ))}
           </div>
         ) : null}
-        {result ? (
-          <Results
-            busy={query.isFetching}
-            limit={limit}
-            onMore={() => setLimit(Math.min(limit + STEP, RECALL_LIMIT_MAX))}
-            onOpen={setOpened}
-            result={result}
-          />
-        ) : null}
+        {result ? <Results onOpen={setOpened} result={result} /> : null}
       </section>
       {/* An edit or forget in the history shows in the results once it
       closes. */}

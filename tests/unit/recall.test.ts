@@ -2,9 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "../../contract/memory";
 import { extractAnchors } from "../../lib/anchor";
-import { RECALL_LIMIT_MAX } from "../../lib/recall";
-import { recall } from "../../worker/memory";
-import { terms } from "../../worker/search";
+import { terms } from "../../worker/recall/match";
+import { recall } from "../../worker/recall/pipeline";
 
 const item = (ref: string, fragment: string, day = "01"): Fragment => ({
   at: `2026-01-${day}T00:00:00.000Z`,
@@ -12,11 +11,15 @@ const item = (ref: string, fragment: string, day = "01"): Fragment => ({
   ref,
 });
 
-const associated = (corpus: Fragment[], cue: string) =>
-  recall(corpus, { cue }).fragments.filter((row) => row.via);
+const associated = async (corpus: Fragment[], cue: string) => {
+  const { fragments } = await recall(corpus, { cue });
+  return fragments.filter((row) => row.via);
+};
 
-const matched = (corpus: Fragment[], cue: string) =>
-  recall(corpus, { associate: false, cue }).fragments.map((row) => row.ref);
+const matched = async (corpus: Fragment[], cue: string) => {
+  const { fragments } = await recall(corpus, { cue });
+  return fragments.filter((row) => !row.via).map((row) => row.ref);
+};
 
 describe("Recall", () => {
   it("extracts normalized anchors without treating URLs or headings as tags", () => {
@@ -34,7 +37,7 @@ describe("Recall", () => {
     ]);
   });
 
-  it("matches cue words and follows one hop of associations without duplicate results", () => {
+  it("matches cue words and follows one hop of associations without duplicate results", async () => {
     const corpus = [
       item("a", "Durable\n  Objects #Project/A #shared"),
       item("b", "Related #project/a #shared #next"),
@@ -42,21 +45,23 @@ describe("Recall", () => {
       item("d", "Not transitive #next"),
       item("e", "Objects are durable #unrelated"),
     ];
-    expect(recall(corpus, { cue: " DURABLE objects " })).toStrictEqual({
+    await expect(
+      recall(corpus, { cue: " DURABLE objects " })
+    ).resolves.toStrictEqual({
       fragments: [
         corpus[0],
         corpus[4],
         { ...corpus[1], via: ["project/a", "shared"] },
       ],
-      hasMore: false,
+      truncated: false,
     });
-    expect(recall(corpus, { cue: "absent" })).toStrictEqual({
+    await expect(recall(corpus, { cue: "absent" })).resolves.toStrictEqual({
       fragments: [],
-      hasMore: false,
+      truncated: false,
     });
   });
 
-  it("stems both sides of English associations while preserving returned anchors", () => {
+  it("stems both sides of English associations while preserving returned anchors", async () => {
     const corpus = [
       item("a", "Seed #PROGRAMMING #relational"),
       item("b", "Neighbor #program #programs #relation #next"),
@@ -64,11 +69,12 @@ describe("Recall", () => {
       item("d", "Not an anchor: program relation"),
       item("e", "Different stem #programmer"),
     ];
-    expect(recall(corpus, { cue: "Seed" }).fragments).toStrictEqual([
+    const { fragments } = await recall(corpus, { cue: "Seed" });
+    expect(fragments).toStrictEqual([
       corpus[0],
       { ...corpus[1], via: ["program", "programs", "relation"] },
     ]);
-    expect(associated(corpus, "Neighbor")).toContainEqual({
+    await expect(associated(corpus, "Neighbor")).resolves.toContainEqual({
       ...corpus[0],
       via: ["programming", "relational"],
     });
@@ -89,26 +95,32 @@ describe("Recall", () => {
     expect(terms("the of and")).toStrictEqual([]);
   });
 
-  it("matches every cue word in any order or inflection", () => {
+  it("matches every cue word in any order or inflection", async () => {
     const corpus = [
       item("a", "D1's primary region is in US West #d1"),
       item("b", "Evicted objects rebuild from SQLite"),
       item("c", "Region only"),
     ];
-    expect(matched(corpus, "d1 region")).toStrictEqual(["a"]);
-    expect(matched(corpus, "eviction object")).toStrictEqual(["b"]);
-    expect(matched(corpus, "west region D1")).toStrictEqual(["a"]);
+    await expect(matched(corpus, "d1 region")).resolves.toStrictEqual(["a"]);
+    await expect(matched(corpus, "eviction object")).resolves.toStrictEqual([
+      "b",
+    ]);
+    await expect(matched(corpus, "west region D1")).resolves.toStrictEqual([
+      "a",
+    ]);
   });
 
-  it("lets a cue of three or more words miss one word, and no more", () => {
+  it("lets a cue of three or more words miss one word, and no more", async () => {
     const corpus = [item("a", "Vite dev server returns 403")];
-    expect(matched(corpus, "vite 403 error")).toStrictEqual(["a"]);
-    expect(matched(corpus, "vite error")).toStrictEqual([]);
-    expect(matched(corpus, "vite bug error")).toStrictEqual([]);
+    await expect(matched(corpus, "vite 403 error")).resolves.toStrictEqual([
+      "a",
+    ]);
+    await expect(matched(corpus, "vite error")).resolves.toStrictEqual([]);
+    await expect(matched(corpus, "vite bug error")).resolves.toStrictEqual([]);
   });
 
-  it("ranks phrase matches first, then by words matched, then by BM25", () => {
-    expect(
+  it("ranks phrase matches first, then by words matched, then by BM25", async () => {
+    await expect(
       matched(
         [
           item("words", "server dev vite", "03"),
@@ -117,9 +129,9 @@ describe("Recall", () => {
         ],
         "vite dev server"
       )
-    ).toStrictEqual(["phrase", "words", "partial"]);
+    ).resolves.toStrictEqual(["phrase", "words", "partial"]);
     // gamma is rarer than beta, so it weighs more.
-    expect(
+    await expect(
       matched(
         [
           item("common", "alpha beta", "02"),
@@ -128,12 +140,12 @@ describe("Recall", () => {
         ],
         "alpha beta gamma"
       )
-    ).toStrictEqual(["rare", "common"]);
+    ).resolves.toStrictEqual(["rare", "common"]);
   });
 
-  it("falls back to phrase matching when the cue has only stopwords", () => {
+  it("falls back to phrase matching when the cue has only stopwords", async () => {
     const corpus = [item("a", "To be or not to be"), item("b", "Or else")];
-    expect(matched(corpus, "to be")).toStrictEqual(["a"]);
+    await expect(matched(corpus, "to be")).resolves.toStrictEqual(["a"]);
   });
 
   it.each([
@@ -141,17 +153,17 @@ describe("Recall", () => {
     ["memory", "agent-memory"],
     ["agents-memories", "memory-storage"],
     ["记忆", "agent-记忆"],
-  ])("associates #%s and #%s in both directions", (left, right) => {
+  ])("associates #%s and #%s in both directions", async (left, right) => {
     const corpus = [item("a", `Left #${left}`), item("b", `Right #${right}`)];
-    expect(associated(corpus, "Left")).toStrictEqual([
+    await expect(associated(corpus, "Left")).resolves.toStrictEqual([
       { ...corpus[1], via: [right] },
     ]);
-    expect(associated(corpus, "Right")).toStrictEqual([
+    await expect(associated(corpus, "Right")).resolves.toStrictEqual([
       { ...corpus[0], via: [left] },
     ]);
   });
 
-  it("matches whole tokens without empty-token or transitive associations", () => {
+  it("matches whole tokens without empty-token or transitive associations", async () => {
     const corpus = [
       item("a", "Seed #agents--memories-"),
       item("b", "Related #agent-memory #agent-tools"),
@@ -161,13 +173,13 @@ describe("Recall", () => {
       item("f", "Not an anchor: agent memory"),
       item("g", "Namespace #project/agent-memory #agents-memories/archive"),
     ];
-    expect(associated(corpus, "Seed")).toStrictEqual([
+    await expect(associated(corpus, "Seed")).resolves.toStrictEqual([
       { ...corpus[1], via: ["agent-memory", "agent-tools"] },
     ]);
-    expect(associated(corpus, "Namespace")).toStrictEqual([]);
+    await expect(associated(corpus, "Namespace")).resolves.toStrictEqual([]);
   });
 
-  it("keeps namespace, underscore, numeric, and Unicode anchors exact", () => {
+  it("keeps namespace, underscore, numeric, and Unicode anchors exact", async () => {
     const anchors = [
       "project/programs",
       "project/agent-programs",
@@ -183,60 +195,52 @@ describe("Recall", () => {
       ),
       item("c", `Exact ${anchors.map((anchor) => `#${anchor}`).join(" ")}`),
     ];
-    expect(associated(corpus, "Seed")).toStrictEqual([
+    await expect(associated(corpus, "Seed")).resolves.toStrictEqual([
       { ...corpus[2], via: anchors.toSorted() },
     ]);
   });
 
-  it.each([
-    [undefined, ["m-00", "m-01", "m-02", "newest", "neighbor"], false],
-    [5, ["m-00", "m-01", "m-02", "newest", "neighbor"], false],
-    [4, ["m-00", "m-01", "m-02", "newest"], true],
-    [3, ["m-00", "m-01", "m-02"], true],
-    [2, ["m-00", "m-01"], true],
-  ])(
-    "puts matches before associations and bounds the combined list to %s",
-    (limit, refs, hasMore) => {
-      const corpus = [
-        item("neighbor", "neighbor #shared"),
-        item("newest", "newest neighbor #shared", "02"),
-        ...["m-02", "m-01", "m-00"].map((ref) => item(ref, "cue #shared")),
-      ];
-      const result = recall(corpus, { cue: "cue", ...(limit && { limit }) });
-      expect({
-        hasMore: result.hasMore,
-        refs: result.fragments.map((row) => row.ref),
-      }).toStrictEqual({ hasMore, refs });
-    }
-  );
-
-  it("caps limit at the maximum and warns", () => {
-    const corpus = Array.from({ length: RECALL_LIMIT_MAX + 5 }, (_, index) =>
-      item(`m-${index}`, "cue")
-    );
-    const result = recall(corpus, { cue: "cue", limit: 100 });
-    expect(result.fragments).toHaveLength(RECALL_LIMIT_MAX);
-    expect(result.hasMore).toBeTruthy();
-    expect(result.warnings).toStrictEqual([
-      `limit 100 is above the maximum of ${RECALL_LIMIT_MAX}; returned at most ${RECALL_LIMIT_MAX} fragments.`,
-    ]);
-    expect(
-      recall(corpus, { cue: "cue", limit: RECALL_LIMIT_MAX })
-    ).not.toHaveProperty("warnings");
-  });
-
-  it("skips association when disabled", () => {
-    const corpus = [item("a", "cue #shared"), item("b", "neighbor #shared")];
-    expect(recall(corpus, { associate: false, cue: "cue" })).toStrictEqual({
-      fragments: [corpus[0]],
-      hasMore: false,
+  it("puts matches before associations, newest association first", async () => {
+    const corpus = [
+      item("neighbor", "neighbor #shared"),
+      item("newest", "newest neighbor #shared", "02"),
+      ...["m-02", "m-01", "m-00"].map((ref) => item(ref, "cue #shared")),
+    ];
+    const { fragments, truncated } = await recall(corpus, { cue: "cue" });
+    expect({
+      refs: fragments.map((row) => row.ref),
+      truncated,
+    }).toStrictEqual({
+      refs: ["m-00", "m-01", "m-02", "newest", "neighbor"],
+      truncated: false,
     });
   });
 
-  it("returns 10 results by default", () => {
-    const corpus = Array.from({ length: 11 }, (_, index) =>
-      item(`m-${index.toString().padStart(2, "0")}`, "cue")
-    );
-    expect(recall(corpus, { cue: "cue" }).fragments).toHaveLength(10);
-  });
+  // A dropped association comes back through its own cue or anchor, not a
+  // more specific cue, so only a dropped cue match sets `truncated`.
+  it.each([
+    [10, 0, false],
+    [11, 0, true],
+    [9, 2, false],
+  ])(
+    "returns ten of %i matches and %i associations, truncated: %s",
+    async (matches, neighbors, truncated) => {
+      const corpus = [
+        ...Array.from({ length: matches }, (_, index) =>
+          item(`m-${index}`, "cue #shared")
+        ),
+        ...Array.from({ length: neighbors }, (_, index) =>
+          item(`n-${index}`, "neighbor #shared")
+        ),
+      ];
+      const result = await recall(corpus, { cue: "cue" });
+      expect({
+        returned: result.fragments.length,
+        truncated: result.truncated,
+      }).toStrictEqual({
+        returned: Math.min(matches + neighbors, 10),
+        truncated,
+      });
+    }
+  );
 });

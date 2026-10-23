@@ -11,6 +11,7 @@ A change that only moves a number or adds a plugin should not need an edit here.
 - **recalled** — fragments that match the cue's words.
 - **associated** — fragments sharing an anchor with a recalled fragment.
 - **hub** — an anchor on a large share of the corpus; connects everything, discriminates nothing.
+- **stage** — one step of recall; it adds, drops, or reorders candidates.
 - **instance** — one user's memory: fragments plus configuration.
 
 ## Layers
@@ -63,8 +64,8 @@ Any future "let's add X" starts here.
 Four tools, the minimal complete operation set of a memory: write, change, forget, bring back.
 
 - **The contract** — tool names, input schemas, output shape, field meanings — is meant to hold for years. New fields are additive, with defaults that reproduce prior behavior.
-- **`recall` has two stages.** _Candidate generation_ finds cue matches and one-hop associations. The _terminal_ orders, filters, and truncates. Plugins attach only at the terminal.
-- **`recall` returns one list**: cue matches first, then associations. An item's `via` (the shared anchors) is both its kind and the reason it was associated. `hasMore` means more fragments survived than were returned.
+- **`recall` is a flat list of stages** ([RFC 0002](rfcs/0002-recall-contract.md)). Matching, spreading, and the final cut are built-in stages and always run; plugins add stages under trial. The agent sends only `cue` and `context`.
+- **`recall` returns one list**: cue matches first, then associations. An item's `via` (the shared anchors) is both its kind and the reason it was associated. `truncated` means a more specific cue would bring back memories that were left out.
 - **Core carries information it does not use.** `context` (what the agent is doing) is accepted and ignored by core, so read-path plugins can judge relevance against the situation. Carrying is core; using is policy.
 - **Core keeps an absolute safety ceiling; policy lives in plugins.** A disabled or failing plugin can never let an unbounded fragment in. Tool descriptions carry no instance-specific numbers; warnings and rejections do.
 
@@ -72,20 +73,28 @@ Four tools, the minimal complete operation set of a memory: write, change, forge
 
 ### Kinds
 
-- **Policy plugins** fill hooks. They reorder or subset recall results, and warn on or reject writes.
+- **Policy plugins** fill hooks. They add a recall stage, and warn on or reject writes.
 - **Tool plugins** add agent-visible tools. A tool marked `readOnlyHint` is shown to agents granted `memory:read`; any other tool needs `memory:write`.
 
 A plugin may do both. Plugins are a compile-time registry: no dynamic loading, no inter-plugin dependency, no lifecycle, no event bus. The types are in `contract/plugin.ts`; hooks are added when a plugin first needs one.
+
+A plugin is how a recall stage is tried. It later becomes built in or is removed.
 
 ### Pipelines
 
 Recall:
 
 ```
-candidate generation → recall hooks, in registry order → truncate to limit
+match → spread → plugin stages → output        (worker/recall/pipeline.ts)
 ```
 
-Each hook receives the previous hook's output, so hooks chain: rank first, then filter. A hook may only reorder or drop items; the host enforces that it cannot add or rewrite them. Hooks see every candidate, before truncation.
+Each stage receives the previous stage's output and returns refs, so stages chain: rank first, then filter. A disabled plugin's stage is skipped. Each stage owns its bounds; only the output stage knows the result size. The host enforces what no stage is trusted with:
+
+- Text comes from the corpus. The host resolves refs against a snapshot taken when the recall starts and ignores unknown ones.
+- `truncated` only goes up. The host ORs the stages' cut reports.
+- The result has a safety ceiling. A correct pipeline never reaches it.
+
+The host does not cap what flows between stages.
 
 Write path:
 
@@ -100,8 +109,10 @@ Write hooks are independent checks, so order does not matter and results are agg
 
 The plugin chooses how it fails, because only it knows whether not running means _a noisier result_ or _unsafe to proceed_.
 
-- **Fail** (default) — an ordinary exception. Logged; the hook acts as identity and the pipeline continues. A broken plugin must never cost the user their memory. Plugins that call external models fail on timeouts, quota, and malformed responses, with no retry on the request path.
+- **Fail** (default) — an ordinary exception. Logged; the hook acts as identity and the pipeline continues. A broken plugin must never cost the user their memory.
 - **Die** — `PluginAbortError(reason)`. The pipeline stops and the call returns an error naming the plugin. On the write path nothing is stored.
+
+A recall stage that judges candidates dies rather than fails: passing on what it did not judge would make an unchecked list look checked. It retries within its own deadline first, and its reason says whether retrying the call can help.
 
 Hooks that run after a write cannot abort: the fragment is already stored, and an error would mislead the agent.
 

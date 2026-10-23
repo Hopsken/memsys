@@ -10,19 +10,25 @@ export interface Fragment {
 // Items without `via` matched the cue; `via` lists the anchors that associated the rest.
 export type RecallItem = Fragment & { via?: string[] };
 
-// Recall input with defaults applied; what afterRecall hooks receive.
+// What the agent sends, and what every recall stage receives.
 export interface RecallInput {
-  associate: boolean;
-  context: string | null;
+  context?: string | undefined;
   cue: string;
-  limit: number;
 }
 
-// `warnings` explains an adjusted request, such as a capped `limit`.
+// `truncated` means some relevant memories were left out and a more specific
+// cue would reach them.
 export interface RecallResult {
   fragments: RecallItem[];
-  hasMore: boolean;
-  warnings?: string[];
+  truncated: boolean;
+}
+
+// A recall a stage stopped. `retry` is true when trying again shortly can
+// help, false when the owner must act, and absent when the request itself
+// was refused.
+export interface RecallFailure {
+  error: string;
+  retry?: boolean;
 }
 
 // A listed fragment also counts the records in its history, so a list can

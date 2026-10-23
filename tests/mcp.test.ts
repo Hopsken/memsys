@@ -3,8 +3,17 @@ import type { JSONValue } from "hono/utils/types";
 import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "../contract/memory";
+import { JEV_UNAVAILABLE } from "../plugins/jev";
 import worker from "../worker/index";
-import { call, content, list, post, useAuth, withVersions } from "./helpers";
+import {
+  call,
+  content,
+  list,
+  memoryOf,
+  post,
+  useAuth,
+  withVersions,
+} from "./helpers";
 import type { User } from "./helpers";
 
 const tags = async (user: User) =>
@@ -149,13 +158,41 @@ describe("Stateless MCP", () => {
       nextCursor: null,
     });
     const found = await call(user, "recall", { cue: "MCP memory" });
-    expect(content(found)).toStrictEqual({ fragments: [item], hasMore: false });
+    expect(content(found)).toStrictEqual({
+      fragments: [item],
+      truncated: false,
+    });
     expect(
       content(await call(user, "forget", { ref: item.ref }))
     ).toStrictEqual({ ref: item.ref });
     await expect(list(user)).resolves.toStrictEqual({
       fragments: [],
       nextCursor: null,
+    });
+  });
+
+  it("fails recall, saying the owner must act, instead of returning unjudged memories", async () => {
+    const user = await signIn();
+    await call(user, "remember", { fragment: "Judged memory #test" });
+    await memoryOf(user).updatePlugin("jev", {
+      config: { strictness: "medium" },
+      enabled: true,
+      updatedAt: null,
+    });
+    // Tests have no Workers AI binding, which retrying cannot fix.
+    const failed = await call(user, "recall", { cue: "judged memory" });
+    const owner = `jev: ${JEV_UNAVAILABLE}`;
+    expect({
+      isError: failed.isError,
+      text: failed.content[0]?.text,
+    }).toStrictEqual({ isError: true, text: owner });
+    const response = await post("/api/recall", { cue: "judged memory" }, user);
+    expect({
+      body: await response.json(),
+      status: response.status,
+    }).toStrictEqual({
+      body: { error: owner, retry: false },
+      status: 502,
     });
   });
 

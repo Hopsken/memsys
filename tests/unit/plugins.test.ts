@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import type { Fragment, RecallItem } from "../../contract/memory";
+import type { Fragment, RecallItem, RecallResult } from "../../contract/memory";
 import { definePlugin, PluginAbortError } from "../../contract/plugin";
 import type { Json, Plugin, Verdict } from "../../contract/plugin";
 import { plugins } from "../../plugins";
@@ -12,10 +12,10 @@ import {
   assertRegistry,
   createCtx,
   resolvePlugins,
-  runAfterRecall,
   runVerdicts,
 } from "../../worker/plugin-host";
 import type { PluginState, StoredConfig } from "../../worker/plugin-host";
+import { runRecall } from "../../worker/recall/host";
 
 const corpus = new Map<string, Fragment>(
   [
@@ -42,13 +42,30 @@ const reorder = (
   hook: (items: readonly RecallItem[]) => Promise<RecallItem[]>
 ) =>
   definePlugin({
-    afterRecall: (_ctx, items) => hook(items),
     config: z.object({}),
     defaults: { config: {}, enabled: true },
     description: "",
     name,
+    recall: async (_ctx, items) => ({ items: await hook(items) }),
     title: name,
   });
+
+// A plugin stage that passes its input on and reports a cut or none.
+const reportCut = (name: string, truncated: boolean) =>
+  definePlugin({
+    config: z.object({}),
+    defaults: { config: {}, enabled: true },
+    description: "",
+    name,
+    recall: (_ctx, items) => Promise.resolve({ items: [...items], truncated }),
+    title: name,
+  });
+
+// A built-in stage that hands the given items to the next stage.
+const given = (items: readonly RecallItem[]) => ({
+  builtin: "given",
+  stage: () => Promise.resolve({ items: [...items] }),
+});
 
 const recallRow = (ref: string, fragment: string, via?: string[]) => ({
   at: "",
@@ -57,9 +74,9 @@ const recallRow = (ref: string, fragment: string, via?: string[]) => ({
   ...(via && { via }),
 });
 
-const recallInput = { associate: true, context: null, cue: "x", limit: 20 };
-const refs = (result: RecallItem[] | { error: string }) =>
-  "error" in result ? result : result.map((item) => item.ref);
+const recallInput = { cue: "x" };
+const refs = (result: RecallResult | { error: string }) =>
+  "error" in result ? result : result.fragments.map((item) => item.ref);
 
 const state = (plugin: Plugin<Json>, enabled = true): PluginState => ({
   config: plugin.defaults.config,
@@ -121,7 +138,7 @@ describe("idf plugin", () => {
       recallRow("h2", "Hub only #hub", ["hub"]),
       recallRow("r", "Rare link #hub #rare", ["hub", "rare"]),
     ];
-    const ranked = await idf.afterRecall?.(
+    const ranked = await idf.recall?.(
       createCtx(
         {},
         {
@@ -132,7 +149,7 @@ describe("idf plugin", () => {
       rows,
       recallInput
     );
-    expect(ranked?.map((item) => item.ref)).toStrictEqual([
+    expect(ranked?.items.map((item) => item.ref)).toStrictEqual([
       "m",
       "r",
       "h1",
@@ -192,45 +209,81 @@ describe("Plugin host", () => {
     log.mockRestore();
   });
 
-  it("chains afterRecall hooks in registry order and ignores foreign items", async () => {
+  it("chains recall stages in pipeline order and ignores foreign items", async () => {
     const items = [...corpus.values()];
-    const result = await runAfterRecall(
-      [
-        state(reorder("reverse", (rows) => Promise.resolve(rows.toReversed()))),
-        state(
-          reorder("invent", (rows) =>
-            Promise.resolve([
-              ...rows.map((row) => ({ ...row, fragment: "rewritten" })),
-              { at: "", fragment: "fake", ref: "zz" },
-            ])
-          )
-        ),
-        state(
-          reorder("off", () => Promise.resolve([])),
-          false
-        ),
-      ],
+    const reverse = reorder("reverse", (rows) =>
+      Promise.resolve(rows.toReversed())
+    );
+    // An empty `via` must not turn a cue match into an association.
+    const invent = reorder("invent", (rows) =>
+      Promise.resolve([
+        ...rows.map((row) => ({ ...row, fragment: "rewritten", via: [] })),
+        { at: "", fragment: "fake", ref: "zz" },
+      ])
+    );
+    const off = reorder("off", () => Promise.resolve([]));
+    const states = [state(reverse), state(invent), state(off, false)];
+    const result = await runRecall(
+      [given(items), { plugin: reverse }, { plugin: invent }, { plugin: off }],
+      states,
       env,
-      items,
       recallInput
     );
-    expect(result).toStrictEqual(items.toReversed());
+    expect(result).toStrictEqual({
+      fragments: items.toReversed(),
+      truncated: false,
+    });
   });
 
-  it("passes input through failing afterRecall hooks and stops on abort", async () => {
+  it("keeps truncated once a stage sets it and cuts a flood to the ceiling", async () => {
+    const log = vi.spyOn(console, "error").mockReturnValue();
+    const many = Array.from({ length: 45 }, (_, index) =>
+      recallRow(`f${index}`, `Fragment ${index}`)
+    );
+    const flood = {
+      ai: offline,
+      corpus: new Map(many.map((row) => [row.ref, row])),
+    };
+    const cut = reportCut("cut", true);
+    const clear = reportCut("clear", false);
+    const states = [state(cut), state(clear)];
+    await expect(
+      runRecall(
+        [given(many.slice(0, 3)), { plugin: cut }, { plugin: clear }],
+        states,
+        flood,
+        recallInput
+      )
+    ).resolves.toMatchObject({ truncated: true });
+    const flooded = runRecall([given(many)], [], flood, recallInput);
+    await expect(flooded).resolves.toMatchObject({ truncated: true });
+    await expect(flooded.then(refs)).resolves.toHaveLength(40);
+    log.mockRestore();
+  });
+
+  it("passes input through failing recall stages and stops on abort", async () => {
     const log = vi.spyOn(console, "error").mockReturnValue();
     const items = [...corpus.values()];
-    const broken = state(
-      reorder("broken", () => Promise.reject(new Error("bug")))
+    const broken = reorder("broken", () => Promise.reject(new Error("bug")));
+    const guard = reorder("guard", () =>
+      Promise.reject(new PluginAbortError("unsafe cue"))
     );
-    const guard = state(
-      reorder("guard", () => Promise.reject(new PluginAbortError("unsafe cue")))
-    );
+    const states = [state(broken), state(guard)];
     await expect(
-      runAfterRecall([broken], env, items, recallInput).then(refs)
+      runRecall(
+        [given(items), { plugin: broken }],
+        states,
+        env,
+        recallInput
+      ).then(refs)
     ).resolves.toStrictEqual(["a", "b"]);
     await expect(
-      runAfterRecall([guard, broken], env, items, recallInput)
+      runRecall(
+        [given(items), { plugin: guard }, { plugin: broken }],
+        states,
+        env,
+        recallInput
+      )
     ).resolves.toStrictEqual({ error: "guard: unsafe cue" });
     expect(log).toHaveBeenCalledOnce();
     log.mockRestore();

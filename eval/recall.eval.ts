@@ -9,9 +9,11 @@ import { z } from "zod";
 import type { Fragment } from "../contract/memory";
 import type { Json } from "../contract/plugin";
 import { plugins } from "../plugins";
-import { recallCandidates, truncate } from "../worker/memory";
-import { resolvePlugins, runAfterRecall } from "../worker/plugin-host";
+import { inputs } from "../worker/memory";
+import { resolvePlugins } from "../worker/plugin-host";
 import type { PluginEnv, StoredConfig } from "../worker/plugin-host";
+import { runRecall } from "../worker/recall/host";
+import { pipeline } from "../worker/recall/pipeline";
 import { cases, fragments } from "./dataset";
 import type { EvalCase } from "./dataset";
 import { report } from "./metrics";
@@ -20,8 +22,6 @@ import type { Outcome, Run } from "./metrics";
 // JEV=1 adds setups that call Workers AI and bill the account.
 const withJev = process.env["JEV"] === "1";
 const strictness = process.env["JEV_STRICTNESS"] ?? "medium";
-// Jev fails open on its 1.5 s timeout; retry so scores reflect its judgment.
-const ATTEMPTS = 3;
 const CONCURRENCY = 4;
 
 const corpus = new Map<string, Fragment>(
@@ -40,12 +40,7 @@ const setups: { name: string; stored: StoredConfig[]; jev?: boolean }[] = [
   {
     jev: true,
     name: "idf+jev",
-    stored: [row("jev", true, { matches: false, strictness })],
-  },
-  {
-    jev: true,
-    name: "idf+jev(matches)",
-    stored: [row("jev", true, { matches: true, strictness })],
+    stored: [row("jev", true, { strictness })],
   },
 ];
 
@@ -74,45 +69,27 @@ const env: PluginEnv = {
   corpus,
 };
 
-const errors = vi.spyOn(console, "error").mockReturnValue();
-const hookFailures = () =>
-  errors.mock.calls.filter(
-    ([entry]) =>
-      z.object({ event: z.literal("plugin.hook.failed") }).safeParse(entry)
-        .success
-  ).length;
+// Jev retries and logs each failed attempt itself.
+vi.spyOn(console, "error").mockReturnValue();
 
-const recallOnce = async (stored: StoredConfig[], item: EvalCase) => {
-  const { candidates, input } = recallCandidates(corpus.values(), {
+// A failed recall scores as returning nothing.
+const recall = async (stored: StoredConfig[], item: EvalCase) => {
+  const input = inputs.recall.parse({
     cue: item.cue,
     ...(item.context && { context: item.context }),
   });
-  const failed = hookFailures();
-  const ranked = await runAfterRecall(
+  const result = await runRecall(
+    pipeline,
     resolvePlugins(plugins, stored),
     env,
-    candidates,
     input
   );
-  if ("error" in ranked) {
-    throw new Error(ranked.error);
-  }
-  return {
-    failed: hookFailures() > failed,
-    refs: truncate(ranked, input.limit).fragments.map(
-      (fragment) => fragment.ref
-    ),
-  };
-};
-
-const recall = async (stored: StoredConfig[], item: EvalCase) => {
-  let result = await recallOnce(stored, item);
-  for (let attempt = 1; result.failed && attempt < ATTEMPTS; attempt += 1) {
-    // Retries are sequential by design.
-    // oxlint-disable-next-line no-await-in-loop
-    result = await recallOnce(stored, item);
-  }
-  return result;
+  return "error" in result
+    ? { failed: true, refs: [] }
+    : {
+        failed: false,
+        refs: result.fragments.map((fragment) => fragment.ref),
+      };
 };
 
 const pool = async <T, R>(items: T[], task: (item: T) => Promise<R>) => {
@@ -153,7 +130,7 @@ it("scores recall on the evaluation set", async () => {
   }).trim();
   const header = `# Recall evaluation
 
-${fragments.length} fragments, ${cases.length} cues, limit 10. Commit \`${commit}\`${withJev ? `; Jev strictness \`${strictness}\`` : "; Jev not run"}. Regenerate with \`pnpm eval\` (\`JEV=1 pnpm eval\` for Jev; it bills Workers AI).`;
+${fragments.length} fragments, ${cases.length} cues, at most 10 results. Commit \`${commit}\`${withJev ? `; Jev strictness \`${strictness}\`` : "; Jev not run"}. Regenerate with \`pnpm eval\` (\`JEV=1 pnpm eval\` for Jev; it bills Workers AI).`;
   const markdown = report(runs, header);
   writeFileSync(path.join(import.meta.dirname, "results.md"), markdown);
   process.stdout.write(`${markdown}\n`);

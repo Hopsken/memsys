@@ -2,7 +2,6 @@ import { McpServer } from "@modelcontextprotocol/server";
 import type { CallToolResult } from "@modelcontextprotocol/server";
 
 import type { Author, RecallResult } from "../contract/memory";
-import { RECALL_LIMIT_MAX } from "../lib/recall";
 import { plugins } from "../plugins";
 import { MEMORY_READ, MEMORY_WRITE } from "./auth";
 import type { Scope } from "./auth";
@@ -64,7 +63,8 @@ Recall with short textual cues such as distinctive phrases, names, projects, con
       "recall",
       {
         annotations: { readOnlyHint: true },
-        description: `Recall memories using a short textual cue. Prefer distinctive phrases, entities, concepts, or #anchors. Fragments matching the cue come first; fragments with \`via\` were associated through the listed shared #anchors. Returns at most ${RECALL_LIMIT_MAX} fragments per call. \`hasMore\` means more fragments matched: raise \`limit\`, or use a narrower cue once at ${RECALL_LIMIT_MAX}.`,
+        description:
+          "Recall memories using a short textual cue. Prefer distinctive phrases, entities, concepts, or #anchors. Fragments matching the cue come first; fragments with `via` were associated through the listed shared #anchors. `truncated: true` means some matching memories were left out: recall again with a more specific cue, or with an #anchor from `via`.",
         inputSchema: inputs.recall,
       },
       async (input) => result(await memory.recall(input))

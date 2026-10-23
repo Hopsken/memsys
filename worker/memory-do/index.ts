@@ -14,6 +14,7 @@ import type {
   History,
   ImportResult,
   Op,
+  RecallFailure,
   RecallResult,
   Restored,
   Version,
@@ -29,10 +30,8 @@ import {
   inputs,
   listFragments,
   PAGE_SIZE,
-  recallCandidates,
   REF_ALPHABET,
   REF_LENGTH,
-  truncate,
 } from "../memory";
 import type { listInput } from "../memory";
 import {
@@ -41,15 +40,17 @@ import {
   enabledTools,
   pluginUpdate,
   resolvePlugins,
-  runAfterRecall,
   runVerdicts,
   viewPlugin,
 } from "../plugin-host";
 import type { PluginEnv, PluginState, PluginUpdate } from "../plugin-host";
+import { assertPipeline, runRecall } from "../recall/host";
+import { pipeline } from "../recall/pipeline";
 import { pluginConfig, records } from "./db/schema";
 import migrations from "./migrations/migrations.js";
 
 assertRegistry(plugins);
+assertPipeline(pipeline, plugins);
 
 const newRef = customAlphabet(REF_ALPHABET, REF_LENGTH);
 
@@ -231,20 +232,17 @@ export class MemoryDO extends DurableObject<Env> {
     return withWarnings(item, verdict);
   }
 
-  async recall(
+  recall(
     raw: z.input<typeof inputs.recall>
-  ): Promise<RecallResult | { error: string }> {
-    const { candidates, input, warnings } = recallCandidates(
-      this.corpus.values(),
-      raw
-    );
-    const ranked = await runAfterRecall(
+  ): Promise<RecallResult | RecallFailure> {
+    // Stages may await a model while writes land; the recall reads one
+    // snapshot throughout.
+    return runRecall(
+      pipeline,
       this.plugins,
-      this.pluginEnv,
-      candidates,
-      input
+      { ...this.pluginEnv, corpus: new Map(this.corpus) },
+      inputs.recall.parse(raw)
     );
-    return "error" in ranked ? ranked : truncate(ranked, input.limit, warnings);
   }
 
   list(input: z.input<typeof listInput>): FragmentPage {
