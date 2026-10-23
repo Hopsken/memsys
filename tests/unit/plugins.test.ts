@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import type { Fragment, RecallItem } from "../../contract/memory";
+import type { Fragment, RecallItem, RecallResult } from "../../contract/memory";
 import { definePlugin, PluginAbortError } from "../../contract/plugin";
 import type { Json, Plugin, Verdict } from "../../contract/plugin";
 import { plugins } from "../../plugins";
@@ -50,6 +50,17 @@ const reorder = (
     title: name,
   });
 
+// A plugin stage that passes its input on and reports a cut or none.
+const reportCut = (name: string, truncated: boolean) =>
+  definePlugin({
+    config: z.object({}),
+    defaults: { config: {}, enabled: true },
+    description: "",
+    name,
+    recall: (_ctx, items) => Promise.resolve({ items: [...items], truncated }),
+    title: name,
+  });
+
 // A built-in stage that hands the given items to the next stage.
 const given = (items: readonly RecallItem[]) => ({
   builtin: () => Promise.resolve({ items: [...items] }),
@@ -62,9 +73,9 @@ const recallRow = (ref: string, fragment: string, via?: string[]) => ({
   ...(via && { via }),
 });
 
-const recallInput = { associate: true, context: null, cue: "x", limit: 20 };
-const refs = (result: { items: RecallItem[] } | { error: string }) =>
-  "error" in result ? result : result.items.map((item) => item.ref);
+const recallInput = { cue: "x" };
+const refs = (result: RecallResult | { error: string }) =>
+  "error" in result ? result : result.fragments.map((item) => item.ref);
 
 const state = (plugin: Plugin<Json>, enabled = true): PluginState => ({
   config: plugin.defaults.config,
@@ -226,9 +237,36 @@ describe("Plugin host", () => {
       recallInput
     );
     expect(result).toStrictEqual({
-      items: items.toReversed(),
+      fragments: items.toReversed(),
       truncated: false,
     });
+  });
+
+  it("keeps truncated once a stage sets it and cuts a flood to the ceiling", async () => {
+    const log = vi.spyOn(console, "error").mockReturnValue();
+    const many = Array.from({ length: 45 }, (_, index) =>
+      recallRow(`f${index}`, `Fragment ${index}`)
+    );
+    const flood = {
+      ai: offline,
+      corpus: new Map(many.map((row) => [row.ref, row])),
+    };
+    const states = [
+      state(reportCut("cut", true)),
+      state(reportCut("clear", false)),
+    ];
+    await expect(
+      runRecall(
+        [given(many.slice(0, 3)), { plugin: "cut" }, { plugin: "clear" }],
+        states,
+        flood,
+        recallInput
+      )
+    ).resolves.toMatchObject({ truncated: true });
+    const flooded = runRecall([given(many)], [], flood, recallInput);
+    await expect(flooded).resolves.toMatchObject({ truncated: true });
+    await expect(flooded.then(refs)).resolves.toHaveLength(40);
+    log.mockRestore();
   });
 
   it("passes input through failing recall stages and stops on abort", async () => {

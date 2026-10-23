@@ -2,8 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Fragment, RecallItem } from "../../contract/memory";
 import type { Ctx, Json, StageOutput } from "../../contract/plugin";
-import { RECALL_LIMIT_MAX } from "../../lib/recall";
-import { JEV_MODEL, JEV_TIMEOUT_MS, jev } from "../../plugins/jev";
+import { JEV_BUDGET, JEV_MODEL, JEV_TIMEOUT_MS, jev } from "../../plugins/jev";
 import { createCtx } from "../../worker/plugin-host";
 import { runRecall } from "../../worker/recall/host";
 
@@ -22,12 +21,7 @@ const items = [
   item("fx", "Unanswered by the model", ["d1"]),
 ];
 const corpus = new Map<string, Fragment>(items.map((row) => [row.ref, row]));
-const input = {
-  associate: true,
-  context: "Deploying the D1 schema",
-  cue: "migration",
-  limit: 20,
-};
+const input = { context: "Deploying the D1 schema", cue: "migration" };
 const noul = (scores: Record<string, number>) => ({
   answers: Object.fromEntries(
     Object.entries(scores).map(([ref, value]) => [
@@ -133,7 +127,7 @@ describe("jev plugin", () => {
   });
 
   it("drops associations past its cap instead of passing them unjudged", async () => {
-    const many = Array.from({ length: RECALL_LIMIT_MAX + 5 }, (_, index) =>
+    const many = Array.from({ length: JEV_BUDGET + 5 }, (_, index) =>
       item(`a${index}`, `Association ${index}`, ["d1"])
     );
     const run = vi.fn<Run>(() => Promise.resolve(noul({})));
@@ -141,7 +135,7 @@ describe("jev plugin", () => {
       hook(run, [item("m", "Cue match"), ...many]).then(
         ({ items: rows }) => rows.length
       )
-    ).resolves.toBe(RECALL_LIMIT_MAX + 1);
+    ).resolves.toBe(JEV_BUDGET + 1);
   });
 
   it("rejects malformed responses so the host passes recall through", async () => {
@@ -160,7 +154,7 @@ describe("jev plugin", () => {
       { ai: { run: malformed }, corpus },
       input
     );
-    expect(result).toStrictEqual({ items, truncated: false });
+    expect(result).toStrictEqual({ fragments: items, truncated: false });
     expect(log).toHaveBeenCalledWith(
       expect.objectContaining({
         error: "Error: Unexpected Jev response (keys: answers)",

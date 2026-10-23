@@ -1,14 +1,12 @@
 import { z } from "zod";
 
-import type { Author, Fragment, Op, RecallInput } from "../contract/memory";
+import type { Author, Fragment, Op } from "../contract/memory";
 import { extractAnchors, withinTag } from "../lib/anchor";
 import { FRAGMENT_MAX, fragmentLength } from "../lib/fragment";
-import { RECALL_LIMIT_MAX } from "../lib/recall";
 
 // Lowercase only; omit 0, 1, i, l, and o. 31^7 possible refs.
 export const REF_ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz";
 export const REF_LENGTH = 7;
-const RESULT_LIMIT = 10;
 export const PAGE_SIZE = 50;
 
 export const fragment = z
@@ -50,31 +48,20 @@ export const inputs = {
   forget: z.object({ ref }).strict(),
   recall: z
     .object({
-      associate: z
-        .boolean()
-        .optional()
-        .describe(
-          "Also return fragments sharing #anchors with direct matches. Defaults to true."
-        ),
       context: z
         .string()
         .max(1000)
         .optional()
-        .describe("Optional: what you are doing right now."),
+        .describe(
+          "What you are working on right now. Give it whenever you have a task: it helps pick the memories that matter for it."
+        ),
       cue: z
         .string()
         .trim()
         .min(1)
         .max(256)
         .describe(
-          "Free text, not a single tag: one or a few words, a phrase, or #anchors. Matches contain every word; a cue of three or more words may miss one."
-        ),
-      limit: z
-        .int()
-        .min(1)
-        .optional()
-        .describe(
-          `Maximum fragments to return, at most ${RECALL_LIMIT_MAX}; larger values are capped with a warning. Defaults to ${RESULT_LIMIT}. Raise it when a result has \`hasMore\`.`
+          "What you need, as a few distinctive words, a phrase, or #anchors. Matches contain every word; a cue of three or more words may miss one. Fragments sharing an #anchor with a match come too. Too few results: use fewer or other words, or an #anchor. `truncated`: add a distinctive word."
         ),
     })
     .strict(),
@@ -155,24 +142,4 @@ export const listFragments = <T extends Fragment>(
     nextCursor:
       ordered.length > PAGE_SIZE && last ? `${last.at},${last.ref}` : null,
   };
-};
-
-// Recall input with defaults applied, and why it differs from the request.
-export const parseRecall = (raw: z.input<typeof inputs.recall>) => {
-  const {
-    associate = true,
-    context = null,
-    cue,
-    limit: requested = RESULT_LIMIT,
-  } = inputs.recall.parse(raw);
-  // A limit past the cap is lowered rather than rejected, and said so.
-  const limit = Math.min(requested, RECALL_LIMIT_MAX);
-  const warnings =
-    requested > limit
-      ? [
-          `limit ${requested} is above the maximum of ${RECALL_LIMIT_MAX}; returned at most ${RECALL_LIMIT_MAX} fragments.`,
-        ]
-      : [];
-  const input: RecallInput = { associate, context, cue, limit };
-  return { input, warnings };
 };

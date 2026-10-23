@@ -2,21 +2,16 @@ import type { RecallStage } from "../../contract/plugin";
 import { associationKeys, extractAnchors } from "../../lib/anchor";
 import { newestFirst } from "./match";
 
-// Built-in stage: adds the fragments that share an anchor with a cue match,
-// one hop, newest first. `via` lists the shared anchors. The first `limit`
-// cue matches seed it.
-export const spread: RecallStage<unknown> = (
-  { corpus },
-  items,
-  { associate, limit }
-) => {
-  const seeds = items.filter((item) => !item.via).slice(0, limit);
+const SEEDS = 10;
+
+// Built-in stage: adds the fragments that share an anchor with one of the
+// first cue matches, one hop, newest first. `via` lists the shared anchors.
+export const spread: RecallStage<unknown> = ({ corpus }, items) => {
+  const seeds = items.filter((item) => !item.via).slice(0, SEEDS);
   const keys = new Set(
-    associate
-      ? seeds.flatMap((item) =>
-          extractAnchors(item.fragment).flatMap(associationKeys)
-        )
-      : []
+    seeds.flatMap((item) =>
+      extractAnchors(item.fragment).flatMap(associationKeys)
+    )
   );
   if (keys.size === 0) {
     return Promise.resolve({ items: [...items] });

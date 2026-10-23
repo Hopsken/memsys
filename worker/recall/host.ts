@@ -1,7 +1,10 @@
-import type { RecallInput, RecallItem } from "../../contract/memory";
+import type {
+  RecallInput,
+  RecallItem,
+  RecallResult,
+} from "../../contract/memory";
 import { PluginAbortError } from "../../contract/plugin";
 import type { Json, Plugin, RecallStage } from "../../contract/plugin";
-import { RECALL_LIMIT_MAX } from "../../lib/recall";
 import { createCtx } from "../plugin-host";
 import type { PluginEnv, PluginState } from "../plugin-host";
 
@@ -9,6 +12,10 @@ import type { PluginEnv, PluginState } from "../plugin-host";
 // that plugin on.
 export type Step = { builtin: RecallStage<unknown> } | { plugin: string };
 export type Pipeline = readonly Step[];
+
+// No correct pipeline returns more; it keeps a broken stage from flooding the
+// agent's context.
+const RECALL_CEILING = 40;
 
 const pluginName = (step: Step) => ("plugin" in step ? step.plugin : null);
 
@@ -59,7 +66,7 @@ export const runRecall = async (
   states: readonly PluginState[],
   env: PluginEnv,
   input: RecallInput
-): Promise<{ items: RecallItem[]; truncated: boolean } | { error: string }> => {
+): Promise<RecallResult | { error: string }> => {
   let items: RecallItem[] = [];
   let truncated = false;
   for (const step of pipeline) {
@@ -94,9 +101,9 @@ export const runRecall = async (
       });
     }
   }
-  if (items.length > RECALL_LIMIT_MAX) {
+  if (items.length > RECALL_CEILING) {
     console.error({ count: items.length, event: "recall.ceiling" });
-    return { items: items.slice(0, RECALL_LIMIT_MAX), truncated: true };
+    return { fragments: items.slice(0, RECALL_CEILING), truncated: true };
   }
-  return { items, truncated };
+  return { fragments: items, truncated };
 };

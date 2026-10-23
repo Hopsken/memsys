@@ -29,7 +29,6 @@ import {
   inputs,
   listFragments,
   PAGE_SIZE,
-  parseRecall,
   REF_ALPHABET,
   REF_LENGTH,
 } from "../memory";
@@ -232,26 +231,17 @@ export class MemoryDO extends DurableObject<Env> {
     return withWarnings(item, verdict);
   }
 
-  async recall(
+  recall(
     raw: z.input<typeof inputs.recall>
   ): Promise<RecallResult | { error: string }> {
-    const { input, warnings } = parseRecall(raw);
     // Stages may await a model while writes land; the recall reads one
     // snapshot throughout.
-    const result = await runRecall(
+    return runRecall(
       pipeline,
       this.plugins,
       { ...this.pluginEnv, corpus: new Map(this.corpus) },
-      input
+      inputs.recall.parse(raw)
     );
-    if ("error" in result) {
-      return result;
-    }
-    return {
-      fragments: result.items,
-      hasMore: result.truncated,
-      ...(warnings.length > 0 && { warnings }),
-    };
   }
 
   list(input: z.input<typeof listInput>): FragmentPage {

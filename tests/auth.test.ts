@@ -189,7 +189,7 @@ describe("Authentication", () => {
     const found = await post("/api/recall", { cue: "Private" }, bob);
     await expect(found.json()).resolves.toStrictEqual({
       fragments: [],
-      hasMore: false,
+      truncated: false,
     });
     await expect(list(bob)).resolves.toStrictEqual({
       fragments: [],

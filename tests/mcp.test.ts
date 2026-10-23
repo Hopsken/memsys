@@ -149,7 +149,10 @@ describe("Stateless MCP", () => {
       nextCursor: null,
     });
     const found = await call(user, "recall", { cue: "MCP memory" });
-    expect(content(found)).toStrictEqual({ fragments: [item], hasMore: false });
+    expect(content(found)).toStrictEqual({
+      fragments: [item],
+      truncated: false,
+    });
     expect(
       content(await call(user, "forget", { ref: item.ref }))
     ).toStrictEqual({ ref: item.ref });

@@ -9,7 +9,7 @@ import { z } from "zod";
 import type { Fragment } from "../contract/memory";
 import type { Json } from "../contract/plugin";
 import { plugins } from "../plugins";
-import { parseRecall } from "../worker/memory";
+import { inputs } from "../worker/memory";
 import { resolvePlugins } from "../worker/plugin-host";
 import type { PluginEnv, StoredConfig } from "../worker/plugin-host";
 import { runRecall } from "../worker/recall/host";
@@ -85,7 +85,7 @@ const hookFailures = () =>
   ).length;
 
 const recallOnce = async (stored: StoredConfig[], item: EvalCase) => {
-  const { input } = parseRecall({
+  const input = inputs.recall.parse({
     cue: item.cue,
     ...(item.context && { context: item.context }),
   });
@@ -101,7 +101,7 @@ const recallOnce = async (stored: StoredConfig[], item: EvalCase) => {
   }
   return {
     failed: hookFailures() > failed,
-    refs: result.items.map((fragment) => fragment.ref),
+    refs: result.fragments.map((fragment) => fragment.ref),
   };
 };
 
@@ -153,7 +153,7 @@ it("scores recall on the evaluation set", async () => {
   }).trim();
   const header = `# Recall evaluation
 
-${fragments.length} fragments, ${cases.length} cues, limit 10. Commit \`${commit}\`${withJev ? `; Jev strictness \`${strictness}\`` : "; Jev not run"}. Regenerate with \`pnpm eval\` (\`JEV=1 pnpm eval\` for Jev; it bills Workers AI).`;
+${fragments.length} fragments, ${cases.length} cues, at most 10 results. Commit \`${commit}\`${withJev ? `; Jev strictness \`${strictness}\`` : "; Jev not run"}. Regenerate with \`pnpm eval\` (\`JEV=1 pnpm eval\` for Jev; it bills Workers AI).`;
   const markdown = report(runs, header);
   writeFileSync(path.join(import.meta.dirname, "results.md"), markdown);
   process.stdout.write(`${markdown}\n`);

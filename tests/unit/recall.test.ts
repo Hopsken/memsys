@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "../../contract/memory";
 import { extractAnchors } from "../../lib/anchor";
-import { RECALL_LIMIT_MAX } from "../../lib/recall";
 import { terms } from "../../worker/recall/match";
 import { recall } from "../../worker/recall/pipeline";
 
@@ -18,8 +17,8 @@ const associated = async (corpus: Fragment[], cue: string) => {
 };
 
 const matched = async (corpus: Fragment[], cue: string) => {
-  const { fragments } = await recall(corpus, { associate: false, cue });
-  return fragments.map((row) => row.ref);
+  const { fragments } = await recall(corpus, { cue });
+  return fragments.filter((row) => !row.via).map((row) => row.ref);
 };
 
 describe("Recall", () => {
@@ -54,11 +53,11 @@ describe("Recall", () => {
         corpus[4],
         { ...corpus[1], via: ["project/a", "shared"] },
       ],
-      hasMore: false,
+      truncated: false,
     });
     await expect(recall(corpus, { cue: "absent" })).resolves.toStrictEqual({
       fragments: [],
-      hasMore: false,
+      truncated: false,
     });
   });
 
@@ -201,61 +200,47 @@ describe("Recall", () => {
     ]);
   });
 
-  it.each([
-    [undefined, ["m-00", "m-01", "m-02", "newest", "neighbor"], false],
-    [5, ["m-00", "m-01", "m-02", "newest", "neighbor"], false],
-    [4, ["m-00", "m-01", "m-02", "newest"], true],
-    [3, ["m-00", "m-01", "m-02"], true],
-    [2, ["m-00", "m-01"], true],
-  ])(
-    "puts matches before associations and bounds the combined list to %s",
-    async (limit, refs, hasMore) => {
-      const corpus = [
-        item("neighbor", "neighbor #shared"),
-        item("newest", "newest neighbor #shared", "02"),
-        ...["m-02", "m-01", "m-00"].map((ref) => item(ref, "cue #shared")),
-      ];
-      const result = await recall(corpus, {
-        cue: "cue",
-        ...(limit && { limit }),
-      });
-      expect({
-        hasMore: result.hasMore,
-        refs: result.fragments.map((row) => row.ref),
-      }).toStrictEqual({ hasMore, refs });
-    }
-  );
-
-  it("caps limit at the maximum and warns", async () => {
-    const corpus = Array.from({ length: RECALL_LIMIT_MAX + 5 }, (_, index) =>
-      item(`m-${index}`, "cue")
-    );
-    const result = await recall(corpus, { cue: "cue", limit: 100 });
-    expect(result.fragments).toHaveLength(RECALL_LIMIT_MAX);
-    expect(result.hasMore).toBeTruthy();
-    expect(result.warnings).toStrictEqual([
-      `limit 100 is above the maximum of ${RECALL_LIMIT_MAX}; returned at most ${RECALL_LIMIT_MAX} fragments.`,
-    ]);
-    await expect(
-      recall(corpus, { cue: "cue", limit: RECALL_LIMIT_MAX })
-    ).resolves.not.toHaveProperty("warnings");
-  });
-
-  it("skips association when disabled", async () => {
-    const corpus = [item("a", "cue #shared"), item("b", "neighbor #shared")];
-    await expect(
-      recall(corpus, { associate: false, cue: "cue" })
-    ).resolves.toStrictEqual({
-      fragments: [corpus[0]],
-      hasMore: false,
+  it("puts matches before associations, newest association first", async () => {
+    const corpus = [
+      item("neighbor", "neighbor #shared"),
+      item("newest", "newest neighbor #shared", "02"),
+      ...["m-02", "m-01", "m-00"].map((ref) => item(ref, "cue #shared")),
+    ];
+    const { fragments, truncated } = await recall(corpus, { cue: "cue" });
+    expect({
+      refs: fragments.map((row) => row.ref),
+      truncated,
+    }).toStrictEqual({
+      refs: ["m-00", "m-01", "m-02", "newest", "neighbor"],
+      truncated: false,
     });
   });
 
-  it("returns 10 results by default", async () => {
-    const corpus = Array.from({ length: 11 }, (_, index) =>
-      item(`m-${index.toString().padStart(2, "0")}`, "cue")
-    );
-    const { fragments } = await recall(corpus, { cue: "cue" });
-    expect(fragments).toHaveLength(10);
-  });
+  // A dropped association comes back through its own cue or anchor, not a
+  // more specific cue, so only a dropped cue match sets `truncated`.
+  it.each([
+    [10, 0, false],
+    [11, 0, true],
+    [9, 2, false],
+  ])(
+    "returns ten of %i matches and %i associations, truncated: %s",
+    async (matches, neighbors, truncated) => {
+      const corpus = [
+        ...Array.from({ length: matches }, (_, index) =>
+          item(`m-${index}`, "cue #shared")
+        ),
+        ...Array.from({ length: neighbors }, (_, index) =>
+          item(`n-${index}`, "neighbor #shared")
+        ),
+      ];
+      const result = await recall(corpus, { cue: "cue" });
+      expect({
+        returned: result.fragments.length,
+        truncated: result.truncated,
+      }).toStrictEqual({
+        returned: Math.min(matches + neighbors, 10),
+        truncated,
+      });
+    }
+  );
 });

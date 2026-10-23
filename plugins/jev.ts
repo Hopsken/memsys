@@ -3,13 +3,14 @@ import { z } from "zod";
 import type { RecallInput, RecallItem } from "../contract/memory";
 import { definePlugin } from "../contract/plugin";
 import type { Ctx, Json } from "../contract/plugin";
-import { RECALL_LIMIT_MAX } from "../lib/recall";
 
 // Relevance gate per RFC 1 Stage 2: one independent noul per candidate, so
 // "nothing is relevant" is a possible answer. Fail-open: any error, timeout,
 // or malformed response leaves the input unchanged via the plugin host.
 export const JEV_MODEL = "typesafe/jev";
 export const JEV_TIMEOUT_MS = 1500;
+// Judges at most this many candidates per recall.
+export const JEV_BUDGET = 40;
 
 // Named levels instead of a raw probability: 0.45 vs 0.48 means nothing to a
 // user. Measured on real recalls, misses score ≲0.15 and hits ≳0.9.
@@ -80,9 +81,8 @@ const gate = async (
   { context, cue }: RecallInput
 ) => {
   const gated = (item: RecallItem) => matches || Boolean(item.via);
-  // The cap equals recall's max `limit`: past it, items are dropped rather
-  // than passed through unjudged to fill the page.
-  const judged = items.filter(gated).slice(0, RECALL_LIMIT_MAX);
+  // Past the budget, items are dropped rather than passed through unjudged.
+  const judged = items.filter(gated).slice(0, JEV_BUDGET);
   const refs = new Set(judged.map((item) => item.ref));
   if (judged.length === 0) {
     return { items: [...items] };
