@@ -22,8 +22,6 @@ import type { Outcome, Run } from "./metrics";
 // JEV=1 adds setups that call Workers AI and bill the account.
 const withJev = process.env["JEV"] === "1";
 const strictness = process.env["JEV_STRICTNESS"] ?? "medium";
-// Jev fails open on its 1.5 s timeout; retry so scores reflect its judgment.
-const ATTEMPTS = 3;
 const CONCURRENCY = 4;
 
 const corpus = new Map<string, Fragment>(
@@ -42,12 +40,7 @@ const setups: { name: string; stored: StoredConfig[]; jev?: boolean }[] = [
   {
     jev: true,
     name: "idf+jev",
-    stored: [row("jev", true, { matches: false, strictness })],
-  },
-  {
-    jev: true,
-    name: "idf+jev(matches)",
-    stored: [row("jev", true, { matches: true, strictness })],
+    stored: [row("jev", true, { strictness })],
   },
 ];
 
@@ -76,43 +69,27 @@ const env: PluginEnv = {
   corpus,
 };
 
-const errors = vi.spyOn(console, "error").mockReturnValue();
-const hookFailures = () =>
-  errors.mock.calls.filter(
-    ([entry]) =>
-      z.object({ event: z.literal("plugin.hook.failed") }).safeParse(entry)
-        .success
-  ).length;
+// Jev retries and logs each failed attempt itself.
+vi.spyOn(console, "error").mockReturnValue();
 
-const recallOnce = async (stored: StoredConfig[], item: EvalCase) => {
+// A failed recall scores as returning nothing.
+const recall = async (stored: StoredConfig[], item: EvalCase) => {
   const input = inputs.recall.parse({
     cue: item.cue,
     ...(item.context && { context: item.context }),
   });
-  const failed = hookFailures();
   const result = await runRecall(
     pipeline,
     resolvePlugins(plugins, stored),
     env,
     input
   );
-  if ("error" in result) {
-    throw new Error(result.error);
-  }
-  return {
-    failed: hookFailures() > failed,
-    refs: result.fragments.map((fragment) => fragment.ref),
-  };
-};
-
-const recall = async (stored: StoredConfig[], item: EvalCase) => {
-  let result = await recallOnce(stored, item);
-  for (let attempt = 1; result.failed && attempt < ATTEMPTS; attempt += 1) {
-    // Retries are sequential by design.
-    // oxlint-disable-next-line no-await-in-loop
-    result = await recallOnce(stored, item);
-  }
-  return result;
+  return "error" in result
+    ? { failed: true, refs: [] }
+    : {
+        failed: false,
+        refs: result.fragments.map((fragment) => fragment.ref),
+      };
 };
 
 const pool = async <T, R>(items: T[], task: (item: T) => Promise<R>) => {

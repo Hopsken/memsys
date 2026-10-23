@@ -4,7 +4,15 @@ import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "../contract/memory";
 import worker from "../worker/index";
-import { call, content, list, post, useAuth, withVersions } from "./helpers";
+import {
+  call,
+  content,
+  list,
+  memoryOf,
+  post,
+  useAuth,
+  withVersions,
+} from "./helpers";
 import type { User } from "./helpers";
 
 const tags = async (user: User) =>
@@ -159,6 +167,27 @@ describe("Stateless MCP", () => {
     await expect(list(user)).resolves.toStrictEqual({
       fragments: [],
       nextCursor: null,
+    });
+  });
+
+  it("fails recall with a retry hint instead of returning unjudged memories", async () => {
+    const user = await signIn();
+    await call(user, "remember", { fragment: "Judged memory #test" });
+    await memoryOf(user).updatePlugin("jev", {
+      config: { strictness: "medium" },
+      enabled: true,
+      updatedAt: null,
+    });
+    // Tests have no Workers AI, so every Jev attempt fails.
+    const failed = await call(user, "recall", { cue: "judged memory" });
+    expect({
+      isError: failed.isError,
+      text: failed.content[0]?.text,
+    }).toStrictEqual({
+      isError: true,
+      text: expect.stringMatching(
+        /^jev: Relevance check failed \(.+\)\. Retry this recall shortly\.$/u
+      ),
     });
   });
 

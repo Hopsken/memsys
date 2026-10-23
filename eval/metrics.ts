@@ -92,7 +92,7 @@ export const report = (runs: Run[], header: string) => {
       "Noise / cue",
       "Returned / cue",
       "Clean abstain",
-      "Hook failures",
+      "Failed recalls",
     ],
     scored.map(({ failures, name, scores }) => {
       const abstain = scores.filter((item) => item.kind === "abstain");
