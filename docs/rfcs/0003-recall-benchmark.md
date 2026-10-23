@@ -10,9 +10,9 @@
 memsys gets a benchmark that measures one thing: given a memory that is already written, how well does recall bring back what the question needs, and how much does the agent have to read and how many times does it have to ask to get there.
 
 - The material is LongMemEval_S. One question is one memory space.
-- Building the memory (the **write phase**) is done once per writer version and the result is kept, so that every recall experiment reuses it. Corpora live in a Hugging Face dataset repo; the Git repo keeps a manifest and the small files.
+- Building the memory (the **write phase**) is done once per writer version and the result is kept, so that every recall experiment reuses it. All test data (question sets, corpora, labels, runs) lives in a Hugging Face dataset repo; the Git repo keeps only the harness.
 - Measuring recall (the **recall phase**) runs a cheap agent with only two read-only tools, `list_tags` and `recall`, and at most 5 recall rounds per question.
-- Each question reports: was every piece of evidence found, how many fragments were read, how many rounds it took, and how much of what came back was noise.
+- Each question reports: was every piece of evidence found, how many fragments were read, and how many rounds it took.
 - Four nested sets, smoke (12), dev (60), holdout (60), full (500), keep everyday iteration cheap and keep the final number honest.
 
 The benchmark answers "is this recall better than the last one", not "is memsys useful". That larger question stays with the whole-system eval in `eval/longmemeval/`, and with a future in-the-loop eval.
@@ -90,7 +90,7 @@ The recall phase gives an agent the question and only read access to the corpus,
 
 - **Agent.** [Pi](https://pi.dev), on an [OpenCode Go](https://opencode.ai) subscription. Pi is the deliberate choice, more than any model: it is a minimal harness, so what it adds between the model and the tools is small and known, and it swaps models with one setting. The model is a parameter of every run, not part of the design. Today's default is `opencode-go/deepseek-v4.1-flash` (the 1017 snapshot) because it is the best balance of ability and price at the time of writing; that will change. Dev should be run with a second recall model before any holdout run, so that recall is not tuned to one model's habits.
 - **Tools.** Exactly two: `list_tags` and `recall`, through the memsys MCP server with Pi's [`toolExposure`](https://pi.dev/docs/latest/mcp#control-tool-exposure): the server hidden, these two exposed directly. No write tools, and no change to memsys. Every Pi built-in tool is off (`--no-builtin-tools`), with no extensions beyond `builtin:mcp`, no context files, skills, or prompt templates, and the MCP resource tools excluded. An agent with `bash` or `read` could open the corpus files, the dataset, or the dev routes and answer from them, and the score would measure that escape, not recall. The harness checks every transcript after the run and fails the question if any other tool name appears. The baseline already runs this way: across its 18,741 tool calls, only memsys tools appear. The server instructions go into the system prompt in full, as the current harness already does.
-- **Bounds.** At most 5 recall rounds per question; a sixth is refused, the question is marked as over budget, and what was found by then is still scored. The cap is a harness setting to revisit after the first runs. In the baseline, all evidence was first complete by round 1 in 31 questions, by round 2 in 9, 3 in 3, 4 in 4, 5 in 1, and 7 in 1, while 13 questions went past 5 rounds; the cap costs one question and stops the rest from reading the corpus out. How many fragments a call returns is not bounded by the harness: that is part of what is under test, and `read` charges for it.
+- **Bounds.** At most 5 recall rounds per question; a sixth is refused, and what was found by then is still scored. The cap is a harness setting to revisit after the first runs. In the baseline, all evidence was first complete by round 1 in 31 questions, by round 2 in 9, 3 in 3, 4 in 4, 5 in 1, and 7 in 1, while 13 questions went past 5 rounds; the cap costs one question and stops the rest from reading the corpus out. How many fragments a call returns is not bounded by the harness: that is part of what is under test, and `read` charges for it.
 - **Repeats.** Each question runs 3 times. The model is cheap (about $0.002 per question per run) and its variance is the main noise in this phase.
 - **Output.** The transcript of every recall call: cue, context, what came back, in order.
 
@@ -102,7 +102,7 @@ The dataset marks evidence at the session and turn level. memsys stores fragment
 
 1. Every record in `memory.ndjson` carries the index of the session it was written from. For each evidence session, the candidates are the fragments written from it, usually 4 or 5.
 2. A judge reads the candidates next to the session's `has_answer` turns and marks which fragments carry that content. The judge's scope is those few fragments, not the whole memory, which is what made the baseline's labels unreliable.
-3. On dev, the labels are reviewed by hand and corrected. Corrected labels are committed with the manifest.
+3. On dev, the labels are reviewed by hand and corrected. Corrected labels are uploaded with the corpus.
 
 A question is **found** when every one of its required evidence sessions has at least one answer-bearing fragment among what recall returned, across all rounds. Required means: evidence sessions the dataset marks with answer turns (94 of the 500 questions' evidence sessions have none and cannot be labeled); for knowledge-update questions, only the last evidence session, which holds the current value, since the dataset's own grading rule asks for the updated answer and not for the one it replaced. Abstention questions require nothing: there is nothing to find, and they are scored on the answer alone.
 
@@ -116,10 +116,8 @@ Per question and run:
 | --- | --- |
 | found | Every evidence session has an answer-bearing fragment in the returned set |
 | read | Total fragments returned across rounds, also as tokens. This is what the agent paid to read |
-| rounds | Recall calls made; `over budget` when the cap was hit |
-| noise | Returned fragments that are not answer-bearing, as a share of read |
-| stale | For knowledge-update questions, returned fragments that hold a superseded value. Reported apart from noise |
-| wasted rounds | Rounds that returned nothing, and rounds after the evidence was already complete |
+| rounds | Recall calls made, and the round after which found was true |
+| stale | For knowledge-update questions, returned fragments that hold a superseded value |
 | answer | LongMemEval correctness, secondary |
 
 Aggregated per set and per type, with the three repeats shown as a range, not averaged away.
@@ -159,18 +157,17 @@ Candidates queued today, all expected to change:
 
 The write phase is the expensive output and is kept forever. There will be several corpora: per writer version, and later per write model and per harness for side-by-side comparison. Dev-size corpora measured 4.1 MB of `memory.ndjson` and 12.5 MB of `sessions.jsonl` each; a full corpus is about 140 MB raw, 35 MB compressed.
 
-Two places:
+**The Git repo** keeps the harness: code and documentation, no test data.
 
-**The Git repo** keeps what a reader of a run needs to check it and what is small:
+**A Hugging Face dataset repo** (`Hopsken/memsys-longmemeval-corpora`) keeps all test data, downloaded on demand:
 
-- `eval/longmemeval/corpora.json`, the manifest. One entry per corpus, named by set, write model, and a hash of the writer version (write model, server instructions hash, `remember`/`revise`/`forget` description hashes, harness version, set), with its cost, its commit, and its Hugging Face path.
-- Human-corrected evidence labels per corpus.
-- `memory.ndjson` for dev-size corpora, so that a recall run on dev needs no download.
-- A slim question file per set: question, answer, evidence sessions and turns. Not the 277 MB dataset.
+- `sets/<set>.json`, a slim question file per set: question, answer, evidence sessions and turns. Not the 277 MB dataset.
+- One folder per corpus, named by set, write model, and a hash of the writer version (write model, server instructions hash, `remember`/`revise`/`forget` description hashes, harness version, set). It holds `corpus.json` (that version, the cost, the commit), `sessions.jsonl` (the write transcripts), `memory.ndjson`, the hand-corrected `labels.json` and its review sheet, and the instructions and tool descriptions that wrote it.
+- `runs/<run>/`, every kept recall run.
 
-**A Hugging Face dataset repo** (`Hopsken/memsys-longmemeval-corpora`) keeps every corpus whole and immutable, one folder per key, with every artifact: `sessions.jsonl` (the write transcripts), `memory.ndjson`, `patch.ndjson`, the labels, and the instructions and tool descriptions that wrote it. A corpus is uploaded once and never changed; a changed writer is a new key. Hugging Face has no per-repo size limit, and the account quota (best-effort for public, 100 GB for private, per their storage-limits page as of this writing) is far above the tens of megabytes a corpus takes.
+A new benchmark, such as LongMemEval_M or a corpus from another write model, is new folders in the dataset and no change to Git. A corpus is uploaded once and changed only by label corrections; a changed writer is a new key. Hugging Face has no per-repo size limit, and the account quota (best-effort for public, 100 GB for private, per their storage-limits page as of this writing) is far above the tens of megabytes a corpus takes.
 
-The recall phase reads `memory.ndjson`, the evidence labels, and the slim question file. It never needs the raw dataset.
+The recall phase downloads `memory.ndjson`, the labels, and the slim question file on first use. It never needs the raw dataset.
 
 Alternatives were considered and set aside: Git LFS in the main repo (quota and clone weight), a bucket on R2 (no browsing, no versioning for free), a separate Git repo (fine for small corpora, poor once there are many). Hugging Face gives browsing, versioning, and a dataset viewer at no cost, and is where this kind of artifact is expected to live.
 
@@ -214,7 +211,7 @@ Rejected. It would require every change to run the full curve. The line is a ref
 
 ### Store corpora in the Git repo
 
-Rejected for anything above dev size, see Storage.
+Rejected, see Storage. Even small test data (dev corpora, labels, sets) was moved out: two homes for test data meant a rule about which files go where, and every new benchmark would have touched Git.
 
 ## Open questions
 
