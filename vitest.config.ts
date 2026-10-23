@@ -6,8 +6,9 @@ import {
   readD1Migrations,
 } from "@cloudflare/vitest-pool-workers";
 import { defineConfig } from "vitest/config";
+import type { ViteUserConfig } from "vitest/config";
 
-export default defineConfig(async () => {
+export default defineConfig(async (): Promise<ViteUserConfig> => {
   // Drizzle writes one folder per D1 migration; name each the way Wrangler does.
   const migrationsPath = path.join(import.meta.dirname, "migrations");
   const entries = await readdir(migrationsPath, { withFileTypes: true });
@@ -27,28 +28,48 @@ export default defineConfig(async () => {
     })
   );
 
+  const unitTests = "tests/unit/**/*.test.ts";
+
   return {
-    plugins: [
-      cloudflareTest({
-        // Keep auth tests independent of local .dev.vars overrides.
-        miniflare: {
-          bindings: {
-            AUTH_ALLOWED_EMAILS: "@memsys.test",
-            BETTER_AUTH_SECRET: "test-secret-with-enough-entropy-0123456789",
-            EMAIL_FROM: "memsys <memsys@memsys.test>",
-            PUBLIC_URL: "https://memsys.test",
-            RESEND_API_KEY: "test-resend-key",
-            TEST_MIGRATIONS: migrations,
-          },
-        },
-        // Tests never reach Workers AI; plugins get a fake `ai`. Without this, the
-        // AI binding opens a remote session that needs Cloudflare credentials.
-        remoteBindings: false,
-        wrangler: { configPath: "./wrangler.jsonc" },
-      }),
-    ],
     // Client modules under test import through the tsconfig aliases.
     resolve: { tsconfigPaths: true },
-    test: { setupFiles: ["./tests/apply-migrations.ts"] },
+    test: {
+      projects: [
+        // Plain functions run in Node: loading the Worker for each file costs seconds.
+        {
+          extends: true,
+          test: { include: [unitTests], name: "unit" },
+        },
+        {
+          extends: true,
+          plugins: [
+            cloudflareTest({
+              // Keep auth tests independent of local .dev.vars overrides.
+              miniflare: {
+                bindings: {
+                  AUTH_ALLOWED_EMAILS: "@memsys.test",
+                  BETTER_AUTH_SECRET:
+                    "test-secret-with-enough-entropy-0123456789",
+                  EMAIL_FROM: "memsys <memsys@memsys.test>",
+                  PUBLIC_URL: "https://memsys.test",
+                  RESEND_API_KEY: "test-resend-key",
+                  TEST_MIGRATIONS: migrations,
+                },
+              },
+              // Tests never reach Workers AI; plugins get a fake `ai`. Without this, the
+              // AI binding opens a remote session that needs Cloudflare credentials.
+              remoteBindings: false,
+              wrangler: { configPath: "./wrangler.jsonc" },
+            }),
+          ],
+          test: {
+            exclude: [unitTests],
+            include: ["tests/**/*.test.ts"],
+            name: "worker",
+            setupFiles: ["./tests/apply-migrations.ts"],
+          },
+        },
+      ],
+    },
   };
 });

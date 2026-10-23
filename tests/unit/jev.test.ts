@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { Fragment, RecallItem } from "../contract/memory";
-import type { Ctx, Json } from "../contract/plugin";
-import { RECALL_LIMIT_MAX } from "../lib/recall";
-import { JEV_MODEL, JEV_TIMEOUT_MS, jev } from "../plugins/jev";
-import { createCtx, runAfterRecall } from "../worker/plugin-host";
+import type { Fragment, RecallItem } from "../../contract/memory";
+import type { Ctx, Json } from "../../contract/plugin";
+import { RECALL_LIMIT_MAX } from "../../lib/recall";
+import { JEV_MODEL, JEV_TIMEOUT_MS, jev } from "../../plugins/jev";
+import { createCtx, runAfterRecall } from "../../worker/plugin-host";
 
 const item = (ref: string, fragment: string, via?: string[]): RecallItem => ({
   at: "",
