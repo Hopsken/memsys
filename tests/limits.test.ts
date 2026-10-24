@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type { Fragment } from "../contract/memory";
-import { call, content, list, memoryOf, post, useAuth } from "./helpers";
+import type { Fragment } from "@contract/memory";
+
+import { call, content, list, patchSettings, post, useAuth } from "./helpers";
 import type { User } from "./helpers";
 
 type WriteResult = (Fragment & { warnings?: string[] }) | { error: string };
@@ -55,7 +56,7 @@ describe("Fragment length limits", () => {
     }
   );
 
-  it("returns 422 for plugin rejections and 400 above the core ceiling", async () => {
+  it("returns 422 above the owner's limit and 400 above the core ceiling", async () => {
     const user = await signIn();
     const statuses = await Promise.all(
       [501, 1000, 1001].map(async (length) => {
@@ -70,25 +71,15 @@ describe("Fragment length limits", () => {
     expect(statuses).toStrictEqual([422, 422, 400]);
   });
 
-  it("applies per-instance limits and keeps the core ceiling when disabled", async () => {
+  it("applies the owner's limits and keeps the core ceiling when they are at most", async () => {
     const user = await signIn();
-    const memory = memoryOf(user);
-    const strict = await memory.updatePlugin("size-limit", {
-      config: { hard: 10, soft: 5 },
-      enabled: true,
-      updatedAt: null,
-    });
+    await patchSettings(user, { length: { refuse: 10, warn: 5 } });
     const tight = await Promise.all(
       [5, 6, 11].map(async (length) =>
         warnings(await write(user, "MCP", { fragment: "x".repeat(length) }))
       )
     );
-    const { updatedAt } = await strict.json<{ updatedAt: number }>();
-    await memory.updatePlugin("size-limit", {
-      config: { hard: 10, soft: 5 },
-      enabled: false,
-      updatedAt,
-    });
+    await patchSettings(user, { length: { refuse: 1000, warn: 1000 } });
     const off = await Promise.all(
       [1000, 1001].map(async (length) =>
         warnings(await write(user, "MCP", { fragment: "x".repeat(length) }))

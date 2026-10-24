@@ -1,8 +1,8 @@
+import { parseLog, parseText, replay, serializeLog } from "@core/log";
+import type { Row } from "@core/log";
 import { describe, expect, it } from "vitest";
 
-import { FRAGMENT_MAX } from "../../lib/fragment";
-import { parseLog, parseText, replay, serializeLog } from "../../worker/log";
-import type { Row } from "../../worker/log";
+import { FRAGMENT_MAX } from "@lib/fragment";
 
 const at = (day: number) => Date.parse(`2026-09-${day}T08:00:00.000Z`);
 
@@ -136,7 +136,7 @@ describe("Fragment log", () => {
       { at: at(21), fragment: "Gone", ref: "hjkmnpq" },
       { at: at(22), fragment: null, ref: "hjkmnpq" },
     ];
-    const { corpus, heads } = replay(rows);
+    const { corpus, latestAtByRef } = replay(rows);
     expect([...corpus.values()]).toStrictEqual([
       {
         at: "2026-09-24T08:00:00.000Z",
@@ -144,7 +144,7 @@ describe("Fragment log", () => {
         ref: "abcdefg",
       },
     ]);
-    expect(heads).toStrictEqual(
+    expect(latestAtByRef).toStrictEqual(
       new Map([
         ["abcdefg", at(24)],
         ["hjkmnpq", at(22)],

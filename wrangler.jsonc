@@ -5,7 +5,6 @@
   "assets": {
     "directory": "./dist/client",
     "not_found_handling": "single-page-application",
-    // /__dev/* answers only in development; elsewhere the Worker says 404.
     "run_worker_first": [
       "/api/*",
       "/mcp",
@@ -30,7 +29,7 @@
   "dev": {
     "inspector_port": 0,
   },
-  // Workers AI; the jev plugin calls typesafe/jev through it. Always remote,
+  // Workers AI; the relevance filter calls typesafe/jev through it. Always remote,
   // so local dev bills the account too. Tests turn remote bindings off.
   "ai": {
     "binding": "AI",

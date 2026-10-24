@@ -4,7 +4,7 @@ import { Search, SearchX, XIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import type { FormEvent, ReactNode, RefObject } from "react";
 
-import { MemoryLength } from "@/entities/memory";
+import { MemoryLength, useSettings } from "@/entities/memory";
 import { SessionExpired } from "@/features/auth";
 import { api, failure, isExpired } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
@@ -20,7 +20,6 @@ import {
 import { Input } from "@/shared/ui/input";
 import { Skeleton } from "@/shared/ui/skeleton";
 import type { RecallItem, RecallResult } from "@contract/memory";
-import type { PluginView } from "@contract/plugin";
 import { findAnchors } from "@lib/anchor";
 import { formatRelativeDate } from "@lib/date";
 
@@ -31,7 +30,6 @@ interface Request {
   cue: string;
 }
 
-// Tags stay muted but aren't links: the whole row opens the memory.
 const TagMuted = ({ text }: { text: string }) => {
   const nodes: ReactNode[] = [];
   let at = 0;
@@ -48,7 +46,6 @@ const TagMuted = ({ text }: { text: string }) => {
   return <>{nodes}</>;
 };
 
-// One memory as a row; clicking it opens its history.
 const MemoryRow = ({
   item,
   onOpen,
@@ -80,8 +77,6 @@ const MemoryRow = ({
   </button>
 );
 
-// Each match with the memories it brought along, so the reach of every
-// match shows at a glance.
 const Results = ({
   onOpen,
   result,
@@ -129,7 +124,6 @@ const Results = ({
   </>
 );
 
-// Shows the error your AI would get, and offers a retry only when it can help.
 const RecallError = ({
   error,
   onRetry,
@@ -157,8 +151,6 @@ const RecallError = ({
   );
 };
 
-// Runs a cue through the same recall your AI uses and shows what comes back.
-// Nothing is kept once the dialog closes.
 const RecallPanel = ({
   cueInput,
   history,
@@ -169,15 +161,8 @@ const RecallPanel = ({
   const [draft, setDraft] = useState<Request>({ context: "", cue: "" });
   const [request, setRequest] = useState<Request | null>(null);
   const [opened, setOpened] = useState<string | null>(null);
-  const plugins = useQuery({
-    queryFn: ({ signal }) =>
-      api.get("/api/plugins", { signal }).json<PluginView[]>(),
-    queryKey: ["plugins"],
-  });
-  // Only the relevance filter reads the context.
-  const judged =
-    plugins.data?.some(({ enabled, name }) => enabled && name === "jev") ??
-    false;
+  const usesContext =
+    (useSettings().data?.settings.relevanceFilter ?? "off") !== "off";
   const query = useQuery({
     enabled: request !== null,
     queryFn: ({ signal }) =>
@@ -196,7 +181,7 @@ const RecallPanel = ({
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const next = {
-      context: judged ? draft.context.trim() : "",
+      context: usesContext ? draft.context.trim() : "",
       cue: draft.cue.trim(),
     };
     if (!next.cue) {
@@ -236,7 +221,7 @@ const RecallPanel = ({
             Search
           </Button>
         </div>
-        {judged ? (
+        {usesContext ? (
           <Input
             aria-label="What your AI is working on"
             autoComplete="off"
@@ -282,8 +267,6 @@ const RecallPanel = ({
         ) : null}
         {result ? <Results onOpen={setOpened} result={result} /> : null}
       </section>
-      {/* An edit or forget in the history shows in the results once it
-      closes. */}
       {opened
         ? history(opened, () => {
             setOpened(null);
@@ -294,8 +277,6 @@ const RecallPanel = ({
   );
 };
 
-// `history` renders a memory's history over the dialog; the app supplies it
-// so this widget stays apart from the one that shows histories.
 export const RecallPreview = ({
   className,
   history,
@@ -318,7 +299,6 @@ export const RecallPreview = ({
         <Search aria-hidden="true" />
       </DialogTrigger>
       <DialogContent
-        // The history opens over this dialog, which dims under it.
         className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 p-0 after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:bg-black/0 after:transition-colors data-nested-dialog-open:after:bg-black/10 sm:max-h-[85dvh] sm:max-w-2xl"
         initialFocus={cueInput}
         showCloseButton={false}

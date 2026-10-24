@@ -4,9 +4,6 @@ import antiSlop from "ultracite/oxlint/anti-slop";
 import core from "ultracite/oxlint/core";
 import vitest from "ultracite/oxlint/vitest";
 
-// Feature-Sliced Design, top to bottom. A layer imports only the layers below
-// it; a slice imports another slice only through its index.ts, and never one on
-// its own layer. Shared and App have no slices.
 const LAYERS = ["app", "pages", "widgets", "features", "entities", "shared"];
 const SLICED = new Set(["pages", "widgets", "features", "entities"]);
 
@@ -15,7 +12,15 @@ const layerRules = LAYERS.map((layer, index): OxlintOverride => {
     ...LAYERS.slice(0, index),
     ...(SLICED.has(layer) ? [layer] : []),
   ];
-  const patterns = [
+  const patterns: ({ message: string } & (
+    | { group: string[] }
+    | { regex: string }
+  ))[] = [
+    // RFC 0004: the web UI reaches the core only through the Worker.
+    {
+      group: ["@core", "@core/**", "**/core", "**/core/**"],
+      message: "client/ may not import the core; call the Worker API.",
+    },
     {
       message: "Import a slice through its index.ts.",
       regex:
@@ -34,6 +39,91 @@ const layerRules = LAYERS.map((layer, index): OxlintOverride => {
   };
 });
 
+// The memory core and the Worker built on it (RFC 0004). Apps reach the core
+// only through core/index.ts, and the Durable Object class through core/do.ts:
+// `@core` and `@core/do`. Each rule lists relative paths and their aliases.
+const coreInternals = {
+  group: ["**/core/*", "@core/*", "!**/core/do", "!**/core/index", "!@core/do"],
+  message:
+    "Import the core through core/index.ts (or core/do.ts for the Durable Object class).",
+};
+const restrict = (
+  files: string[],
+  patterns: { group: string[]; message: string }[]
+): OxlintOverride => ({
+  files,
+  rules: { "no-restricted-imports": ["error", { patterns }] },
+});
+
+// A later override replaces an earlier one's patterns, so each repeats
+// coreInternals.
+const workerRules: OxlintOverride[] = [
+  restrict(["worker/**"], [coreInternals]),
+  restrict(
+    ["worker/services/**"],
+    [
+      coreInternals,
+      {
+        group: [
+          "hono",
+          "hono/*",
+          "cloudflare:*",
+          "better-auth*",
+          "@better-auth/*",
+          "@modelcontextprotocol/*",
+          "**/routes/**",
+          "**/middlewares/**",
+          "**/clients/**",
+          "../lib/*",
+        ],
+        message:
+          "worker/services may import only the core, contract/, lib/, and worker/errors.",
+      },
+    ]
+  ),
+  restrict(
+    ["worker/clients/**", "worker/lib/**", "worker/middlewares/**"],
+    [
+      coreInternals,
+      {
+        group: ["**/routes/**", "**/services/**"],
+        message:
+          "Only routes call services; clients, lib, and middlewares sit below them.",
+      },
+    ]
+  ),
+  // Every call to a memory space goes through MemoryService, so none skips
+  // the Worker's rules: only lib/memory.ts touches the MEMORY binding.
+  {
+    files: ["worker/**"],
+    rules: {
+      "no-restricted-properties": [
+        "error",
+        {
+          message: "Use openMemory() from worker/lib/memory.ts.",
+          property: "MEMORY",
+        },
+      ],
+    },
+  },
+  // Composition: the one file that holds the binding and opens the
+  // MemoryService routes receive. Later overrides win.
+  restrict(["worker/lib/memory.ts"], [coreInternals]),
+  {
+    files: ["worker/lib/memory.ts"],
+    rules: { "no-restricted-properties": "off" },
+  },
+  restrict(
+    ["core/**"],
+    [
+      {
+        group: ["**/worker/**", "**/client/**", "@/**"],
+        message: "core/ may import only contract/, lib/, and packages.",
+      },
+    ]
+  ),
+];
+
 export default defineConfig({
   extends: [core, antiSlop, vitest],
   ignorePatterns: [
@@ -46,17 +136,25 @@ export default defineConfig({
   ],
   overrides: [
     {
-      // Plugins meet the worker only through contract/ and shared lib/.
-      files: ["contract/**", "lib/**", "plugins/**"],
+      files: ["contract/**", "lib/**"],
       rules: {
         "no-restricted-imports": [
           "error",
           {
             patterns: [
               {
-                group: ["**/worker/**", "**/client/**", "cloudflare:*"],
+                group: [
+                  "**/worker/**",
+                  "**/client/**",
+                  "**/core/**",
+                  "**/core",
+                  "@core",
+                  "@core/**",
+                  "@/**",
+                  "cloudflare:*",
+                ],
                 message:
-                  "contract/, lib/, and plugins/ may import only contract/, lib/, and packages.",
+                  "contract/ and lib/ may import only contract/, lib/, and packages.",
               },
             ],
           },
@@ -64,6 +162,7 @@ export default defineConfig({
       },
     },
     ...layerRules,
+    ...workerRules,
   ],
   rules: {
     "sort-keys": ["error", "asc", { allowLineSeparatedGroups: true }],

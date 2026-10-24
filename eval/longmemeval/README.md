@@ -17,12 +17,14 @@ Pi's model is `--model`; the default `opencode-go/deepseek-v4.1-flash` needs `OP
 ```sh
 node eval/longmemeval/write.ts --set dev [--subset smoke] [--model ...] [--thinking high]
 node eval/longmemeval/label.ts --corpus <name>
-node eval/longmemeval/recall.ts --corpus <name> --run <run> [--set smoke] [--model ...] [--repeats 3] [--rounds 5] [--plugin jev='{"strictness":"low"}']
+node eval/longmemeval/recall.ts --corpus <name> --run <run> [--set smoke] [--model ...] [--repeats 3] [--rounds 5] [--settings '{"relevanceFilter":"low"}']
 ```
 
-- **write** replays each session of a set in a fresh Pi conversation with every memsys tool, then saves `hub/<name>/<question>/memory.ndjson` and `hub/<name>/corpus.json` with each record moved to its session's day. The name is the set, the write model, and a hash of the writer version (model, thinking, server instructions, write tool descriptions, `WRITER` in `write.ts`). About $0.07 per question. A question is skipped when its `memory.ndjson` exists, so an interrupted write continues.
+- **write** replays each session of a set in a fresh Pi conversation with every memsys tool, then saves `hub/<name>/<question>/memory.ndjson` and `hub/<name>/corpus.json` with each record moved to its session's day. The name is the set, the write model, and a hash of the writer version (model, thinking, server instructions, write tool descriptions, `WRITER_VERSION` in `write.ts`). About $0.07 per question. A question is skipped when its `memory.ndjson` exists, so an interrupted write continues.
 - **label** asks Jev which fragments written from each evidence session carry the answer, and writes `labels.json` (question → session → refs) and `labels-review.md`, every candidate with its score. Correct `labels.json` by hand; a rerun keeps hand edits. An empty list is a write miss and leaves the recall denominator.
-- **recall** runs Pi on each question with `list_tags` and `recall` only, `--rounds` recall calls at most (`budget.ts`), `--repeats` times. It writes `hub/runs/<run>/results.md`: found, read next to the dump size, rounds, stale fragments for knowledge-update, and the answer graded by Jev as a secondary metric. An interrupted run continues; delete `results.json` to grade again. `--plugin` (repeatable) sets memsys plugins for the run: `name` turns one on with its defaults, `name={...}` with this config over them, `name=off` turns it off; the rest stay at their defaults. Each plugin setting gets its own memory spaces, so such runs can run side by side. The Jev plugin needs Workers AI: start the dev Worker with `JEV=1`.
+- **recall** runs Pi on each question with `list_tags` and `recall` only, `--rounds` recall calls at most (`budget.ts`), `--repeats` times. It writes `hub/runs/<run>/results.md`: found, read next to the dump size, rounds, stale fragments for knowledge-update, and the answer graded by Jev as a secondary metric. An interrupted run continues; delete `results.json` to grade again. `--settings` sets memsys settings for the run as JSON over the defaults, as under Settings → Features. Each choice of settings gets its own memory spaces, so such runs can run side by side. The relevance filter needs Workers AI: start the dev Worker with `JEV=1`.
+
+Pi shows MCP server instructions as one line only, so write and recall put them in the system prompt, as Claude Code does. They are read live from the dev Worker.
 
 Sets: `smoke` (2 per type) is the head of `dev` (10 per type); `holdout` (10 per type) shares nothing with `dev`; `full` is all 500.
 
@@ -43,4 +45,4 @@ hf upload Hopsken/memsys-longmemeval-corpora eval/longmemeval/hub . --repo-type 
 hf download Hopsken/memsys-longmemeval-corpora --repo-type dataset --include "runs/<run>/*" --local-dir eval/longmemeval/hub
 ```
 
-The dev routes behind this (`/__dev/eval/:space/mcp`, `/export`, `/import` in `worker/dev`) take no credentials and exist only in development builds.
+The dev routes behind this (`/__dev/eval/:space/mcp`, `/export`, `/import` in `worker/routes/dev.ts`) take no credentials and exist only in development builds.

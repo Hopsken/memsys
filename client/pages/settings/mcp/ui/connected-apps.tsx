@@ -5,7 +5,6 @@ import { formatRelativeDateInline } from "@lib/date";
 
 import { RemoveMenu } from "./remove-menu";
 
-// Apps the user let in through sign-in; API keys are listed separately.
 interface Connection {
   createdAt: string;
   id: string;
@@ -55,7 +54,6 @@ const ConnectionRow = ({ connection }: { connection: Connection }) => {
   );
 };
 
-// Shown only once an app is connected.
 export const ConnectedApps = () => {
   const query = useQuery({
     queryFn: ({ signal }) =>

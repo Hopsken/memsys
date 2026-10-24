@@ -1,12 +1,8 @@
 import ky, { isHTTPError } from "ky";
 import * as z from "zod/mini";
 
-// Retries belong to React Query; ky only shapes requests and errors.
 export const api = ky.create({ cache: "no-store", retry: 0 });
 
-// Error bodies from the worker: `issues` for 422, a message otherwise, and
-// `retry: false` when trying again cannot help. Better Auth routes put their
-// message in `message`.
 const problemSchema = z.object({
   error: z.optional(z.string()),
   issues: z.optional(
@@ -33,6 +29,11 @@ export const failure = (error: Error): Failure => {
     problem: z.safeParse(problemSchema, error.data).data ?? {},
     status,
   };
+};
+
+export const isRetryable = (error: Error) => {
+  const { problem, status } = failure(error);
+  return problem.retry !== false && (status === null || status >= 500);
 };
 
 export const isExpired = (error: Error | null) =>

@@ -26,8 +26,7 @@ import { TagFilterBar } from "./tag-filter-bar";
 const linkClass =
   "text-foreground underline underline-offset-4 hover:text-foreground/80";
 
-// A fragment revised between page loads can appear twice; keep its latest copy.
-const flatten = (pages: FragmentPage[]) => {
+const latestPerRef = (pages: FragmentPage[]) => {
   const items = new Map<string, ListedFragment>();
   for (const item of pages.flatMap((page) => page.fragments)) {
     items.delete(item.ref);
@@ -36,9 +35,6 @@ const flatten = (pages: FragmentPage[]) => {
   return [...items.values()];
 };
 
-// A row only shows the memory; clicking it opens the history, where it can be restored or forgotten. The
-// history keeps the list's filter in its URL, so closing it returns to the
-// same list.
 const FragmentRow = ({ item }: { item: ListedFragment }) => {
   const open = useOpenHistory();
   const to = `${item.ref}${useLocation().search}`;
@@ -81,8 +77,6 @@ export const FragmentsView = () => {
   >({
     getNextPageParam: (page) => page.nextCursor,
     initialPageParam: null,
-    // Switching filters keeps the current list, dimmed, until the next one
-    // arrives, instead of flashing the skeleton.
     placeholderData: keepPreviousData,
     queryFn: ({ pageParam, signal }) =>
       api
@@ -96,9 +90,8 @@ export const FragmentsView = () => {
         .json<FragmentPage>(),
     queryKey: ["fragments", { tag: tags }],
   });
-  const items = flatten(query.data?.pages ?? []);
+  const items = latestPerRef(query.data?.pages ?? []);
   useReturnFocus();
-  // A new filter is a new list, so it starts from the top.
   const filter = tags.join(" ");
   useEffect(() => {
     window.scrollTo(0, 0);

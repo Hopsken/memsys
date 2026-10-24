@@ -1,8 +1,8 @@
 ## Purpose
 
-This document answers one question: **where does a given piece of behavior live?** It describes the layers of memsys and the rules that keep them apart. It does not describe individual plugins, limits, or wire formats; those live in the code (`contract/` for types) and in [plugin docs](plugins/).
+This document answers one question: **where does a given piece of behavior live?** It describes the layers of memsys and the rules that keep them apart. It does not describe individual features, limits, or wire formats; those live in the code (`contract/` for types) and in [Features](features.md).
 
-A change that only moves a number or adds a plugin should not need an edit here. If it does, this document has leaked detail.
+A change that only moves a number or adds a setting should not need an edit here. If it does, this document has leaked detail.
 
 ## Glossary
 
@@ -11,8 +11,8 @@ A change that only moves a number or adds a plugin should not need an edit here.
 - **recalled** — fragments that match the cue's words.
 - **associated** — fragments sharing an anchor with a recalled fragment.
 - **hub** — an anchor on a large share of the corpus; connects everything, discriminates nothing.
-- **stage** — one step of recall; it adds, drops, or reorders candidates.
-- **instance** — one user's memory: fragments plus configuration.
+- **instance** — one user's memory: fragments plus settings.
+- **feature** — behavior the owner can switch off or tune under **Settings → Features**.
 
 ## Layers
 
@@ -21,35 +21,34 @@ A change that only moves a number or adds a plugin should not need an edit here.
 │  Model — volatile, outside the system, swapped        │
 │  every generation                                    │
 ├──────────────────────────────────────────────────────┤
-│  Per-instance configuration — which plugins are on   │
-│  and how they are tuned                              │
+│  Per-instance settings — which features are on and   │
+│  how they are tuned                                  │
 ├──────────────────────────────────────────────────────┤
-│  Plugins — policy hooks on recall and the write      │
-│  path; tool plugins that add capabilities            │
-├──────────────────────────────────────────────────────┤
-│  Core — remember · revise · forget · recall          │
-│  contract stable for years                           │
+│  Core — remember · revise · forget · recall,         │
+│  list_tags; contract stable for years                │
 ├──────────────────────────────────────────────────────┤
 │  Durable layer — fragments are the only truth;       │
 │  tags and every index are rebuildable caches         │
 └──────────────────────────────────────────────────────┘
 ```
 
-The analogy is a file system: the durable layer is bytes on disk, the core is the syscall interface, plugins are userland programs. We borrow exactly one thing — _everything derives from the bytes; tools live outside the kernel_ — and deliberately not hierarchy, directories, or permissions. Fragments stay flat.
+The analogy is a file system: the durable layer is bytes on disk, the core is the syscall interface. We borrow exactly one thing — _everything derives from the bytes_ — and deliberately not hierarchy, directories, or permissions. Fragments stay flat.
 
 ### The placement test
 
-> **Remove it. Is what remains still a memory system?** Yes → plugin. No → core.
+> **Does the owner have a reason to turn it off or tune it?** Yes → a feature with a setting. No → always on, or removed.
 
-|                                  | Without it      | Layer  |
-| -------------------------------- | --------------- | ------ |
-| `remember` / `revise` / `forget` | cannot write    | core   |
-| `recall`                         | cannot remember | core   |
-| tag listing                      | tags drift      | plugin |
-| ranking associations             | noisier         | plugin |
-| model-based relevance filtering  | noisier         | plugin |
+A reason is something the owner can weigh: money, latency, how strict a check is. "It might be worse" is not one; that is for the eval to decide, and then the behavior is kept or removed for everyone.
 
-Any future "let's add X" starts here.
+|                                  | Owner's reason to change it | Place     |
+| -------------------------------- | --------------------------- | --------- |
+| `remember` / `revise` / `forget` | none                        | always on |
+| `recall`, tag listing            | none                        | always on |
+| ranking associations             | none                        | always on |
+| length limits                    | how short memories must be  | feature   |
+| model-based relevance filtering  | cost, latency, strictness   | feature   |
+
+Any future "let's add X" starts here. Features are code in this repo, not plugins: there is no registry, no hooks, and no loading ([RFC 0004](rfcs/0004-memory-core.md)).
 
 ## Durable layer
 
@@ -57,93 +56,85 @@ Any future "let's add X" starts here.
 - The durable state is an append-only log of fragment snapshots; `forget` appends a record with no text. The current corpus is its replay. Only the user can delete records, by purging a fragment.
 - Tags are derived from the text at read time and never stored.
 - Every index — tag counts, IDF tables, virtual directories — is a cache computed from the corpus. Deleting it loses nothing.
-- Export and import move the log verbatim — ref, text, time — between instances. Import is a user migrating memory, not an agent writing: it runs core validation but no write hooks, only adds, and is not exposed over MCP.
+- Export and import move the log verbatim — ref, text, time — between instances. Import is a user migrating memory, not an agent writing: it runs core validation but not the owner's length limits, only adds, and is not exposed over MCP.
 
 ## Core
 
 Four tools, the minimal complete operation set of a memory: write, change, forget, bring back.
 
 - **The contract** — tool names, input schemas, output shape, field meanings — is meant to hold for years. New fields are additive, with defaults that reproduce prior behavior.
-- **`recall` is a flat list of stages** ([RFC 0002](rfcs/0002-recall-contract.md)). Matching, spreading, and the final cut are built-in stages and always run; plugins add stages under trial. The agent sends only `cue` and `context`.
+- **`recall` is one method** (`RecallService` in `worker/services/recall.ts`): match the cue, spread to associations, rank them, filter if the owner turned the filter on, cut to the result size ([RFC 0002](rfcs/0002-recall-contract.md) fixes the contract). The agent sends only `cue` and `context`.
 - **`recall` returns one list**: cue matches first, then associations. An item's `via` (the shared anchors) is both its kind and the reason it was associated. `truncated` means a more specific cue would bring back memories that were left out.
-- **Core carries information it does not use.** `context` (what the agent is doing) is accepted and ignored by core, so read-path plugins can judge relevance against the situation. Carrying is core; using is policy.
-- **Core keeps an absolute safety ceiling; policy lives in plugins.** A disabled or failing plugin can never let an unbounded fragment in. Tool descriptions carry no instance-specific numbers; warnings and rejections do.
+- **Core carries information only a feature uses.** `context` (what the agent is doing) is accepted on every recall; only the relevance filter reads it.
+- **Core keeps an absolute safety ceiling; the owner's limits sit under it.** No setting can let an unbounded fragment in. Tool descriptions carry no instance-specific numbers; warnings and rejections do.
 
-## Plugins
-
-### Kinds
-
-- **Policy plugins** fill hooks. They add a recall stage, and warn on or reject writes.
-- **Tool plugins** add agent-visible tools. A tool marked `readOnlyHint` is shown to agents granted `memory:read`; any other tool needs `memory:write`.
-
-A plugin may do both. Plugins are a compile-time registry: no dynamic loading, no inter-plugin dependency, no lifecycle, no event bus. The types are in `contract/plugin.ts`; hooks are added when a plugin first needs one.
-
-A plugin is how a recall stage is tried. It later becomes built in or is removed.
-
-### Pipelines
-
-Recall:
+## Recall
 
 ```
-match → spread → plugin stages → output        (worker/recall/pipeline.ts)
+match → spread → rank → relevance filter (if on) → cut to 10
 ```
 
-Each stage receives the previous stage's output and returns refs, so stages chain: rank first, then filter. A disabled plugin's stage is skipped. Each stage owns its bounds; only the output stage knows the result size. The host enforces what no stage is trusted with:
+Each step is a typed function with its own bounds: spreading seeds from the first 10 matches and adds at most 100 associations; the filter judges at most 40. Only the cut knows the result size. `truncated` is set when a step drops a cue match; a dropped association is not reported, since a better cue does not bring it back. A new step is a new function call here, kept if the eval shows it helps.
 
-- Text comes from the corpus. The host resolves refs against a snapshot taken when the recall starts and ignores unknown ones.
-- `truncated` only goes up. The host ORs the stages' cut reports.
-- The result has a safety ceiling. A correct pipeline never reaches it.
-
-The host does not cap what flows between stages.
-
-Write path:
+## Write path
 
 ```
-core validation → write hooks, in parallel → any rejection: store nothing, return all reasons
-                                           → otherwise: store, return with warnings
+core validation → the owner's length limits → too long: store nothing, return the reason
+                                            → otherwise: store, return with any warning
 ```
 
-Write hooks are independent checks, so order does not matter and results are aggregated. Rejection reasons must be actionable enough for the agent to fix its input in one retry.
+Rejection reasons must be actionable enough for the agent to fix its input in one retry. Import is a user migrating memory: it runs core validation only.
 
-### Failure
+## Failure
 
-The plugin chooses how it fails, because only it knows whether not running means _a noisier result_ or _unsafe to proceed_.
+A feature that judges candidates fails the call rather than passing on what it did not check: an unfiltered list would read as a checked one. It retries within its own deadline first, and its error says whether retrying the call can help (`retry`: HTTP 503 or 502).
 
-- **Fail** (default) — an ordinary exception. Logged; the hook acts as identity and the pipeline continues. A broken plugin must never cost the user their memory.
-- **Die** — `PluginAbortError(reason)`. The pipeline stops and the call returns an error naming the plugin. On the write path nothing is stored.
-
-A recall stage that judges candidates dies rather than fails: passing on what it did not judge would make an unchecked list look checked. It retries within its own deadline first, and its reason says whether retrying the call can help.
-
-Hooks that run after a write cannot abort: the fragment is already stored, and an error would mislead the agent.
-
-### Boundaries
+## Boundaries
 
 ```
-plugins → contract, lib ← worker        worker → plugins (registry)
+client ──────────────▶ contract, lib
+worker ──▶ core ─────▶ contract, lib
 ```
 
-`contract/` holds types both sides agree on; `lib/` holds rules both sides must compute the same way. `contract/`, `lib/`, and `plugins/` never import `worker/` or `client/`; lint enforces it. Plugin-defined values (configs, schemas, tool output) cross the Durable Object boundary as opaque JSON.
+`contract/` holds types both sides agree on; `lib/` holds rules both sides must compute the same way, including the analyzer the core indexes with. They never import `core/`, `worker/`, or `client/`.
 
-Plugins do **not** extend core tool inputs. A policy plugin works with what the core call already carries; a plugin that needs more input is a tool plugin with its own tool. The same call must never fail on one instance and succeed on another because of configuration.
+`core/` is the memory core: the fragment log, its search and anchor indexes, and untyped metadata by key, in one Durable Object per memory space. It knows nothing of recall policy, settings, models, or HTTP, and apps reach it only through `core/index.ts` ([RFC 0004](rfcs/0004-memory-core.md)).
+
+`worker/` is laid out as routes, services, and clients:
+
+```
+worker/
+  index.ts      the app: security middleware, mounted routes, the error boundary
+  routes/       one Hono app per resource, the MCP server and its tools, and
+                problem.ts, where a failure's code becomes an HTTP status
+  services/     the rules: MemoryService (every call to a memory space, with
+                the length limits), recall policy, the owner's settings
+  clients/      outside services: Jev on Workers AI, Resend
+  middlewares/  sign-in: a browser session for /api, a bearer token for /mcp
+  lib/          Better Auth setup, openMemory (the only use of the MEMORY
+                binding), the dev corpus
+  db/           the D1 schema Better Auth uses
+  errors.ts     the Worker's error values: too long, invalid settings, relevance unavailable
+  types.ts      what the sign-in middlewares hand to routes in c.var
+```
+
+Routes call services; services hold the rules and import no HTTP or platform API. Every call to a memory space goes through `MemoryService` (`c.var.memory`), so none skips the Worker's rules; only `worker/lib/memory.ts` touches the `MEMORY` binding. Bindings come from the global `env` of `cloudflare:workers`; only per-request values (the caller's MemoryService and scopes) travel in `c.var`.
+
+Failures are values (`contract/result.ts`) with a canonical `code`, a `reason`, and a `message` written where they are made ([RFC 0004](rfcs/0004-memory-core.md)). Routes `unwrap` results; `worker/routes/problem.ts` maps only codes to statuses: `invalid` 422, `not-found` 404, `unavailable` 503 with `Retry-After`, or 502 when retrying cannot help. Lint enforces all of these boundaries.
+
+Features do **not** extend core tool inputs. The same call must never fail on one instance and succeed on another because of a setting's shape; settings change result quality, not the calling convention.
 
 ## Invariants
 
-1. **Fragments are the only truth.** Plugins see a read-only corpus. To change anything they go through the same write path the agent uses.
+1. **Fragments are the only truth.** Recall reads a snapshot of the corpus and never writes.
 2. **Model judgments are never written to the durable layer.**
-3. **The core contract does not change because a plugin is on.** Plugins change result quality, not the calling convention.
-4. **Tool plugins are additive.** They cannot override, shadow, or redefine a core tool.
-5. **Policy hooks apply only to core `recall` and the core write path.** Tool plugin output does not pass through them.
-6. **The agent cannot change instance configuration.** Configuration is not exposed over MCP, and the agent's credential reaches only MCP: configuration and credential management need the user's own session. An injected agent cannot switch off its own guardrails.
+3. **The core contract does not change because a feature is on.** Features change result quality, not the calling convention.
+4. **The agent cannot change settings.** Settings are not exposed over MCP, and the agent's credential reaches only MCP: settings and credential management need the user's own session. An injected agent cannot switch off its own guardrails.
 
-## Per-instance configuration
+## Per-instance settings
 
-- Stored per instance, separate from fragments, one row per plugin.
-- A row is an explicit user choice. No row means follow the plugin's defaults, so improved defaults reach every untouched instance. Reset deletes the row.
-- A stored value that no longer parses falls back to defaults and is shown as invalid; it never takes the instance down. Config schemas evolve additively.
-- Concurrent edits are detected, not merged.
+- One typed object (`contract/settings.ts`), kept as the `settings` metadata document in the memory object, separate from fragments.
+- A missing field means its default, so a document saved before a field existed still loads, and a field that no longer parses falls back to its default on its own; it never takes the instance down.
+- `PATCH /api/settings` takes a JSON Merge Patch: given fields replace stored ones, `null` returns a field to its default. The last save of a field wins.
 - Changes apply on the next request.
-- Default configuration is the minimal instance for a good-enough model.
-
-## Open questions
-
-- How plugin annotations on a recall item (a score, a relevance probability) are typed. Deferred until a plugin needs one.
+- The defaults are the minimal instance for a good-enough model.

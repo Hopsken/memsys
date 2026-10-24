@@ -1,9 +1,23 @@
+import { inMemory } from "@core";
 import { describe, expect, it } from "vitest";
 
-import type { Fragment } from "../../contract/memory";
-import { extractAnchors } from "../../lib/anchor";
-import { terms } from "../../worker/recall/match";
-import { recall } from "../../worker/recall/pipeline";
+import type { Fragment } from "@contract/memory";
+import { terms } from "@lib/analyzer";
+import { extractAnchors } from "@lib/anchor";
+
+import { RecallService, recallInput } from "../../worker/services/recall";
+
+const noJudge = () => Promise.reject(new Error("The relevance filter is off"));
+
+const recall = async (corpus: Iterable<Fragment>, raw: { cue: string }) => {
+  const result = await new RecallService(inMemory(corpus), noJudge).recall(
+    recallInput.parse(raw)
+  );
+  if (!result.ok) {
+    throw new Error(result.error.reason);
+  }
+  return result.value;
+};
 
 const item = (ref: string, fragment: string, day = "01"): Fragment => ({
   at: `2026-01-${day}T00:00:00.000Z`,
@@ -130,7 +144,6 @@ describe("Recall", () => {
         "vite dev server"
       )
     ).resolves.toStrictEqual(["phrase", "words", "partial"]);
-    // gamma is rarer than beta, so it weighs more.
     await expect(
       matched(
         [
@@ -143,9 +156,9 @@ describe("Recall", () => {
     ).resolves.toStrictEqual(["rare", "common"]);
   });
 
-  it("falls back to phrase matching when the cue has only stopwords", async () => {
+  it("finds nothing for a cue of only stopwords (RFC 0004)", async () => {
     const corpus = [item("a", "To be or not to be"), item("b", "Or else")];
-    await expect(matched(corpus, "to be")).resolves.toStrictEqual(["a"]);
+    await expect(matched(corpus, "to be")).resolves.toStrictEqual([]);
   });
 
   it.each([
@@ -216,8 +229,6 @@ describe("Recall", () => {
     });
   });
 
-  // A dropped association comes back through its own cue or anchor, not a
-  // more specific cue, so only a dropped cue match sets `truncated`.
   it.each([
     [10, 0, false],
     [11, 0, true],

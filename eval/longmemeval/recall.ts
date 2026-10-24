@@ -1,15 +1,3 @@
-// Recall phase (RFC 0003): Pi gets each question of a corpus in a fresh
-// conversation with only list_tags and recall, and a budget of recall
-// rounds. Every recall call is recorded and scored against the corpus's
-// evidence labels; the answer is graded as a secondary metric.
-//
-//   node eval/longmemeval/recall.ts --corpus <name> --run <name> [--set smoke]
-//
-// Every conversation is appended to hub/runs/<run>/recalls.jsonl as it ends;
-// results.json and results.md are written at the end. A conversation already
-// in recalls.jsonl is not run again, so an interrupted run continues; delete
-// results.json to score again.
-
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { appendFile, mkdir, writeFile } from "node:fs/promises";
@@ -39,9 +27,9 @@ import {
   readLines,
   SERVER,
   serverInstructions,
-  setPlugins,
+  setSettings,
 } from "./server.ts";
-import type { PluginSettings } from "./server.ts";
+import type { SettingsMergePatch } from "./server.ts";
 
 const { values: args } = parseArgs({
   options: {
@@ -49,15 +37,11 @@ const { values: args } = parseArgs({
     corpus: { type: "string" },
     model: { default: "opencode-go/deepseek-v4.1-flash", type: "string" },
     only: { type: "string" },
-    // Repeatable: `jev` turns a plugin on with its defaults,
-    // `jev={"strictness":"low"}` with this config over them, `idf=off` off.
-    // Plugins not named stay at their defaults.
-    plugin: { default: [], multiple: true, type: "string" },
     repeats: { default: "3", type: "string" },
     rounds: { default: "5", type: "string" },
     run: { type: "string" },
-    // Run only this set's questions of the corpus.
     set: { type: "string" },
+    settings: { default: "{}", type: "string" },
     thinking: { default: "low", type: "string" },
   },
 });
@@ -67,30 +51,13 @@ if (CORPUS === undefined || RUN === undefined) {
 }
 const RUN_DIR = path.join(RUNS_DIR, RUN);
 const REPEATS = Number(args.repeats);
-const PLUGINS: PluginSettings = Object.fromEntries(
-  args.plugin
-    .map((arg) => {
-      const at = arg.indexOf("=");
-      const name = at === -1 ? arg : arg.slice(0, at);
-      const value = at === -1 ? undefined : arg.slice(at + 1);
-      if (value === "off") {
-        return [name, false] as const;
-      }
-      return [
-        name,
-        value === undefined
-          ? {}
-          : z.record(z.string(), z.json()).parse(JSON.parse(value)),
-      ] as const;
-    })
-    .toSorted(([a], [b]) => a.localeCompare(b))
-);
-// Plugin settings live in the memory space, so each setting gets its own
-// spaces: runs with different plugins can run side by side.
-const pluginKey =
-  args.plugin.length === 0
+const SETTINGS: SettingsMergePatch = z
+  .record(z.string(), z.json())
+  .parse(JSON.parse(args.settings));
+const settingsKey =
+  Object.keys(SETTINGS).length === 0
     ? ""
-    : `p${createHash("sha256").update(JSON.stringify(PLUGINS)).digest("hex").slice(0, 8)}-`;
+    : `s${createHash("sha256").update(JSON.stringify(SETTINGS)).digest("hex").slice(0, 8)}-`;
 const ROUNDS = Number(args.rounds);
 
 const { dir: CORPUS_DIR, questions: all } = await loadCorpus(
@@ -112,10 +79,10 @@ await writeFile(
     {
       corpus: CORPUS,
       model: args.model,
-      plugins: PLUGINS,
       recallRounds: ROUNDS,
       repeats: REPEATS,
       set: args.set ?? null,
+      settings: SETTINGS,
       thinking: args.thinking,
     },
     null,
@@ -123,9 +90,6 @@ await writeFile(
   )
 );
 
-// One memory space per corpus and question, filled from memory.ndjson the
-// first time any run needs it. The import keeps the redated timestamps, and
-// a space that has the records already skips them.
 const corpusSize: Record<string, number> = {};
 const prepare = async (id: string) => {
   const records = await readLines(
@@ -133,8 +97,8 @@ const prepare = async (id: string) => {
     corpusRecord
   );
   corpusSize[id] = currentMemories(records).size;
-  const space = `c-${CORPUS}-${pluginKey}${id}`;
-  await setPlugins(space, PLUGINS);
+  const space = `c-${CORPUS}-${settingsKey}${id}`;
+  await setSettings(space, SETTINGS);
   const existing = await exportLog(space);
   if (existing.length !== records.length) {
     await importLog(space, records);
@@ -148,7 +112,6 @@ const prepare = async (id: string) => {
   return space;
 };
 
-// One line per conversation, in the order they finished.
 const RECALLS = path.join(RUN_DIR, "recalls.jsonl");
 const conversation = piRun.extend({ id: z.string(), repeat: z.number() });
 const conversations = await readLines(RECALLS, conversation);
@@ -161,7 +124,6 @@ await pool(questions, Number(args.concurrency), async (q) => {
       if (ran.has(`${q.id}/${k}`)) {
         continue;
       }
-      // Repeats of one question run one after another on purpose.
       // oxlint-disable-next-line no-await-in-loop
       const run = await runPi({
         dir: path.join(RUN_DIR, ".pi", q.id),
@@ -184,8 +146,6 @@ await pool(questions, Number(args.concurrency), async (q) => {
   }
 });
 
-// Score every conversation of the chosen questions. Conversations already in
-// results.json keep their score; Jev grades the new answers in one pass.
 const RESULTS = path.join(RUN_DIR, "results.json");
 const scores: Score[] = existsSync(RESULTS)
   ? await readJson(RESULTS, z.array(score))
@@ -213,15 +173,14 @@ try {
 }
 scores.sort((a, b) => a.id.localeCompare(b.id) || a.repeat - b.repeat);
 await writeFile(RESULTS, JSON.stringify(scores, null, 2));
-// Over every question with scores, so that --only does not shrink the report.
 const markdown = report(all, scores, {
   corpus: CORPUS,
   corpusSize,
   model: args.model,
-  plugins: PLUGINS,
   recallRounds: ROUNDS,
   repeats: REPEATS,
   run: RUN,
+  settings: SETTINGS,
   thinking: args.thinking,
 });
 await writeFile(path.join(RUN_DIR, "results.md"), markdown);

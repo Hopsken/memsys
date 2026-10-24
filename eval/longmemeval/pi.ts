@@ -1,6 +1,3 @@
-// One Pi conversation with memsys as its only tools, read from Pi's JSON
-// event stream (docs/json.md in the Pi package).
-
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -11,15 +8,12 @@ import { z } from "zod";
 export const toolCall = z.object({
   args: z.json(),
   isError: z.boolean(),
-  // Without the mcp__memsys__ prefix: remember, recall, revise, forget.
   name: z.string(),
-  // The tool result's text blocks, joined.
   result: z.string(),
 });
 export type ToolCall = z.infer<typeof toolCall>;
 
 export const piRun = z.object({
-  // The last assistant text.
   answer: z.string(),
   attempts: z.number(),
   cost: z.number(),
@@ -28,6 +22,8 @@ export const piRun = z.object({
 });
 export type PiRun = z.infer<typeof piRun>;
 
+const MCP_RESOURCE_TOOLS = "list_mcp_*,read_mcp_resource";
+
 const block = z.looseObject({ text: z.string().optional(), type: z.string() });
 const texts = (blocks: z.infer<typeof block>[]) =>
   blocks
@@ -35,7 +31,6 @@ const texts = (blocks: z.infer<typeof block>[]) =>
     .map((item) => item.text ?? "")
     .join("");
 
-// The events this harness reads; Pi emits others, which are skipped.
 const event = z.discriminatedUnion("type", [
   z.object({
     args: z.json(),
@@ -61,9 +56,6 @@ const event = z.discriminatedUnion("type", [
       errorMessage: z.string().optional(),
       role: z.string(),
       stopReason: z.string().optional(),
-      // The level Pi ran at. A level the provider lacks is moved to the
-      // nearest one it has, silently: opencode-go/deepseek-v4.1-flash has no
-      // medium and runs high instead.
       thinkingLevel: z.string().optional(),
       usage: z.object({ cost: z.object({ total: z.number() }) }).optional(),
     }),
@@ -126,21 +118,16 @@ const summarize = (events: PiEvent[]) => {
 };
 
 export interface PiOptions {
-  // Pi's config directory for this conversation; it holds mcp.json.
   dir: string;
   mcpUrl: string;
   model: string;
   prompt: string;
-  // Read-only: only list_tags and recall are exposed, and recall is refused
-  // past this many calls (budget.ts). Unset exposes every memsys tool.
   recallBudget?: number;
-  // Prepended to the prompt, as Pi does with piped input.
   stdin: string;
   system: string;
   thinking: string;
 }
 
-// Memsys tool names without the mcp__memsys__ prefix, as `tools` has them.
 export const READ_TOOLS = new Set(["list_tags", "recall"]);
 
 const runOnce = async (
@@ -169,7 +156,6 @@ const runOnce = async (
       "json",
       "--print",
       "--no-session",
-      // Nothing from this machine: no files, shell, context, or extensions.
       "--no-builtin-tools",
       "--no-context-files",
       "--no-skills",
@@ -178,9 +164,8 @@ const runOnce = async (
       "-e",
       "builtin:mcp",
       ...(readOnly ? ["-e", path.join(import.meta.dirname, "budget.ts")] : []),
-      // Pi's own MCP tools would let the agent read server resources.
       "--exclude-tools",
-      "list_mcp_*,read_mcp_resource",
+      MCP_RESOURCE_TOOLS,
       "--model",
       options.model,
       "--thinking",
@@ -211,8 +196,6 @@ const runOnce = async (
   const { answer, cost, errors, settled, thinking, tools } = summarize(
     parseEvents(stdout)
   );
-  // A corpus or run is named by its thinking level, so the level must be the
-  // one that ran. A retry would not change it.
   if (thinking !== undefined && thinking !== options.thinking) {
     throw new Error(
       `${options.model} ran at thinking ${thinking}, not ${options.thinking}; pick a level the provider has`
@@ -232,14 +215,11 @@ const runOnce = async (
 
 const ATTEMPTS = 3;
 
-// A failed conversation is run again from the start, up to three times. Its
-// earlier writes stay in memory, as they would for a real agent.
 export const runPi = async (options: PiOptions): Promise<PiRun> => {
   let result = await runOnce(options);
   let attempts = 1;
   while (result.error !== undefined && attempts < ATTEMPTS) {
     attempts += 1;
-    // Retries are sequential by design.
     // oxlint-disable-next-line no-await-in-loop
     result = await runOnce(options);
   }

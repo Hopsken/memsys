@@ -1,6 +1,6 @@
 ## Purpose
 
-This is an overview of what memsys is for, zoomed out enough that it survives while the exact tools, ranking rules, and plugins shift over time.
+This is an overview of what memsys is for, zoomed out enough that it survives while the exact tools, ranking rules, and features shift over time.
 
 ### Charter
 
@@ -70,22 +70,22 @@ Push is a convention, not a mechanism. memsys's server instructions and tool des
 
 - **Durable store.** Fragments. Tags and every index are derived caches that can be deleted and rebuilt.
 - **Core.** Four tools: `remember`, `revise`, `forget`, `recall`. The minimal complete set — write, change, forget, bring back. Remove any one and it stops being a memory system.
-- **Plugins.** Everything else. Policy plugins extend how `recall` ranks and filters and how writes are checked; tool plugins add capabilities. Plugins read fragments; they never modify them except through the core write tools.
-- **Per-instance configuration.** Which plugins are on and how they are tuned belongs to the user's instance, like temperature belongs to a harness. The agent cannot see or change it.
+- **Features.** Everything else: how `recall` ranks and filters, how writes are checked, tools such as listing tags. Features read fragments; they never modify them except through the core write tools.
+- **Per-instance settings.** Which features are on and how they are tuned belongs to the user's instance, like temperature belongs to a harness. The agent cannot see or change them.
 
-The test for placing something: _if we remove it, is this still a memory system?_ Yes → plugin. No → core.
+The test for placing something: _if we remove it, is this still a memory system?_ Yes → a feature, which may get a setting when the owner has a reason to change it. No → core.
 
 ### Stability Promise
 
-The core contract — four tools, their inputs, the meaning of their outputs — is meant to hold for years. New capability arrives as additive fields or as plugins that can be switched off. Configuration is not part of the contract: two instances with different plugins behave differently, but the same agent code runs against both.
+The core contract — four tools, their inputs, the meaning of their outputs — is meant to hold for years. New capability arrives as additive fields or as features that can be switched off. Settings are not part of the contract: two instances with different settings behave differently, but the same agent code runs against both.
 
 ## Not in the Core
 
-The following are not part of the core and are not on by default. They are not ruled out: any of them may arrive as a plugin, provided it leaves the data foundation untouched.
+The following are not part of the core and are not on by default. They are not ruled out: any of them may arrive as a feature, provided it leaves the data foundation untouched.
 
 - Vector indices, embeddings
 - Summarization, hierarchical memory, merging fragments into "higher-level knowledge"
 - Reinforcement, access history, decay
 - Model judgment on the read or write path
 
-The condition is the same for all of them: fragments remain the single source of truth, and whatever the plugin computes is a derived cache that can be deleted and rebuilt. An embedding index is fine if it can be thrown away; it is not fine if the fragments stop being sufficient without it. A summarizer that proposes a merged fragment for the agent to `remember` is fine; one that silently rewrites fragments is not.
+The condition is the same for all of them: fragments remain the single source of truth, and whatever the feature computes is a derived cache that can be deleted and rebuilt. An embedding index is fine if it can be thrown away; it is not fine if the fragments stop being sufficient without it. A summarizer that proposes a merged fragment for the agent to `remember` is fine; one that silently rewrites fragments is not.

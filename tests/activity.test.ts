@@ -1,7 +1,8 @@
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
-import type { ActivityPage, Fragment } from "../contract/memory";
+import type { ActivityPage, Fragment } from "@contract/memory";
+
 import worker from "../worker/index";
 import { call, content, ORIGIN, post, useAuth } from "./helpers";
 import type { User } from "./helpers";
@@ -76,7 +77,6 @@ describe("Activity", () => {
 
   it("pages through records written at the same time without losing any", async () => {
     const user = await signIn();
-    // One plain-text import writes every line at the same time.
     const lines = Array.from({ length: 60 }, (_, index) => `Line ${index}`);
     await worker.fetch(
       new Request(`${ORIGIN}/api/import`, {

@@ -1,7 +1,7 @@
+import { listFragments } from "@core/inputs";
 import { describe, expect, it } from "vitest";
 
-import type { Fragment } from "../../contract/memory";
-import { listFragments } from "../../worker/memory";
+import type { Fragment } from "@contract/memory";
 
 const item = (
   ref: string,
@@ -28,7 +28,6 @@ describe("Fragment pages", () => {
       fragments: [tied[49], oldest],
       nextCursor: null,
     });
-    // A deleted cursor row and a new head row must not shift the next page.
     const changed = corpus.filter(
       (row) => row.ref !== first.fragments.at(-1)?.ref
     );

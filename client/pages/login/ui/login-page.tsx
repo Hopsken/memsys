@@ -18,8 +18,6 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Logo } from "@/shared/ui/logo";
 
-// Better Auth error codes, in words a person signing in can act on. Other
-// errors, such as an address outside the allowlist, keep the worker's text.
 const MESSAGES = new Map([
   ["INVALID_OTP", "That code isn’t right. Check it and try again."],
   ["OTP_EXPIRED", "That code has expired. Send a new one."],
@@ -29,8 +27,7 @@ const MESSAGES = new Map([
   ],
 ]);
 
-// Better Auth answers with `{ data, error }`; mutations want a thrown error.
-const check = async (
+const throwBetterAuthError = async (
   result: Promise<{
     error: {
       code?: string | undefined;
@@ -50,13 +47,10 @@ const check = async (
   }
 };
 
-// Seconds before another code may be requested.
 const RESEND_DELAY = 60;
 
-// The development account; .dev.vars.example allows it to sign in.
 const DEV_EMAIL = "dev@memsys.test";
 
-// Dev builds only: signs in without a code.
 const DevSignIn = () =>
   import.meta.env.DEV ? (
     <a
@@ -76,7 +70,6 @@ const Problem = ({ text }: { text: string }) => (
 export const LoginView = () => {
   const session = authClient.useSession();
   const navigate = useNavigate();
-  // An app sent the user here to sign in; Better Auth sends them on to it.
   const app = useConnectingApp();
   const { forApp } = app;
   const [email, setEmail] = useState("");
@@ -92,7 +85,7 @@ export const LoginView = () => {
   }, [cooldown]);
   const send = useMutation({
     mutationFn: (address: string) =>
-      check(
+      throwBetterAuthError(
         authClient.emailOtp.sendVerificationOtp({
           email: address,
           type: "sign-in",
@@ -106,7 +99,9 @@ export const LoginView = () => {
   });
   const verify = useMutation({
     mutationFn: (otp: string) =>
-      check(authClient.signIn.emailOtp({ email: sentTo ?? "", otp })),
+      throwBetterAuthError(
+        authClient.signIn.emailOtp({ email: sentTo ?? "", otp })
+      ),
     onSuccess: () => (forApp ? undefined : navigate("/", { replace: true })),
   });
 

@@ -2,26 +2,25 @@ import { env } from "cloudflare:workers";
 import type { JSONValue } from "hono/utils/types";
 import { describe, expect, it } from "vitest";
 
-import type { Fragment } from "../contract/memory";
-import { JEV_UNAVAILABLE } from "../plugins/jev";
+import type { Fragment } from "@contract/memory";
+
+import { RELEVANCE_UNAVAILABLE } from "../worker/errors";
 import worker from "../worker/index";
 import {
   call,
   content,
   list,
-  memoryOf,
   post,
   useAuth,
   withVersions,
+  patchSettings,
 } from "./helpers";
 import type { User } from "./helpers";
 
 const tags = async (user: User) =>
   content<string[]>(await call(user, "list_tags", {}));
 
-// A 2026-07-28 request: no initialize, the protocol version travels on every
-// request in `_meta` and the MCP-Protocol-Version header.
-const modern = (
+const withoutInitialize = (
   user: User,
   method: string,
   params: Record<string, JSONValue> = {},
@@ -101,7 +100,7 @@ describe("Stateless MCP", () => {
 
   it("serves the 2026-07-28 protocol without a handshake", async () => {
     const user = await signIn();
-    const discover = await modern(user, "server/discover");
+    const discover = await withoutInitialize(user, "server/discover");
     expect(discover.status).toBe(200);
     await expect(discover.json()).resolves.toMatchObject({
       result: {
@@ -109,12 +108,12 @@ describe("Stateless MCP", () => {
         supportedVersions: expect.arrayContaining(["2026-07-28"]),
       },
     });
-    const listed = await modern(user, "tools/list");
+    const listed = await withoutInitialize(user, "tools/list");
     const { result } = await listed.json<{
       result: { tools: { name: string }[] };
     }>();
     expect(result.tools.map((tool) => tool.name)).toContain("remember");
-    const remembered = await modern(
+    const remembered = await withoutInitialize(
       user,
       "tools/call",
       {
@@ -129,11 +128,9 @@ describe("Stateless MCP", () => {
     expect(content<Fragment>(tool).fragment).toBe("Modern MCP #test");
   });
 
-  // Clients probe with their newest version and fall back to initialize only
-  // on a 400.
-  it("rejects an unsupported protocol version with 400", async () => {
+  it("rejects an unsupported protocol version with 400, so clients fall back to initialize", async () => {
     const user = await signIn();
-    const response = await modern(
+    const response = await withoutInitialize(
       user,
       "server/discover",
       {},
@@ -174,14 +171,9 @@ describe("Stateless MCP", () => {
   it("fails recall, saying the owner must act, instead of returning unjudged memories", async () => {
     const user = await signIn();
     await call(user, "remember", { fragment: "Judged memory #test" });
-    await memoryOf(user).updatePlugin("jev", {
-      config: { strictness: "medium" },
-      enabled: true,
-      updatedAt: null,
-    });
-    // Tests have no Workers AI binding, which retrying cannot fix.
+    await patchSettings(user, { relevanceFilter: "medium" });
     const failed = await call(user, "recall", { cue: "judged memory" });
-    const owner = `jev: ${JEV_UNAVAILABLE}`;
+    const owner = RELEVANCE_UNAVAILABLE;
     expect({
       isError: failed.isError,
       text: failed.content[0]?.text,

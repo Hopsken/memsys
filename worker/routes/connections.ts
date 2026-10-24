@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 
-import { getAuth } from "../auth";
-import type { AppEnv } from "../auth";
+import { getAuth } from "../lib/better-auth";
+import type { AppEnv } from "../types";
 
 interface Consent {
   clientId: string;
@@ -15,8 +15,6 @@ interface Client {
   name?: string | null;
 }
 
-// Apps the user connected through OAuth, mounted at /api/connections. One
-// consent is one connected app.
 export const connections = new Hono<AppEnv>()
   .get("/", async (c) => {
     c.header("Cache-Control", "no-store");
@@ -52,9 +50,6 @@ export const connections = new Hono<AppEnv>()
       })
     );
   })
-  // Disconnecting also ends the app's refresh tokens, so signing in again is
-  // the only way back. /mcp checks the consent on every call, so access
-  // tokens already issued stop working at once.
   .delete("/:id", async (c) => {
     const { adapter } = await getAuth(c.env).$context;
     const userId = c.get("userId");

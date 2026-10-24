@@ -5,15 +5,12 @@ import {
 import { env } from "cloudflare:workers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getAuth } from "../worker/auth";
 import worker from "../worker/index";
+import { getAuth } from "../worker/lib/better-auth";
 import { ORIGIN, randomIp, useAuth } from "./helpers";
 
-// Each test gets its own env object, so its own Better Auth instance.
 const freshEnv = (): Env => ({ ...env });
 
-// A database where queries naming `table` never settle, like a query
-// canceled along with the request that started it.
 const stallingOn = (table: string): D1Database =>
   new Proxy(env.DB, {
     get: (target, key) => {
@@ -39,7 +36,6 @@ describe(getAuth, () => {
     expect(getAuth(bindings, ctx)).toBe(auth);
     expect(waitUntil).toHaveBeenCalledOnce();
     await waitOnExecutionContext(ctx);
-    // Setup ran through the schema check, whose clean result is now cached.
     const { checkSchema } = await auth.$context;
     expect(checkSchema).toBeDefined();
     expect(checkSchema?.()).toBeUndefined();
@@ -71,10 +67,7 @@ describe(getAuth, () => {
   });
 });
 
-// Kysely lets a SQLite database run one query at a time, across every
-// request in the isolate. On D1 each query stands alone, so none may wait on
-// another request's.
-describe("D1 queries", () => {
+describe("D1 queries, unlike Kysely's one-at-a-time SQLite", () => {
   const signIn = useAuth();
 
   it("answers while another request's query never settles", async () => {

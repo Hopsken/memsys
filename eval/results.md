@@ -19,9 +19,9 @@ Recall, nDCG, and MRR average over cues with hits; noise counts returned items t
 | exact (5) | 1.00 / 8.2 | 1.00 / 8.2 | 1.00 / 0.0 |
 | scattered (9) | 1.00 / 7.9 | 1.00 / 7.9 | 1.00 / 0.9 |
 | morphology (7) | 1.00 / 7.9 | 1.00 / 7.9 | 1.00 / 1.0 |
-| partial (6) | 0.83 / 7.5 | 0.83 / 7.5 | 0.83 / 0.2 |
+| extra-word (6) | 0.83 / 7.5 | 0.83 / 7.5 | 0.83 / 0.2 |
 | association (5) | 1.00 / 7.2 | 1.00 / 7.0 | 1.00 / 0.4 |
-| multi (5) | 1.00 / 7.2 | 1.00 / 7.2 | 1.00 / 2.0 |
+| multi-fragment (5) | 1.00 / 7.2 | 1.00 / 7.2 | 1.00 / 2.0 |
 | semantic (4) | 0.00 / 0.0 | 0.00 / 0.0 | 0.00 / 0.0 |
 | abstain (5) | — / 0.0 | — / 0.0 | — / 0.0 |
 
@@ -50,22 +50,22 @@ Recall, nDCG, and MRR average over cues with hits; noise counts returned items t
 | c19 | morphology | `expiring TestFlight builds` | 1/1 +6 | 1/1 +6 | 1/1 +0 |
 | c20 | morphology | `backup retention` | 1/1 +4 | 1/1 +4 | 1/1 +0 |
 | c21 | morphology | `idempotent alarm handler` | 1/1 +9 | 1/1 +9 | 1/1 +1 |
-| c22 | partial | `vite dev server 403 error` | 1/1 +9 | 1/1 +9 | 1/1 +0 |
-| c23 | partial | `pandas leading zeros bug` | 1/1 +9 | 1/1 +9 | 1/1 +0 |
-| c24 | partial | `colima docker desktop alternative` | 1/1 +9 | 1/1 +9 | 1/1 +0 |
-| c25 | partial | `commit message style` | 1/1 +9 | 1/1 +9 | 1/1 +1 |
-| c26 | partial | `VPN DNS issue` | 1/1 +9 | 1/1 +9 | 1/1 +0 |
-| c27 | partial | `cat's pills` | 0/1 +0 | 0/1 +0 | 0/1 +0 |
+| c22 | extra-word | `vite dev server 403 error` | 1/1 +9 | 1/1 +9 | 1/1 +0 |
+| c23 | extra-word | `pandas leading zeros bug` | 1/1 +9 | 1/1 +9 | 1/1 +0 |
+| c24 | extra-word | `colima docker desktop alternative` | 1/1 +9 | 1/1 +9 | 1/1 +0 |
+| c25 | extra-word | `commit message style` | 1/1 +9 | 1/1 +9 | 1/1 +1 |
+| c26 | extra-word | `VPN DNS issue` | 1/1 +9 | 1/1 +9 | 1/1 +0 |
+| c27 | extra-word | `cat's pills` | 0/1 +0 | 0/1 +0 | 0/1 +0 |
 | c28 | association | `Kyoto` | 2/2 +5 | 2/2 +5 | 2/2 +0 |
 | c29 | association | `wrangler d1 migrations` | 1/1 +9 | 1/1 +8 | 1/1 +2 |
 | c30 | association | `gateway envelope` | 1/1 +7 | 1/1 +7 | 1/1 +0 |
 | c31 | association | `OrderTimeoutTest` | 1/1 +8 | 1/1 +8 | 1/1 +0 |
 | c32 | association | `Durable Object alarms` | 1/1 +7 | 1/1 +7 | 1/1 +0 |
-| c33 | multi | `pnpm` | 2/2 +8 | 2/2 +8 | 2/2 +4 |
-| c34 | multi | `Japan` | 3/3 +5 | 3/3 +5 | 3/3 +0 |
-| c35 | multi | `SwiftData` | 2/2 +8 | 2/2 +8 | 2/2 +2 |
-| c36 | multi | `Workers AI` | 2/2 +8 | 2/2 +8 | 2/2 +0 |
-| c37 | multi | `Durable Objects` | 3/3 +7 | 3/3 +7 | 3/3 +4 |
+| c33 | multi-fragment | `pnpm` | 2/2 +8 | 2/2 +8 | 2/2 +4 |
+| c34 | multi-fragment | `Japan` | 3/3 +5 | 3/3 +5 | 3/3 +0 |
+| c35 | multi-fragment | `SwiftData` | 2/2 +8 | 2/2 +8 | 2/2 +2 |
+| c36 | multi-fragment | `Workers AI` | 2/2 +8 | 2/2 +8 | 2/2 +0 |
+| c37 | multi-fragment | `Durable Objects` | 3/3 +7 | 3/3 +7 | 3/3 +4 |
 | c38 | semantic | `package manager` | 0/1 +0 | 0/1 +0 | 0/1 +0 |
 | c39 | semantic | `antibiotics` | 0/1 +0 | 0/1 +0 | 0/1 +0 |
 | c40 | semantic | `evening coffee` | 0/1 +0 | 0/1 +0 | 0/1 +0 |

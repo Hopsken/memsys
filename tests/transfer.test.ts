@@ -2,7 +2,8 @@ import { evictDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
-import type { Fragment, ImportResult, LogRecord } from "../contract/memory";
+import type { Fragment, ImportResult, LogRecord } from "@contract/memory";
+
 import worker from "../worker/index";
 import { list, memoryOf, ORIGIN, post, useAuth } from "./helpers";
 import type { User } from "./helpers";
@@ -15,12 +16,11 @@ const exportFile = (user: User, query = "") =>
     env
   );
 
-// Decoded directly: workerd warns when .text() reads a non-text type.
-const read = async (response: Response) =>
+const textOfAnyMediaType = async (response: Response) =>
   new TextDecoder().decode(await response.arrayBuffer());
 
 const records = async (user: User, query = "") => {
-  const text = await read(await exportFile(user, query));
+  const text = await textOfAnyMediaType(await exportFile(user, query));
   return text
     .split("\n")
     .filter(Boolean)
@@ -76,7 +76,7 @@ describe("Fragment export and import", () => {
       ),
       "content-type": "application/x-ndjson; charset=utf-8",
     });
-    const file = await read(response);
+    const file = await textOfAnyMediaType(response);
     expect(file.split("\n")).toHaveLength(3);
 
     const target = await signIn();
@@ -88,7 +88,6 @@ describe("Fragment export and import", () => {
       skipped: 0,
     });
     const [before, after] = await Promise.all([list(source), list(target)]);
-    // Current fragments only: each arrives as a single version.
     expect(after).toStrictEqual({
       ...before,
       fragments: before.fragments.map((item) => ({ ...item, versions: 1 })),
@@ -116,7 +115,10 @@ describe("Fragment export and import", () => {
     ]);
 
     const target = await signIn();
-    const imported = await importFile(target, await read(response));
+    const imported = await importFile(
+      target,
+      await textOfAnyMediaType(response)
+    );
     await expect(imported.json()).resolves.toStrictEqual({
       conflicts: [],
       imported: 1,
@@ -157,7 +159,6 @@ describe("Fragment export and import", () => {
       "New one",
       "Same text elsewhere",
     ]);
-    // A known ref stays known after the object restarts.
     await evictDurableObject(memoryOf(user));
     const again = await importFile(
       user,
@@ -188,7 +189,7 @@ describe("Fragment export and import", () => {
     ]);
   });
 
-  it("bypasses plugin write limits but not the core ceiling", async () => {
+  it("bypasses the owner's length limits but not the core ceiling", async () => {
     const user = await signIn();
     const long = await importFile(user, "x".repeat(800), "text/plain");
     await expect(long.json()).resolves.toMatchObject({ imported: 1 });

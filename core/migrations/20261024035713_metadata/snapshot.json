@@ -1,0 +1,126 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "c80f056a-ea14-4648-ae30-021d0f8c3b5c",
+  "prevIds": [
+    "0291f8b4-2722-42b1-8f9f-435800f228fb"
+  ],
+  "ddl": [
+    {
+      "name": "metadata",
+      "entityType": "tables"
+    },
+    {
+      "name": "records",
+      "entityType": "tables"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "key",
+      "entityType": "columns",
+      "table": "metadata"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "value",
+      "entityType": "columns",
+      "table": "metadata"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "at",
+      "entityType": "columns",
+      "table": "records"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "by",
+      "entityType": "columns",
+      "table": "records"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "fragment",
+      "entityType": "columns",
+      "table": "records"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "op",
+      "entityType": "columns",
+      "table": "records"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "ref",
+      "entityType": "columns",
+      "table": "records"
+    },
+    {
+      "columns": [
+        "ref",
+        "at"
+      ],
+      "nameExplicit": false,
+      "name": "records_pk",
+      "entityType": "pks",
+      "table": "records"
+    },
+    {
+      "columns": [
+        "key"
+      ],
+      "nameExplicit": false,
+      "name": "metadata_pk",
+      "table": "metadata",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        {
+          "value": "at",
+          "isExpression": false
+        },
+        {
+          "value": "ref",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "records_at_ref_idx",
+      "entityType": "indexes",
+      "table": "records"
+    }
+  ],
+  "renames": []
+}

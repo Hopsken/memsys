@@ -1,19 +1,18 @@
+import { inMemory } from "@core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import type { Fragment, RecallItem } from "../../contract/memory";
-import type { Ctx, Json, StageOutput } from "../../contract/plugin";
+import type { Fragment, Json, RecallItem } from "@contract/memory";
+import type { Strictness } from "@contract/settings";
+
 import {
   JEV_ATTEMPTS,
-  JEV_RETRY,
-  JEV_UNAVAILABLE,
-  JEV_BUDGET,
   JEV_MODEL,
   JEV_TIMEOUT_MS,
   jev,
-} from "../../plugins/jev";
-import { createCtx } from "../../worker/plugin-host";
-import { runRecall } from "../../worker/recall/host";
+} from "../../worker/clients/jev";
+import type { Ai } from "../../worker/clients/jev";
+import { JUDGE_BUDGET, RecallService } from "../../worker/services/recall";
 
 const item = (ref: string, fragment: string, via?: string[]): RecallItem => ({
   at: "",
@@ -22,14 +21,17 @@ const item = (ref: string, fragment: string, via?: string[]): RecallItem => ({
   ...(via && { via }),
 });
 
-// The seed corpus's ambiguity case: "migration" means databases or birds.
 const items = [
   item("f7", "Run database migrations with wrangler d1 migrations apply"),
   item("f2", "D1's primary region is in US West", ["d1"]),
   item("f8", "Bird migration season is autumn", ["migration"]),
   item("fx", "Sometimes unanswered by the model", ["d1"]),
 ];
-const corpus = new Map<string, Fragment>(items.map((row) => [row.ref, row]));
+const corpus: Fragment[] = items.map(({ at, fragment, ref }) => ({
+  at,
+  fragment,
+  ref,
+}));
 const input = { context: "Deploying the D1 schema", cue: "migration" };
 const noul = (scores: Record<string, number>) => ({
   answers: Object.fromEntries(
@@ -41,16 +43,14 @@ const noul = (scores: Record<string, number>) => ({
   model: "jev-1.13.0",
 });
 
-type Run = Ctx<Json>["ai"]["run"];
+type Run = Ai["run"];
 
-// The refs a request asks about.
 const asked = (request: Json | undefined) =>
   Object.keys(
     z.object({ questions: z.record(z.string(), z.json()) }).parse(request)
       .questions
   );
 
-// Answers every question it is asked with the same score.
 const approveAll: Run = (_model, request) =>
   Promise.resolve(
     noul(Object.fromEntries(asked(request).map((ref) => [ref, 0.9])))
@@ -59,18 +59,32 @@ const approveAll: Run = (_model, request) =>
 const SCORES = { f2: 0.6, f7: 0.9, f8: 0.35, fx: 0.15 };
 const scored = () => Promise.resolve(noul(SCORES));
 
-const stage = (run: Run, rows: RecallItem[] = items, config: Json = {}) => {
-  if (!jev.recall) {
-    throw new Error("jev has no recall stage");
-  }
-  return jev.recall(createCtx(config, { ai: { run }, corpus }), rows, input);
-};
+const stage = (
+  run: Run,
+  rows: RecallItem[] = items,
+  strictness: Strictness = "medium"
+) =>
+  new RecallService(inMemory([]), jev({ run })).keepOnlyJudgedRelevant(
+    rows,
+    input,
+    strictness
+  );
 
-const refs = ({ items: rows }: StageOutput) => rows.map((row) => row.ref);
+const refs = (result: Awaited<ReturnType<typeof stage>>) =>
+  result.ok ? result.value.items.map((row) => row.ref) : result.error;
+
+const failed = (retry: boolean) => ({
+  error: expect.objectContaining({
+    code: "unavailable",
+    reason: "relevance-unavailable",
+    retry,
+  }),
+  ok: false,
+});
 
 const malformed = () => Promise.resolve({ answers: { f2: { noul: "yes" } } });
 
-describe("jev plugin", () => {
+describe("Relevance filter", () => {
   beforeEach(() => {
     vi.spyOn(console, "error").mockReturnValue();
   });
@@ -128,16 +142,10 @@ describe("jev plugin", () => {
     "drops more as strictness rises: %s",
     async (strictness, kept) => {
       await expect(
-        stage(scored, items, { strictness }).then(refs)
+        stage(scored, items, strictness).then(refs)
       ).resolves.toStrictEqual(kept);
     }
   );
-
-  it("still parses configs saved with the matches switch or the numeric threshold", () => {
-    expect(jev.config.parse({ matches: false, threshold: 0.5 })).toStrictEqual({
-      strictness: "medium",
-    });
-  });
 
   it("asks again only about the candidates the model left unanswered", async () => {
     const run = vi
@@ -156,10 +164,7 @@ describe("jev plugin", () => {
     const run = vi.fn<Run>(() =>
       Promise.resolve(noul({ f2: 0.9, f7: 0.9, f8: 0.9 }))
     );
-    await expect(stage(run)).rejects.toMatchObject({
-      message: JEV_RETRY,
-      retry: true,
-    });
+    await expect(stage(run)).resolves.toStrictEqual(failed(true));
     expect(run).toHaveBeenCalledTimes(JEV_ATTEMPTS);
   });
 
@@ -193,18 +198,12 @@ describe("jev plugin", () => {
       "a code property",
       Object.assign(new Error("No such model"), { code: 5007 }),
     ],
-    // An error with no Workers AI code, such as a missing binding, does not
-    // clear on its own.
     ["no code at all", new Error("Binding AI needs to be run remotely")],
   ])(
     "fails at once on a persistent error named in %s",
     async (_name, error) => {
       const run = vi.fn<Run>(() => Promise.reject(error));
-      // The cause reaches only the log; nobody who reads the error can fix it.
-      await expect(stage(run)).rejects.toMatchObject({
-        message: JEV_UNAVAILABLE,
-        retry: false,
-      });
+      await expect(stage(run)).resolves.toStrictEqual(failed(false));
       expect(run).toHaveBeenCalledOnce();
       expect(console.error).toHaveBeenCalledWith({
         error: String(error),
@@ -218,15 +217,14 @@ describe("jev plugin", () => {
     await Promise.all([
       expect(
         stage(() => Promise.withResolvers<Json>().promise)
-      ).rejects.toThrow(JEV_RETRY),
-      // Each attempt times out, plus the waits between attempts.
+      ).resolves.toStrictEqual(failed(true)),
       vi.advanceTimersByTimeAsync(JEV_TIMEOUT_MS * JEV_ATTEMPTS + 1000),
     ]);
   });
 
   it.each([
-    ["only associations", 1, JEV_BUDGET + 5, false],
-    ["a cue match", JEV_BUDGET + 1, 0, true],
+    ["only associations", 1, JUDGE_BUDGET + 5, false],
+    ["a cue match", JUDGE_BUDGET + 1, 0, true],
   ])(
     "judges at most its budget and reports a cut of %s as %s",
     async (_name, matches, associations, truncated) => {
@@ -240,45 +238,28 @@ describe("jev plugin", () => {
       ];
       const run = vi.fn<Run>(approveAll);
       const result = await stage(run, rows);
-      expect({
-        kept: result.items.length,
-        truncated: result.truncated,
-      }).toStrictEqual({
-        kept: JEV_BUDGET,
-        truncated,
+      expect(result).toMatchObject({
+        ok: true,
+        value: { items: { length: JUDGE_BUDGET }, truncated },
       });
-      expect(asked(run.mock.calls[0]?.[1])).toHaveLength(JEV_BUDGET);
+      expect(asked(run.mock.calls[0]?.[1])).toHaveLength(JUDGE_BUDGET);
     }
   );
 
   it("skips the model when there is nothing to judge", async () => {
     const run = vi.fn<Run>(approveAll);
-    await expect(stage(run, [])).resolves.toStrictEqual({ items: [] });
+    await expect(stage(run, [])).resolves.toStrictEqual({
+      ok: true,
+      value: { items: [], truncated: false },
+    });
     expect(run).not.toHaveBeenCalled();
   });
 
-  it("fails the recall through the host as persistent when no response parses", async () => {
-    const result = await runRecall(
-      [
-        { builtin: "given", stage: () => Promise.resolve({ items }) },
-        { plugin: jev },
-      ],
-      [
-        {
-          config: jev.defaults.config,
-          enabled: true,
-          plugin: jev,
-          status: "default",
-          updatedAt: null,
-        },
-      ],
-      { ai: { run: malformed }, corpus },
-      input
-    );
-    // A response that never parses means the model changed: the owner acts.
-    expect(result).toStrictEqual({
-      error: `jev: ${JEV_UNAVAILABLE}`,
-      retry: false,
-    });
+  it("fails the recall as persistent when no response parses", async () => {
+    const result = await new RecallService(
+      inMemory(corpus, { settings: { relevanceFilter: "medium" } }),
+      jev({ run: malformed })
+    ).recall(input);
+    expect(result).toStrictEqual(failed(false));
   });
 });

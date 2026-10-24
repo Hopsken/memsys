@@ -1,7 +1,3 @@
-// LongMemEval_S (Wu et al., ICLR 2025), cleaned release: 500 questions, each
-// with its own history of about 50 sessions under one "User". The dataset
-// marks which sessions and turns hold the answer; that is the ground truth.
-
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -19,14 +15,12 @@ const URL =
 
 const turn = z.object({
   content: z.string(),
-  // Set only on turns of an evidence session that state the answer.
   has_answer: z.boolean().optional(),
   role: z.enum(["assistant", "user"]),
 });
 export type Turn = z.infer<typeof turn>;
 
 const question = z.object({
-  // Some answers are numbers in the file.
   answer: z.union([z.string(), z.number()]).transform(String),
   answer_session_ids: z.array(z.string()),
   haystack_dates: z.array(z.string()),
@@ -34,7 +28,6 @@ const question = z.object({
   haystack_sessions: z.array(z.array(turn)),
   question: z.string(),
   question_date: z.string(),
-  // Abstention questions end in `_abs`.
   question_id: z.string(),
   question_type: z.string(),
 });
@@ -56,8 +49,6 @@ export const loadQuestions = async (): Promise<Question[]> => {
 
 const hash = (text: string) => createHash("sha256").update(text).digest("hex");
 
-// The same questions on every machine: per type, the ids with the smallest
-// hashes under the seed. Abstention questions are sampled with their type.
 export const sample = (questions: Question[], perType: number, seed = "") =>
   Object.values(Object.groupBy(questions, (q) => q.question_type))
     .flatMap((group = []) =>
@@ -69,9 +60,6 @@ export const sample = (questions: Question[], perType: number, seed = "") =>
     )
     .toSorted((a, b) => a.question_id.localeCompare(b.question_id));
 
-// Nested sets (RFC 0003). smoke is the head of dev's order, so a corpus
-// written for dev serves smoke. holdout shares no question with dev and is
-// drawn under its own seed, so it is never tuned on by accident.
 export const SETS = ["smoke", "dev", "holdout", "full"] as const;
 export type SetName = (typeof SETS)[number];
 
@@ -103,7 +91,6 @@ export const questionsOf = (all: Question[], set: SetName): Question[] => {
 const DATE =
   /^(?<y>\d{4})\/(?<m>\d{2})\/(?<d>\d{2}) \(\w+\) (?<hh>\d{2}):(?<mm>\d{2})$/u;
 
-// "2023/05/20 (Sat) 02:21" → epoch ms, read as UTC.
 export const parseDate = (value: string) => {
   const parts = DATE.exec(value)?.groups;
   if (!parts) {
@@ -121,9 +108,6 @@ export const transcript = (turns: Turn[]) =>
     )
     .join("\n\n");
 
-// What the recall phase needs of a question, without the 277 MB haystack:
-// the question, its answer, and the evidence sessions with the turns the
-// dataset marks as stating the answer (none for some sessions).
 export const evidenceSession = z.object({
   date: z.string(),
   index: z.number(),
@@ -134,7 +118,6 @@ export const slimQuestion = z.object({
   abstain: z.boolean(),
   answer: z.string(),
   date: z.string(),
-  // In haystack order, which is the order the sessions happened in.
   evidence: z.array(evidenceSession),
   id: z.string(),
   question: z.string(),

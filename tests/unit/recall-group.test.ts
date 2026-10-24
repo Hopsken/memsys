@@ -1,8 +1,22 @@
+import { inMemory } from "@core";
 import { describe, expect, it } from "vitest";
 
+import type { Fragment, RecallItem } from "@contract/memory";
+
 import { groupByMatch } from "../../client/widgets/recall-preview/lib/group";
-import type { RecallItem } from "../../contract/memory";
-import { recall } from "../../worker/recall/pipeline";
+import { RecallService, recallInput } from "../../worker/services/recall";
+
+const noJudge = () => Promise.reject(new Error("The relevance filter is off"));
+
+const recall = async (corpus: Iterable<Fragment>, raw: { cue: string }) => {
+  const result = await new RecallService(inMemory(corpus), noJudge).recall(
+    recallInput.parse(raw)
+  );
+  if (!result.ok) {
+    throw new Error(result.error.reason);
+  }
+  return result.value;
+};
 
 const at = "2026-09-01T00:00:00.000Z";
 const corpus = [
@@ -26,7 +40,6 @@ describe("Recall grouping", () => {
   });
 
   it("follows tags the way recall associates them", async () => {
-    // #auth-tokens reaches #auth through its split words.
     const { fragments } = await recall(corpus, { cue: "tokens" });
     expect(refs(fragments)).toStrictEqual([["m2", ["r2"]]]);
   });

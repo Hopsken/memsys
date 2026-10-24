@@ -8,6 +8,8 @@
     "paths": {
       "@/*": ["./client/*"],
       "@contract/*": ["./contract/*"],
+      "@core": ["./core/index.ts"],
+      "@core/*": ["./core/*"],
       "@lib/*": ["./lib/*"]
     },
     "module": "Preserve",
@@ -33,9 +35,9 @@
     "client/**/*.ts",
     "client/**/*.tsx",
     "contract/**/*.ts",
+    "core/**/*.ts",
     "eval/**/*.ts",
     "lib/**/*.ts",
-    "plugins/**/*.ts",
     "worker/**/*.ts",
     "tests/**/*.ts",
     "*.config.ts",

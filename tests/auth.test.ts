@@ -1,7 +1,8 @@
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
-import type { Fragment } from "../contract/memory";
+import type { Fragment } from "@contract/memory";
+
 import worker from "../worker/index";
 import {
   call,
@@ -113,13 +114,7 @@ describe("Authentication", () => {
           "Content-Type": "text/plain",
         }),
         post("/api/purge", { ref: "2222222" }, null, headers),
-        get("/api/plugins", headers),
-        post(
-          "/api/plugins/size-limit",
-          { config: {}, enabled: false, updatedAt: null },
-          null,
-          headers
-        ),
+        get("/api/settings", headers),
         get("/api/auth/api-key/list", headers),
         post("/api/auth/api-key/create", { name: "escalate" }, null, {
           ...headers,

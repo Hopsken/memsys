@@ -1,7 +1,3 @@
-// Jev (Workers AI) as the judge, through a remote binding. Two jobs: label
-// which fragments of an evidence session carry the answer, and grade
-// answers with LongMemEval's per-type rules (src/evaluation/evaluate_qa.py).
-
 import path from "node:path";
 
 import { getPlatformProxy } from "wrangler";
@@ -34,10 +30,8 @@ export const jev = async () => {
   });
   return {
     dispose: () => proxy.dispose(),
-    // One score in [0, 1] per question key; a key Jev left out is absent.
     score: async (
       questions: Record<string, JevQuestion>,
-      // What the questions refer to: strings, or maps of strings by key.
       state: Record<string, Record<string, string> | string>
     ) => {
       let lastError = "";
@@ -133,6 +127,5 @@ export const answerCriteria = (q: SlimQuestion): JevQuestion => {
   }
 };
 
-// Scores in this band are worth a person's look.
 export const UNSURE = { high: 0.7, low: 0.3 };
 export const CORRECT = 0.5;

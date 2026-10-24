@@ -2,24 +2,32 @@ import { evictDurableObject, runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
-import type { Fragment } from "../contract/memory";
+import type { Fragment } from "@contract/memory";
+
+import { openMemory } from "../worker/lib/memory";
+
+const recall = async (cue: string) => {
+  const result = await openMemory("persistence", "user").recall({ cue });
+  if (!result.ok) {
+    throw new Error(result.error.reason);
+  }
+  return result.value;
+};
 
 describe("Memory persistence", () => {
   it("preserves writes, edits, and deletion after eviction without changing memory on recall", async () => {
     const memory = env.MEMORY.getByName("persistence");
     const remember = async (fragment: string): Promise<Fragment> => {
       const result = await memory.remember({ fragment }, "user");
-      if ("error" in result) {
-        throw new Error(result.error);
+      if (!result.ok) {
+        throw new Error(result.error.message);
       }
-      return result;
+      return result.value;
     };
     const seed = await remember("Durable objects #Programming");
     const neighbor = await remember("Workers #program");
     await evictDurableObject(memory);
-    await expect(
-      memory.recall({ cue: " DURABLE\nobjects " })
-    ).resolves.toStrictEqual({
+    await expect(recall(" DURABLE\nobjects ")).resolves.toStrictEqual({
       fragments: [seed, { ...neighbor, via: ["program"] }],
       truncated: false,
     });
@@ -27,20 +35,25 @@ describe("Memory persistence", () => {
       { fragment: "Workers #changed", ref: neighbor.ref },
       "user"
     );
+    if (!revised.ok) {
+      throw new Error(revised.error.reason);
+    }
     await evictDurableObject(memory);
-    await expect(
-      memory.recall({ cue: "Durable objects" })
-    ).resolves.toStrictEqual({ fragments: [seed], truncated: false });
-    await expect(memory.recall({ cue: "Workers" })).resolves.toMatchObject({
-      fragments: [{ ...revised, fragment: "Workers #changed" }],
+    await expect(recall("Durable objects")).resolves.toStrictEqual({
+      fragments: [seed],
+      truncated: false,
+    });
+    await expect(recall("Workers")).resolves.toMatchObject({
+      fragments: [{ ...revised.value, fragment: "Workers #changed" }],
     });
     await memory.forget({ ref: seed.ref }, "user");
     await evictDurableObject(memory);
-    await expect(
-      memory.recall({ cue: "Durable objects" })
-    ).resolves.toStrictEqual({ fragments: [], truncated: false });
+    await expect(recall("Durable objects")).resolves.toStrictEqual({
+      fragments: [],
+      truncated: false,
+    });
     await expect(memory.list({})).resolves.toStrictEqual({
-      fragments: [{ ...revised, versions: 2 }],
+      fragments: [{ ...revised.value, versions: 2 }],
       nextCursor: null,
     });
   });
@@ -52,7 +65,6 @@ describe("Memory persistence", () => {
       Date.parse("2026-01-01T00:00:00.000Z"),
       Date.parse("2026-02-01T00:00:00.000Z"),
     ];
-    // Roll the object back to the schema before the log.
     await runInDurableObject(memory, (_, state) => {
       const { sql } = state.storage;
       sql.exec("DROP TABLE records");
@@ -88,7 +100,7 @@ describe("Memory persistence", () => {
       ],
       nextCursor: null,
     });
-    await expect(memory.exportLog(true)).resolves.toBe(
+    await expect(memory.exportLog({ history: true })).resolves.toBe(
       [
         '{"v":1,"ref":"abcdefg","fragment":"Old #memsys","at":"2026-01-01T00:00:00.000Z","op":"remember"}',
         '{"v":1,"ref":"hjkmnpq","fragment":"Revised","at":"2026-02-01T00:00:00.000Z","op":"remember"}',
@@ -100,7 +112,6 @@ describe("Memory persistence", () => {
   it("gives each earlier record the op its place in the log implies", async () => {
     const memory = env.MEMORY.getByName("op-migration");
     await memory.list({});
-    // Roll the object back to the log before ops were kept.
     await runInDurableObject(memory, (_, state) => {
       const { sql } = state.storage;
       sql.exec("DROP TABLE records");
@@ -116,7 +127,10 @@ describe("Memory persistence", () => {
     });
     await evictDurableObject(memory);
     const history = await memory.history({ ref: "abcdefg" });
-    expect(history?.versions.map(({ by, op }) => [op, by])).toStrictEqual([
+    if (!history.ok) {
+      throw new Error(history.error.reason);
+    }
+    expect(history.value.versions.map(({ by, op }) => [op, by])).toStrictEqual([
       ["revise", null],
       ["restore", null],
       ["forget", null],
@@ -124,21 +138,21 @@ describe("Memory persistence", () => {
       ["remember", null],
     ]);
     await expect(memory.history({ ref: "hjkmnpq" })).resolves.toMatchObject({
-      versions: [{ op: "remember" }],
+      value: { versions: [{ op: "remember" }] },
     });
   });
 
   it("appends one record per write, each later than the last", async () => {
     const memory = env.MEMORY.getByName("append");
     const saved = await memory.remember({ fragment: "One" }, "user");
-    if ("error" in saved) {
-      throw new Error(saved.error);
+    if (!saved.ok) {
+      throw new Error(saved.error.message);
     }
-    // Back to back, these usually land in the same millisecond.
-    await memory.revise({ fragment: "Two", ref: saved.ref }, "user");
-    await memory.forget({ ref: saved.ref }, "user");
-    await memory.revise({ fragment: "Three", ref: saved.ref }, "user");
-    const log = await memory.exportLog(true);
+    const { ref } = saved.value;
+    await memory.revise({ fragment: "Two", ref }, "user");
+    await memory.forget({ ref }, "user");
+    await memory.revise({ fragment: "Three", ref }, "user");
+    const log = await memory.exportLog({ history: true });
     const lines = log.trimEnd().split("\n");
     const records = lines.map((line) => JSON.parse(line));
     expect(records.map(({ fragment }) => fragment)).toStrictEqual([

@@ -1,6 +1,3 @@
-// The dev Worker the harness talks to (vite.config.ts, :5174): throwaway
-// memory spaces behind /__dev/eval/:space, with MCP, export, and import.
-
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 
@@ -17,7 +14,9 @@ export const server = async (route: string, init?: RequestInit) => {
   return body;
 };
 
-// One MCP JSON-RPC call to a space; params are the method's own object.
+const jsonOfPlainOrSseBody = (body: string) =>
+  body.startsWith("{") ? body : (body.split("data: ")[1] ?? "");
+
 const rpc = async (
   space: string,
   method: string,
@@ -31,14 +30,11 @@ const rpc = async (
     },
     method: "POST",
   });
-  // The reply may come as one SSE event.
-  const json = body.startsWith("{") ? body : (body.split("data: ")[1] ?? "");
-  return z.object({ result: z.json() }).parse(JSON.parse(json)).result;
+  return z
+    .object({ result: z.json() })
+    .parse(JSON.parse(jsonOfPlainOrSseBody(body))).result;
 };
 
-// Pi shows MCP server instructions only as one line, and not at all for tools
-// it declares directly. Claude Code puts them in the system prompt, so the
-// harness does the same, read live so edits to worker/mcp.ts take effect.
 export const serverInstructions = async () =>
   z.object({ instructions: z.string() }).parse(
     await rpc("instructions", "initialize", {
@@ -48,7 +44,6 @@ export const serverInstructions = async () =>
     })
   ).instructions;
 
-// Tool name → description, as the agent sees them.
 export const toolDescriptions = async () =>
   Object.fromEntries(
     z
@@ -61,49 +56,24 @@ export const toolDescriptions = async () =>
       .tools.map((tool) => [tool.name, tool.description])
   );
 
-// What a run asks of each plugin: enabled with this config over the
-// plugin's defaults, or off.
-export type PluginSettings = Record<
-  string,
-  Record<string, z.core.util.JSONType> | false
->;
+export type SettingsMergePatch = Record<string, z.core.util.JSONType>;
 
-const pluginView = z.object({
-  defaults: z.object({ config: z.record(z.string(), z.json()) }),
-  name: z.string(),
-  updatedAt: z.number().nullable(),
-});
+const settingsView = z.object({ defaults: z.record(z.string(), z.json()) });
 
-// Puts a space's plugins in exactly the given state: named plugins as asked,
-// every other plugin back to its defaults.
-export const setPlugins = async (space: string, settings: PluginSettings) => {
-  const views = z
-    .array(pluginView)
-    .parse(JSON.parse(await server(`${space}/plugins`)));
-  const unknown = Object.keys(settings).filter(
-    (name) => !views.some((view) => view.name === name)
+export const setSettings = async (space: string, patch: SettingsMergePatch) => {
+  const view = settingsView.parse(
+    JSON.parse(await server(`${space}/settings`))
   );
-  if (unknown.length > 0) {
-    throw new Error(`Unknown plugins: ${unknown.join(", ")}`);
-  }
-  for (const view of views) {
-    const asked = settings[view.name];
-    // oxlint-disable-next-line no-await-in-loop
-    await (asked === undefined
-      ? server(`${space}/plugins/${view.name}`, { method: "DELETE" })
-      : server(`${space}/plugins/${view.name}`, {
-          body: JSON.stringify({
-            config: { ...view.defaults.config, ...asked },
-            enabled: asked !== false,
-            updatedAt: view.updatedAt,
-          }),
-          headers: { "Content-Type": "application/json" },
-          method: "PUT",
-        }));
-  }
+  const reset = Object.fromEntries(
+    Object.keys(view.defaults).map((key) => [key, null])
+  );
+  await server(`${space}/settings`, {
+    body: JSON.stringify({ ...reset, ...patch }),
+    headers: { "Content-Type": "application/json" },
+    method: "PATCH",
+  });
 };
 
-// A record as /export writes it; other fields pass through to /import.
 export const logRecord = z.looseObject({
   at: z.string(),
   fragment: z.string().nullable(),
@@ -138,7 +108,6 @@ export const exportLog = async (space: string) => {
     .map((line) => logRecord.parse(JSON.parse(line)));
 };
 
-// Import takes whole refs, and the dev server limits bodies to 32 KB.
 export const importLog = async (space: string, records: LogRecord[]) => {
   const chunks = [""];
   for (const group of Object.values(Object.groupBy(records, (r) => r.ref))) {
@@ -151,13 +120,11 @@ export const importLog = async (space: string, records: LogRecord[]) => {
     chunks[chunks.length - 1] += lines;
   }
   for (const body of chunks.filter(Boolean)) {
-    // Chunks go in order.
     // oxlint-disable-next-line no-await-in-loop
     await server(`${space}/import`, { body, method: "POST" });
   }
 };
 
-// The fragments in force after replaying a log, by ref.
 export const currentMemories = (records: LogRecord[]) => {
   const memories = new Map<string, string>();
   for (const { fragment, ref } of records) {
@@ -178,7 +145,6 @@ export const pool = async <T>(
   const queue = [...items];
   const worker = async () => {
     for (let item = queue.shift(); item !== undefined; item = queue.shift()) {
-      // Each worker takes one item at a time.
       // oxlint-disable-next-line no-await-in-loop
       await task(item);
     }

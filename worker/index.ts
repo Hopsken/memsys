@@ -4,18 +4,18 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 
-import { getAuth, requireSession, requireToken } from "./auth";
-import type { AppEnv } from "./auth";
-import { dev } from "./dev";
+import { getAuth } from "./lib/better-auth";
+import { requireSession } from "./middlewares/require-session";
+import { requireToken } from "./middlewares/require-token";
 import { connections } from "./routes/connections";
+import { dev } from "./routes/dev";
 import { mcp } from "./routes/mcp";
 import { memory } from "./routes/memory";
-import { plugins } from "./routes/plugins";
+import { settings } from "./routes/settings";
+import type { AppEnv } from "./types";
 
 const app = new Hono<AppEnv>();
 
-// OAuth endpoints MCP apps call directly, from any origin and with their own
-// credentials rather than a cookie, in the form encoding OAuth uses.
 const OAUTH_APP_PATHS = new Set([
   "/api/auth/jwks",
   "/api/auth/oauth2/introspect",
@@ -42,12 +42,10 @@ app.use("*", (c, next) => {
   return next();
 });
 const requestBody = bodyLimit({ maxSize: 32 * 1024 });
-// A whole memory with its history: tens of thousands of short records.
 const importBody = bodyLimit({ maxSize: 10 * 1024 * 1024 });
 app.use("*", (c, next) =>
   (c.req.path === "/api/import" ? importBody : requestBody)(c, next)
 );
-// Import takes the file as is and checks its own media type.
 app.use("/api/*", (c, next) => {
   const mediaType = c.req
     .header("Content-Type")
@@ -55,7 +53,7 @@ app.use("/api/*", (c, next) => {
     ?.trim()
     .toLowerCase();
   if (
-    (c.req.method === "POST" || c.req.method === "PUT") &&
+    ["PATCH", "POST", "PUT"].includes(c.req.method) &&
     mediaType !== "application/json" &&
     c.req.path !== "/api/import" &&
     !isOAuthApp(c.req.path)
@@ -67,23 +65,19 @@ app.use("/api/*", (c, next) => {
   return next();
 });
 
-// Better Auth answers sign-in, session, and token management itself, and
-// the OAuth discovery documents MCP apps look for at the root.
 app.on(["GET", "POST"], ["/api/auth/*", "/.well-known/*"], (c) =>
   getAuth(c.env).handler(c.req.raw)
 );
-// Replaced with `false` in production builds, which then drop worker/dev.
 if (import.meta.env.DEV && process.env.NODE_ENV !== "production") {
   app.route("/", dev);
 }
-// Agents hold API keys or OAuth tokens; only a signed-in user reaches the rest of /api.
 app.use("/mcp", requireToken);
 app.use("/api/*", requireSession);
 
 app.route("/mcp", mcp);
 app.route("/api", memory);
 app.route("/api/connections", connections);
-app.route("/api/plugins", plugins);
+app.route("/api/settings", settings);
 
 app.onError((cause, c) => {
   if (cause instanceof z.ZodError || cause instanceof SyntaxError) {
@@ -95,17 +89,20 @@ app.onError((cause, c) => {
   return c.json({ error: "Internal server error" }, 500);
 });
 
+const finishEvenIfClientLeaves = (
+  response: Response | Promise<Response>,
+  ctx?: ExecutionContext
+) => {
+  const finished = Promise.resolve(response);
+  ctx?.waitUntil(finished);
+  return finished;
+};
+
 export default {
-  // Start Better Auth here, so its setup outlives this request if needed.
-  // Requests in an isolate also share work in flight, such as fetching an
-  // app's client metadata document; if the request doing it is canceled,
-  // every request waiting on it hangs. So each request runs to the end.
   fetch: (request: Request, env: Env, ctx?: ExecutionContext) => {
     getAuth(env, ctx);
-    const response = Promise.resolve(app.fetch(request, env, ctx));
-    ctx?.waitUntil(response);
-    return response;
+    return finishEvenIfClientLeaves(app.fetch(request, env, ctx), ctx);
   },
 };
 
-export { MemoryDO } from "./memory-do";
+export { MemoryDO } from "@core/do";

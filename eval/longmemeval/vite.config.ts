@@ -1,10 +1,6 @@
 import { cloudflare } from "@cloudflare/vite-plugin";
 import { defineConfig } from "vite";
 
-// The dev server the LongMemEval harness talks to: the Worker only. Without
-// remote bindings it runs without Cloudflare credentials; the Jev plugin
-// needs Workers AI, so start it with JEV=1 (and CLOUDFLARE_API_TOKEN and
-// CLOUDFLARE_ACCOUNT_ID) for runs that turn Jev on.
 export default defineConfig({
   plugins: [
     cloudflare({

@@ -1,29 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
 import { Ruler, TriangleAlert } from "lucide-react";
-import * as z from "zod/mini";
 
-import { api } from "@/shared/api";
-import type { PluginView } from "@contract/plugin";
 import { fragmentLength } from "@lib/fragment";
 
-const softLimitConfig = z.object({ soft: z.int() });
+import { useSettings } from "../api/settings";
 
-// The "Warn above" length from the Short memories plugin, or null when that
-// plugin is off.
-const useSoftLimit = () => {
-  const plugins = useQuery({
-    queryFn: ({ signal }) =>
-      api.get("/api/plugins", { signal }).json<PluginView[]>(),
-    queryKey: ["plugins"],
-  });
-  const sizeLimit = plugins.data?.find(
-    ({ enabled, name }) => enabled && name === "size-limit"
-  );
-  return z.safeParse(softLimitConfig, sizeLimit?.config).data?.soft ?? null;
-};
-
-// A memory's length, in amber when it is above the warning limit. Below the
-// limit it shows only when `always` is set.
 export const MemoryLength = ({
   always = false,
   text,
@@ -31,7 +11,7 @@ export const MemoryLength = ({
   always?: boolean;
   text: string;
 }) => {
-  const softLimit = useSoftLimit();
+  const softLimit = useSettings().data?.settings.length.warn ?? null;
   const length = fragmentLength(text);
   if (softLimit !== null && length > softLimit) {
     return (
