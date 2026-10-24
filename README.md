@@ -23,7 +23,7 @@ Agents connect over MCP at `/mcp` (stateless Streamable HTTP) with an OAuth acce
 - **Recall** matches fragments that contain every word of the cue, in any order; English words are stemmed, and a cue of three or more words may miss one. Fragments containing the whole cue as a phrase come first, the rest rank by words matched and BM25. Recall then follows one hop through shared `#anchors`. Associated results list those anchors in `via`. Association splits anchors on `-` and stems English words; `/` namespaces match exactly.
 - **Recall size** is 10 fragments; the first 10 cue matches seed association. `truncated` is set when a cue match was left out.
 - **Length** is counted in grapheme clusters. Core rejects anything over 1000; your limits under **Settings → Features** set the everyday ones.
-- **Features** such as the relevance filter are described in [Features](docs/features.md); [Architecture](docs/Architecture.md) covers where behavior lives, failure rules, and per-instance settings.
+- **Features** the owner can change, such as the length limits and the relevance filter, are under **Settings → Features**; [Architecture](docs/Architecture.md) covers where behavior lives, failure rules, and per-instance settings.
 
 ## Storage
 

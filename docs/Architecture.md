@@ -1,6 +1,6 @@
 ## Purpose
 
-This document answers one question: **where does a given piece of behavior live?** It describes the layers of memsys and the rules that keep them apart. It does not describe individual features, limits, or wire formats; those live in the code and in [Features](features.md).
+This document answers one question: **where does a given piece of behavior live?** It describes the layers of memsys and the rules that keep them apart. It does not describe individual features, limits, or wire formats; those live in the code.
 
 A change that only moves a number or adds a setting should not need an edit here. If it does, this document has leaked detail.
 
