@@ -38,7 +38,7 @@ const rpc = async (
 
 // Pi shows MCP server instructions only as one line, and not at all for tools
 // it declares directly. Claude Code puts them in the system prompt, so the
-// harness does the same, read live so edits to worker/mcp.ts take effect.
+// harness does the same, read live so edits to worker/routes/mcp.ts take effect.
 export const serverInstructions = async () =>
   z.object({ instructions: z.string() }).parse(
     await rpc("instructions", "initialize", {
@@ -61,46 +61,27 @@ export const toolDescriptions = async () =>
       .tools.map((tool) => [tool.name, tool.description])
   );
 
-// What a run asks of each plugin: enabled with this config over the
-// plugin's defaults, or off.
-export type PluginSettings = Record<
-  string,
-  Record<string, z.core.util.JSONType> | false
->;
+// What a run changes from the default settings, e.g.
+// `{ "relevanceFilter": "low" }`.
+export type SettingsPatch = Record<string, z.core.util.JSONType>;
 
-const pluginView = z.object({
-  defaults: z.object({ config: z.record(z.string(), z.json()) }),
-  name: z.string(),
-  updatedAt: z.number().nullable(),
-});
+const settingsView = z.object({ defaults: z.record(z.string(), z.json()) });
 
-// Puts a space's plugins in exactly the given state: named plugins as asked,
-// every other plugin back to its defaults.
-export const setPlugins = async (space: string, settings: PluginSettings) => {
-  const views = z
-    .array(pluginView)
-    .parse(JSON.parse(await server(`${space}/plugins`)));
-  const unknown = Object.keys(settings).filter(
-    (name) => !views.some((view) => view.name === name)
+// Puts a space's settings in exactly the given state: every field back to
+// its default, with the patch over them. The Worker refuses an unknown or
+// invalid value.
+export const setSettings = async (space: string, patch: SettingsPatch) => {
+  const view = settingsView.parse(
+    JSON.parse(await server(`${space}/settings`))
   );
-  if (unknown.length > 0) {
-    throw new Error(`Unknown plugins: ${unknown.join(", ")}`);
-  }
-  for (const view of views) {
-    const asked = settings[view.name];
-    // oxlint-disable-next-line no-await-in-loop
-    await (asked === undefined
-      ? server(`${space}/plugins/${view.name}`, { method: "DELETE" })
-      : server(`${space}/plugins/${view.name}`, {
-          body: JSON.stringify({
-            config: { ...view.defaults.config, ...asked },
-            enabled: asked !== false,
-            updatedAt: view.updatedAt,
-          }),
-          headers: { "Content-Type": "application/json" },
-          method: "PUT",
-        }));
-  }
+  const reset = Object.fromEntries(
+    Object.keys(view.defaults).map((key) => [key, null])
+  );
+  await server(`${space}/settings`, {
+    body: JSON.stringify({ ...reset, ...patch }),
+    headers: { "Content-Type": "application/json" },
+    method: "PATCH",
+  });
 };
 
 // A record as /export writes it; other fields pass through to /import.

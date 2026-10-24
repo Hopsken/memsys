@@ -188,7 +188,7 @@ describe("Fragment export and import", () => {
     ]);
   });
 
-  it("bypasses plugin write limits but not the core ceiling", async () => {
+  it("bypasses the owner's length limits but not the core ceiling", async () => {
     const user = await signIn();
     const long = await importFile(user, "x".repeat(800), "text/plain");
     await expect(long.json()).resolves.toMatchObject({ imported: 1 });

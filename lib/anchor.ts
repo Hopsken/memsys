@@ -1,6 +1,6 @@
 import { stem } from "porter2";
 
-// An anchor is a #word inside fragment text. The worker, plugins, and client
+// An anchor is a #word inside fragment text. The worker and client
 // must find the same anchors, so all of them match with this pattern. The
 // match may start one character before the `#`.
 const ANCHOR = /(?:^|[^\p{L}\p{N}_/#])#(?<anchor>[\p{L}\p{N}_/-]+)/gu;

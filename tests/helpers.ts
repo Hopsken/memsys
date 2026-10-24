@@ -9,7 +9,7 @@ import type {
   ListedFragment,
 } from "../contract/memory";
 import worker from "../worker/index";
-import { defaultSpace, memoryOf as memoryOfSpace } from "../worker/lib/memory";
+import { defaultSpace } from "../worker/lib/memory";
 
 export const ORIGIN = "https://memsys.test";
 
@@ -116,7 +116,9 @@ export const useAuth = () => {
 
 export const sentCode = (email: string) => codes.get(email);
 
-export const memoryOf = (user: User) => memoryOfSpace(defaultSpace(user.id));
+// The user's memory object, for tests that reach behind the Worker.
+export const memoryOf = (user: User) =>
+  env.MEMORY.getByName(defaultSpace(user.id));
 
 export const getList = (user: User | null, query = "") =>
   worker.fetch(
@@ -159,3 +161,14 @@ export const call = async (user: User, name: string, args: JSONValue) => {
 
 export const content = <T>(result: ToolResult): T =>
   JSON.parse(result.content[0]?.text ?? "");
+
+// Changes the owner's settings the way the Features page does.
+export const patchSettings = (user: User, patch: JSONValue) =>
+  worker.fetch(
+    new Request(`${ORIGIN}/api/settings`, {
+      body: JSON.stringify(patch),
+      headers: { "Content-Type": "application/json", Cookie: user.cookie },
+      method: "PATCH",
+    }),
+    env
+  );

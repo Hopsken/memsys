@@ -10,7 +10,7 @@ import type { SlimQuestion } from "./dataset.ts";
 import { CORRECT, UNSURE } from "./jev.ts";
 import { READ_TOOLS } from "./pi.ts";
 import type { PiRun, ToolCall } from "./pi.ts";
-import type { PluginSettings } from "./server.ts";
+import type { SettingsPatch } from "./server.ts";
 
 const recalled = z.object({
   fragments: z.array(z.looseObject({ fragment: z.string(), ref: z.string() })),
@@ -165,8 +165,8 @@ export interface RunMeta {
   // Current fragments per question: what dumping everything would read.
   corpusSize: Record<string, number>;
   model: string;
-  // Plugins the run set; the rest ran at their defaults.
-  plugins: PluginSettings;
+  // Settings the run changed; the rest ran at their defaults.
+  settings: SettingsPatch;
   recallRounds: number;
   repeats: number;
   run: string;
@@ -229,7 +229,7 @@ export const report = (
 
   return `# Recall run \`${meta.run}\`
 
-Corpus \`${meta.corpus}\`, model \`${meta.model}\` (thinking \`${meta.thinking}\`), ${meta.repeats} repeats per question, recall budget ${meta.recallRounds} rounds, plugins ${Object.keys(meta.plugins).length === 0 ? "at their defaults" : `\`${JSON.stringify(meta.plugins)}\` (the rest at their defaults)`}. ${groups.length} questions, ${allRuns.length} conversations, $${cost.toFixed(3)}. Regenerate with \`node eval/longmemeval/recall.ts --corpus ${meta.corpus} --run ${meta.run}\`.
+Corpus \`${meta.corpus}\`, model \`${meta.model}\` (thinking \`${meta.thinking}\`), ${meta.repeats} repeats per question, recall budget ${meta.recallRounds} rounds, settings ${Object.keys(meta.settings).length === 0 ? "at their defaults" : `\`${JSON.stringify(meta.settings)}\` (the rest at their defaults)`}. ${groups.length} questions, ${allRuns.length} conversations, $${cost.toFixed(3)}. Regenerate with \`node eval/longmemeval/recall.ts --corpus ${meta.corpus} --run ${meta.run}\`.
 
 Recall is scored on ${scorable.length} questions. Left out: ${abstain.length} abstention questions (nothing to find; their answers are graded below), ${writeMisses.length} write misses (a required evidence session has no answer-bearing fragment in the corpus: ${writeMisses.map(({ q }) => q.id).join(", ") || "none"}), ${errored.length} with a failed conversation (${errored.map(({ q }) => q.id).join(", ") || "none"}).
 

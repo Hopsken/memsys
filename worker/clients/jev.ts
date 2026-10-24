@@ -1,18 +1,22 @@
 import { z } from "zod";
 
-import type { RecallInput, RecallItem } from "../contract/memory";
-import { definePlugin, PluginAbortError } from "../contract/plugin";
-import type { Ctx, Json } from "../contract/plugin";
+import type {
+  Fragment,
+  Json,
+  JsonObject,
+  RecallInput,
+} from "../../contract/memory";
+import { err, ok } from "../../contract/result";
+import type { Result } from "../../contract/result";
+import type { RelevanceUnavailable } from "../errors";
 
-// Relevance gate: one independent noul per candidate, so "nothing is relevant"
-// is a possible answer. It never passes on a candidate it did not judge: if
-// it cannot judge, the recall fails (RFC 0002, decision 5).
+// Jev on Workers AI scores every candidate: one independent noul per
+// candidate, so "nothing is relevant" is a possible answer. It retries what
+// it can and says whether the caller should retry the rest.
 export const JEV_MODEL = "typesafe/jev";
 export const JEV_TIMEOUT_MS = 1500;
 // Tries per recall; each retry asks only about candidates still unanswered.
 export const JEV_ATTEMPTS = 3;
-// Judges at most this many candidates per recall.
-export const JEV_BUDGET = 40;
 
 // Workers AI codes that retrying cannot fix: no balance, a model that is gone,
 // or an account or plan that may not use it.
@@ -61,21 +65,10 @@ const isTransient = (error: Error) => {
   return UPSTREAM.test(String(error));
 };
 
-// Named levels instead of a raw probability: 0.45 vs 0.48 means nothing to a
-// user. Measured on real recalls, misses score ≲0.15 and hits ≳0.9.
-export const STRICTNESS = { high: 0.5, low: 0.1, max: 0.7, medium: 0.3 };
-
-// Rows saved with the earlier `matches` switch still parse: zod strips it.
-const config = z.object({
-  // Defaulted so rows saved with the earlier numeric `threshold` still parse.
-  strictness: z.enum(["low", "medium", "high", "max"]).default("medium").meta({
-    description:
-      "How much to hide. Low hides only clear misses; Max keeps only strong matches.",
-    title: "Strictness",
-  }),
-});
-
-type Config = z.infer<typeof config>;
+// Workers AI, narrowed to one call. Output is model JSON; Jev checks its shape.
+export interface Ai {
+  run: (model: string, input: JsonObject) => Promise<Json>;
+}
 
 const answers = z.object({
   answers: z.record(z.string(), z.object({ noul: z.number().min(0).max(1) })),
@@ -125,8 +118,8 @@ const withTimeout = async <T>(promise: Promise<T>, ms: number) => {
 };
 
 const ask = async (
-  ai: Ctx<Config>["ai"],
-  candidates: readonly RecallItem[],
+  ai: Ai,
+  candidates: readonly Fragment[],
   { context, cue }: RecallInput
 ) => {
   const output = await withTimeout(
@@ -147,26 +140,22 @@ const ask = async (
   return parseScores(output);
 };
 
-// What the agent and the owner read. Neither can fix Workers AI: the service
-// pays for it. So the cause goes only to the log, and the message names the
-// one thing the owner can do.
-export const JEV_UNAVAILABLE =
-  "The relevance filter is unavailable, and retrying will not help. Recall works again once the owner turns the filter off in memsys settings.";
-export const JEV_RETRY =
-  "The relevance filter could not check the memories. Retry this recall shortly.";
-
-const persistent = (cause: string) => {
+// The cause goes only to the log: neither the agent nor the owner can fix
+// Workers AI, since the service pays for it.
+const persistent = (
+  cause: string
+): { error: RelevanceUnavailable; ok: false } => {
   console.error({ error: cause, event: "jev.unavailable" });
-  return new PluginAbortError(JEV_UNAVAILABLE, { retry: false });
+  return err({ kind: "relevance-unavailable", retry: false });
 };
 
-// A score for every candidate, or a PluginAbortError that says whether a
-// retry can help.
-const judge = async (
-  ai: Ctx<Config>["ai"],
-  candidates: readonly RecallItem[],
+// A score for every candidate, or a failure that says whether a retry can
+// help.
+const score = async (
+  ai: Ai,
+  candidates: readonly Fragment[],
   input: RecallInput
-) => {
+): Promise<Result<Map<string, number>, RelevanceUnavailable>> => {
   const scores = new Map<string, number>();
   let failure = "";
   let allMalformed = true;
@@ -196,7 +185,7 @@ const judge = async (
       const cause =
         z.instanceof(Error).safeParse(error).data ?? new Error(String(error));
       if (!isTransient(cause)) {
-        throw persistent(String(cause));
+        return persistent(String(cause));
       }
       allMalformed &&= isMalformed(cause);
       failure = String(cause);
@@ -206,42 +195,14 @@ const judge = async (
   if (scores.size < candidates.length) {
     // A response that never parses means the model changed, not an outage.
     if (allMalformed) {
-      throw persistent(failure);
+      return persistent(failure);
     }
-    throw new PluginAbortError(JEV_RETRY, { retry: true });
+    return err({ kind: "relevance-unavailable", retry: true });
   }
-  return scores;
+  return ok(scores);
 };
 
-const gate = async (
-  { ai, config: { strictness } }: Ctx<Config>,
-  items: readonly RecallItem[],
-  input: RecallInput
-) => {
-  // Cuts to its budget first; only a dropped cue match is a cut a better cue
-  // would recover.
-  const judged = items.slice(0, JEV_BUDGET);
-  const truncated = items.slice(JEV_BUDGET).some((item) => !item.via);
-  if (judged.length === 0) {
-    return { items: [] };
-  }
-  const scores = await judge(ai, judged, input);
-  const threshold = STRICTNESS[strictness];
-  return {
-    items: judged.filter((item) => (scores.get(item.ref) ?? 0) >= threshold),
-    truncated,
-  };
-};
-
-export const jev = definePlugin({
-  config,
-  defaults: {
-    config: { strictness: "medium" },
-    enabled: false,
-  },
-  description:
-    "Uses a small AI model (Jev) to check each memory against what your AI is looking for, and hides the ones that don’t help. Adds about a second per recall and uses Workers AI credits. If the check fails, the recall fails too.",
-  name: "jev",
-  recall: gate,
-  title: "Relevance filter (Jev)",
-});
+// Jev on Workers AI as recall's relevance judge.
+export const jev =
+  (ai: Ai) => (candidates: readonly Fragment[], input: RecallInput) =>
+    score(ai, candidates, input);

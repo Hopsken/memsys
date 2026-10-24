@@ -11,7 +11,7 @@ import { connections } from "./routes/connections";
 import { dev } from "./routes/dev";
 import { mcp } from "./routes/mcp";
 import { memory } from "./routes/memory";
-import { plugins } from "./routes/plugins";
+import { settings } from "./routes/settings";
 import type { AppEnv } from "./types";
 
 const app = new Hono<AppEnv>();
@@ -57,7 +57,7 @@ app.use("/api/*", (c, next) => {
     ?.trim()
     .toLowerCase();
   if (
-    (c.req.method === "POST" || c.req.method === "PUT") &&
+    ["PATCH", "POST", "PUT"].includes(c.req.method) &&
     mediaType !== "application/json" &&
     c.req.path !== "/api/import" &&
     !isOAuthApp(c.req.path)
@@ -85,7 +85,7 @@ app.use("/api/*", requireSession);
 app.route("/mcp", mcp);
 app.route("/api", memory);
 app.route("/api/connections", connections);
-app.route("/api/plugins", plugins);
+app.route("/api/settings", settings);
 
 app.onError((cause, c) => {
   if (cause instanceof z.ZodError || cause instanceof SyntaxError) {
@@ -110,4 +110,5 @@ export default {
   },
 };
 
+// Wrangler takes Durable Object classes from the Worker's entry point.
 export { MemoryDO } from "../core/do";

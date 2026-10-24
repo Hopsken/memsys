@@ -1,5 +1,5 @@
 import type { Author } from "../contract/memory";
-import type { MemoryDO } from "../core/do";
+import type { Memory } from "../core";
 import type { Scope } from "./lib/better-auth";
 
 // What the sign-in middlewares hand to every route: who is calling, and
@@ -11,7 +11,7 @@ export interface AppEnv {
   Variables: {
     // Who writes through this request, recorded with each record.
     by: Author;
-    memory: DurableObjectStub<MemoryDO>;
+    memory: Memory;
     scopes: ReadonlySet<Scope>;
     userId: string;
   };

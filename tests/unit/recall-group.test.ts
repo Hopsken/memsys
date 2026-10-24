@@ -1,8 +1,23 @@
 import { describe, expect, it } from "vitest";
 
 import { groupByMatch } from "../../client/widgets/recall-preview/lib/group";
-import type { RecallItem } from "../../contract/memory";
-import { recall } from "../../worker/recall/pipeline";
+import type { Fragment, RecallItem } from "../../contract/memory";
+import { inMemory } from "../../core";
+import { recall as runRecall, recallInput } from "../../worker/services/recall";
+
+const noJudge = () => Promise.reject(new Error("The relevance filter is off"));
+
+// Recall at the default settings, which never call the model.
+const recall = async (corpus: Iterable<Fragment>, raw: { cue: string }) => {
+  const result = await runRecall(
+    { judge: noJudge, memory: inMemory(corpus) },
+    recallInput.parse(raw)
+  );
+  if (!result.ok) {
+    throw new Error(result.error.kind);
+  }
+  return result.value;
+};
 
 const at = "2026-09-01T00:00:00.000Z";
 const corpus = [

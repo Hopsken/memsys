@@ -51,7 +51,7 @@ const fixed = (value: number | null, digits = 2) =>
 export interface Run {
   name: string;
   outcomes: Outcome[];
-  // Cases where a plugin hook still failed after retries.
+  // Cases where the relevance filter still failed after retries.
   failures: number;
 }
 

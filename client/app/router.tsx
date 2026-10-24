@@ -7,8 +7,8 @@ import { LoginView } from "@/pages/login";
 import { FragmentsView } from "@/pages/memories";
 import { AccountView } from "@/pages/settings/account";
 import { DataView } from "@/pages/settings/data";
+import { FeaturesView } from "@/pages/settings/features";
 import { ApiKeysView } from "@/pages/settings/mcp";
-import { PluginsView } from "@/pages/settings/plugins";
 import { HistoryDialog } from "@/widgets/memory-history";
 
 import { App } from "./layouts/app-layout";
@@ -41,7 +41,12 @@ export const router = createBrowserRouter([
         children: [
           { element: <Navigate replace to="mcp" />, index: true },
           { element: <ApiKeysView />, path: "mcp" },
-          { element: <PluginsView />, path: "plugins" },
+          { element: <FeaturesView />, path: "features" },
+          // Settings → Plugins became Settings → Features.
+          {
+            element: <Navigate replace to="/settings/features" />,
+            path: "plugins",
+          },
           { element: <DataView />, path: "data" },
           { element: <AccountView />, path: "account" },
         ],

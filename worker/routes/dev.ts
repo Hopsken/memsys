@@ -13,7 +13,8 @@ import { corpus } from "../lib/dev-corpus";
 import { defaultSpace, memoryOf } from "../lib/memory";
 import type { AppEnv } from "../types";
 import { mcp } from "./mcp";
-import { plugins } from "./plugins";
+import { errorResponse } from "./problem";
+import { settings } from "./settings";
 
 const seedInput = z.object({ email: z.email() });
 
@@ -89,7 +90,7 @@ export const dev =
       );
     })
     // Throwaway memory spaces for eval/longmemeval, one per run, with no
-    // account behind them: MCP with every tool, plugin settings, and the whole
+    // account behind them: MCP with every tool, settings, and the whole
     // log out and in.
     .use("/__dev/eval/:space/*", (c, next) => {
       c.set("memory", memoryOf(`eval:${c.req.param("space")}`));
@@ -98,14 +99,13 @@ export const dev =
       return next();
     })
     .route("/__dev/eval/:space/mcp", mcp)
-    .route("/__dev/eval/:space/plugins", plugins)
+    .route("/__dev/eval/:space/settings", settings)
     .get("/__dev/eval/:space/export", async (c) =>
-      c.text(await c.get("memory").exportLog(true))
+      c.text(await c.get("memory").exportLog({ history: true }))
     )
-    .post("/__dev/eval/:space/import", async (c) =>
-      c.json(
-        await c
-          .get("memory")
-          .importFragments({ content: await c.req.text(), format: "ndjson" })
-      )
-    );
+    .post("/__dev/eval/:space/import", async (c) => {
+      const result = await c
+        .get("memory")
+        .importLog({ content: await c.req.text(), format: "ndjson" });
+      return result.ok ? c.json(result.value) : errorResponse(c, result.error);
+    });

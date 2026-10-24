@@ -1,13 +1,12 @@
 import { Hono } from "hono";
 
 import type { ImportFormat } from "../../contract/memory";
-import {
-  activityInput,
-  inputs,
-  listInput,
-  restoreInput,
-} from "../../core/inputs";
+import { activityInput, inputs, listInput, restoreInput } from "../../core";
+import { relevanceJudge } from "../clients/workers-ai";
+import { remember, revise } from "../services/memory";
+import { recall, recallInput } from "../services/recall";
 import type { AppEnv } from "../types";
+import { errorResponse } from "./problem";
 
 // The file's media type picks how it is read; the content is never sniffed.
 const IMPORT_FORMATS = new Map<string, ImportFormat>([
@@ -42,54 +41,47 @@ export const memory = new Hono<AppEnv>()
     const result = await c
       .get("memory")
       .history(inputs.forget.parse({ ref: c.req.param("ref") }));
-    return result
-      ? c.json(result)
-      : c.json({ error: "Fragment not found" }, 404);
+    return result.ok ? c.json(result.value) : errorResponse(c, result.error);
   })
   .get("/fragments/forgotten", async (c) => {
     c.header("Cache-Control", "no-store");
-    return c.json(await c.get("memory").listForgotten());
+    return c.json(await c.get("memory").forgotten());
   })
   .post("/fragments/:ref/restore", async (c) => {
     const { ref } = inputs.forget.parse({ ref: c.req.param("ref") });
     const { at } = restoreInput.parse(await c.req.json());
     const result = await c.get("memory").restore({ at, ref });
-    return result
-      ? c.json(result)
-      : c.json({ error: "Version not found" }, 404);
+    return result.ok ? c.json(result.value) : errorResponse(c, result.error);
   })
   .post("/remember", async (c) => {
-    const result = await c
-      .get("memory")
-      .remember(inputs.remember.parse(await c.req.json()), c.get("by"));
-    return "error" in result ? c.json(result, 422) : c.json(result, 201);
+    const result = await remember(
+      c.get("memory"),
+      inputs.remember.parse(await c.req.json()),
+      c.get("by")
+    );
+    return result.ok
+      ? c.json(result.value, 201)
+      : errorResponse(c, result.error);
   })
   .post("/recall", async (c) => {
-    const result = await c
-      .get("memory")
-      .recall(inputs.recall.parse(await c.req.json()));
-    if (!("error" in result)) {
-      return c.json(result);
-    }
-    // An outage is worth retrying; a stage the owner must fix is not.
-    if (result.retry === true) {
-      return c.json(result, 503, { "Retry-After": "5" });
-    }
-    return c.json(result, result.retry === false ? 502 : 422);
+    const result = await recall(
+      { judge: relevanceJudge, memory: c.get("memory") },
+      recallInput.parse(await c.req.json())
+    );
+    return result.ok ? c.json(result.value) : errorResponse(c, result.error);
   })
   .post("/revise", async (c) => {
-    const result = await c
-      .get("memory")
-      .revise(inputs.revise.parse(await c.req.json()), c.get("by"));
-    if (!result) {
-      return c.json({ error: "Fragment not found" }, 404);
-    }
-    return "error" in result ? c.json(result, 422) : c.json(result);
+    const result = await revise(
+      c.get("memory"),
+      inputs.revise.parse(await c.req.json()),
+      c.get("by")
+    );
+    return result.ok ? c.json(result.value) : errorResponse(c, result.error);
   })
   .get("/export", async (c) => {
     // Current fragments by default; `history=true` exports the whole log.
     const history = c.req.query("history") === "true";
-    const file = await c.get("memory").exportLog(history);
+    const file = await c.get("memory").exportLog({ history });
     const date = new Date().toISOString().slice(0, 10);
     const name = `memsys-${date}${history ? "-history" : ""}.ndjson`;
     return c.body(file, 200, {
@@ -113,22 +105,18 @@ export const memory = new Hono<AppEnv>()
     }
     // Decoded directly: workerd warns when .text() reads a non-text type.
     const content = new TextDecoder().decode(await c.req.arrayBuffer());
-    const result = await c.get("memory").importFragments({ content, format });
-    return "error" in result ? c.json(result, 422) : c.json(result);
+    const result = await c.get("memory").importLog({ content, format });
+    return result.ok ? c.json(result.value) : errorResponse(c, result.error);
   })
   .post("/purge", async (c) => {
     const result = await c
       .get("memory")
       .purge(inputs.forget.parse(await c.req.json()));
-    return result
-      ? c.json(result)
-      : c.json({ error: "Fragment not found" }, 404);
+    return result.ok ? c.json(result.value) : errorResponse(c, result.error);
   })
   .post("/forget", async (c) => {
     const result = await c
       .get("memory")
       .forget(inputs.forget.parse(await c.req.json()), c.get("by"));
-    return result
-      ? c.json(result)
-      : c.json({ error: "Fragment not found" }, 404);
+    return result.ok ? c.json(result.value) : errorResponse(c, result.error);
   });

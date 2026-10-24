@@ -12,33 +12,23 @@ import type {
   Fragment,
   FragmentPage,
   History,
+  ImportFormat,
   ImportResult,
+  JsonObject,
   Op,
-  RecallFailure,
-  RecallResult,
   Restored,
   Version,
 } from "../contract/memory";
-import type { PluginView, Verdict } from "../contract/plugin";
-import { plugins } from "../plugins";
-import type { SeedFragment } from "../worker/lib/dev-corpus";
-import {
-  assertRegistry,
-  createCtx,
-  enabledTools,
-  pluginUpdate,
-  resolvePlugins,
-  runVerdicts,
-  viewPlugin,
-} from "../worker/plugin-host";
+import { err, ok } from "../contract/result";
+import type { InvalidInput, Issue, NotFound, Result } from "../contract/result";
 import type {
-  PluginEnv,
-  PluginState,
-  PluginUpdate,
-} from "../worker/plugin-host";
-import { assertPipeline, runRecall } from "../worker/recall/host";
-import { pipeline } from "../worker/recall/pipeline";
-import { pluginConfig, records } from "./db/schema";
+  AnchorCount,
+  Association,
+  MemoryCore,
+  SearchHit,
+  SeedFragment,
+} from "./api";
+import { metadata, records } from "./db/schema";
 import {
   activityInput,
   importInput,
@@ -48,13 +38,11 @@ import {
   REF_ALPHABET,
   REF_LENGTH,
 } from "./inputs";
-import type { listInput } from "./inputs";
 import { parseLog, parseText, replay, serializeLog } from "./log";
-import type { Issue, Row } from "./log";
+import type { Row } from "./log";
+import { mergePatch } from "./merge-patch";
 import migrations from "./migrations/migrations.js";
-
-assertRegistry(plugins);
-assertPipeline(pipeline, plugins);
+import { FragmentIndex } from "./search";
 
 const newRef = customAlphabet(REF_ALPHABET, REF_LENGTH);
 
@@ -66,43 +54,28 @@ const freshRef = (taken: { has: (ref: string) => boolean }) => {
   return ref;
 };
 
-type ToolInput = z.input<z.ZodObject>;
-
-export type WriteResult =
-  | (Fragment & { warnings?: string[] })
-  | { error: string };
-
-interface Problem {
-  error: string;
-  issues: { path: string[]; message: string }[];
-}
-
-type PluginResponse = PluginView | PluginView[] | Problem | { error: string };
-
-// Import problems name the file's line first.
-const fileProblem = (issues: Issue[]): Problem => ({
-  error: issues
-    .map(({ message, path: [line, ...field] }) =>
-      [`Line ${line}`, ...field].join(", ").concat(`: ${message}`)
-    )
-    .join("\n"),
-  issues,
-});
-
-// Validation failures in the shape the client attaches to fields.
-const problem = (error: z.ZodError): Problem => ({
-  error: z.prettifyError(error),
+const invalid = (error: z.ZodError): InvalidInput => ({
   issues: error.issues.map(({ message, path }) => ({
     message,
     path: path.map(String),
   })),
+  kind: "invalid-input",
+  message: z.prettifyError(error),
 });
 
-const json = (body: PluginResponse, init?: ResponseInit) =>
-  Response.json(body, {
-    ...init,
-    headers: { "Cache-Control": "no-store" },
-  });
+// Import problems name the file's line first.
+const invalidFile = (issues: Issue[]): InvalidInput => ({
+  issues,
+  kind: "invalid-input",
+  message: issues
+    .map(({ message, path: [line, ...field] }) =>
+      [`Line ${line}`, ...field].join(", ").concat(`: ${message}`)
+    )
+    .join("\n"),
+});
+
+const notFound = (ref: string, at?: number): { error: NotFound; ok: false } =>
+  err({ kind: "not-found", ref, ...(at !== undefined && { at }) });
 
 const toVersion = ({ at, by, fragment, op, ref }: Row): Version => ({
   at: new Date(at).toISOString(),
@@ -112,33 +85,23 @@ const toVersion = ({ at, by, fragment, op, ref }: Row): Version => ({
   ref,
 });
 
-const withWarnings = (item: Fragment, { warnings }: Verdict) =>
-  warnings.length > 0 ? { ...item, warnings } : item;
+// One memory space: the fragment log in its own SQLite, the current
+// fragments and their indexes in memory, and the metadata kept beside it.
+// The core reads no bindings.
+export type CoreEnv = Record<never, never>;
 
-const rejection = ({ rejections }: Verdict) =>
-  rejections.length > 0 ? { error: rejections.join("\n") } : null;
-
-export class MemoryDO extends DurableObject<Env> {
+export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   private readonly db;
-  private readonly corpus = new Map<string, Fragment>();
+  private readonly index = new FragmentIndex();
   // Every ref in the log, forgotten ones included, with its latest `at`.
   private heads = new Map<string, number>();
   // How many records each ref in the log has.
   private readonly versions = new Map<string, number>();
-  private plugins: PluginState[] = [];
-  private readonly pluginEnv: PluginEnv;
+  private readonly metadata = new Map<string, JsonObject>();
 
-  constructor(ctx: DurableObjectState, env: Env) {
+  constructor(ctx: DurableObjectState, env: CoreEnv) {
     super(ctx, env);
-
     this.db = drizzle(ctx.storage);
-    this.pluginEnv = {
-      ai: {
-        run: async (model, input) =>
-          z.json().parse(await env.AI.run(model, input)),
-      },
-      corpus: this.corpus,
-    };
     void ctx.blockConcurrencyWhile(async () => {
       const result = await Promise.resolve(migrate(this.db, migrations));
       if (result !== undefined) {
@@ -151,18 +114,20 @@ export class MemoryDO extends DurableObject<Env> {
   private load() {
     const rows = this.db.select().from(records).all();
     const { corpus, heads } = replay(rows);
-    // Plugins hold this map, so it is refilled rather than replaced.
-    this.corpus.clear();
-    for (const [ref, item] of corpus) {
-      this.corpus.set(ref, item);
+    this.index.clear();
+    for (const item of corpus.values()) {
+      this.index.set(item);
     }
     this.heads = heads;
     this.versions.clear();
-    this.count(rows);
-    this.loadPlugins();
+    this.countVersions(rows);
+    this.metadata.clear();
+    for (const { key, value } of this.db.select().from(metadata).all()) {
+      this.metadata.set(key, value);
+    }
   }
 
-  private count(rows: Iterable<Row>) {
+  private countVersions(rows: Iterable<Row>) {
     for (const { ref } of rows) {
       this.versions.set(ref, (this.versions.get(ref) ?? 0) + 1);
     }
@@ -181,11 +146,18 @@ export class MemoryDO extends DurableObject<Env> {
   private write(ref: string, fragment: string, op: Op, by: Author): Fragment {
     const at = this.append(ref, fragment, op, by);
     const item = { at: new Date(at).toISOString(), fragment, ref };
-    this.corpus.set(ref, item);
+    this.index.set(item);
     return item;
   }
 
-  // Development only: replaces every fragment and plugin setting with the
+  // The text stays in the log; only purge removes it.
+  private remove(ref: string, by: Author) {
+    const at = this.append(ref, null, "forget", by);
+    this.index.delete(ref);
+    return at;
+  }
+
+  // Development only: replaces every fragment and all metadata with the
   // given corpus. Production bundles keep only the throw.
   seed(items: SeedFragment[]) {
     if (!import.meta.env.DEV) {
@@ -193,7 +165,7 @@ export class MemoryDO extends DurableObject<Env> {
     }
     this.ctx.storage.transactionSync(() => {
       this.db.delete(records).run();
-      this.db.delete(pluginConfig).run();
+      this.db.delete(metadata).run();
       for (const { date, fragment } of items) {
         this.db
           .insert(records)
@@ -210,48 +182,200 @@ export class MemoryDO extends DurableObject<Env> {
     return { fragments: items.length };
   }
 
-  private loadPlugins() {
-    this.plugins = resolvePlugins(
-      plugins,
-      this.db.select().from(pluginConfig).all()
-    );
-  }
-
-  async remember(
+  remember(
     input: { fragment: string },
     by: Author
-  ): Promise<WriteResult> {
-    const { fragment } = inputs.remember.parse(input);
-    const verdict = await runVerdicts(
-      this.plugins,
-      this.pluginEnv,
-      (plugin, ctx) => plugin.beforeRemember?.(ctx, fragment)
-    );
-    const rejected = rejection(verdict);
-    if (rejected) {
-      return rejected;
+  ): Result<Fragment, InvalidInput> {
+    const parsed = inputs.remember.safeParse(input);
+    if (!parsed.success) {
+      return err(invalid(parsed.error));
     }
     // A ref ever used, even if forgotten, is never handed out again.
-    const item = this.write(freshRef(this.heads), fragment, "remember", by);
-    return withWarnings(item, verdict);
-  }
-
-  recall(
-    raw: z.input<typeof inputs.recall>
-  ): Promise<RecallResult | RecallFailure> {
-    // Stages may await a model while writes land; the recall reads one
-    // snapshot throughout.
-    return runRecall(
-      pipeline,
-      this.plugins,
-      { ...this.pluginEnv, corpus: new Map(this.corpus) },
-      inputs.recall.parse(raw)
+    return ok(
+      this.write(freshRef(this.heads), parsed.data.fragment, "remember", by)
     );
   }
 
-  list(input: z.input<typeof listInput>): FragmentPage {
+  revise(
+    input: { fragment: string; ref: string },
+    by: Author
+  ): Result<Fragment, InvalidInput | NotFound> {
+    const parsed = inputs.revise.safeParse(input);
+    if (!parsed.success) {
+      return err(invalid(parsed.error));
+    }
+    const { fragment, ref } = parsed.data;
+    if (!this.index.has(ref)) {
+      return notFound(ref);
+    }
+    return ok(this.write(ref, fragment, "revise", by));
+  }
+
+  forget(
+    input: { ref: string },
+    by: Author
+  ): Result<{ ref: string }, NotFound> {
+    const { ref } = input;
+    if (!this.index.has(ref)) {
+      return notFound(ref);
+    }
+    this.remove(ref, by);
+    return ok({ ref });
+  }
+
+  // The user's own action, never an agent's: appends a copy of one record,
+  // stamped now. Core validation only, since the text was accepted once; a
+  // revision it lands on stays in the history. On a live fragment the copy
+  // is a revise; only a forgotten one is restored.
+  restore({
+    at,
+    ref,
+  }: {
+    at: number;
+    ref: string;
+  }): Result<Restored, NotFound> {
+    const row = this.db
+      .select()
+      .from(records)
+      .where(and(eq(records.ref, ref), eq(records.at, at)))
+      .get();
+    if (!row) {
+      return notFound(ref, at);
+    }
+    const op = this.index.has(ref) ? "revise" : "restore";
+    const restored =
+      row.fragment === null
+        ? this.remove(ref, "user")
+        : Date.parse(this.write(ref, row.fragment, op, "user").at);
+    return ok({
+      at: new Date(restored).toISOString(),
+      by: "user",
+      fragment: row.fragment,
+      op: row.fragment === null ? "forget" : op,
+      ref,
+      versions: this.versions.get(ref) ?? 1,
+    });
+  }
+
+  // The user's own action, never an agent's: deletes every record of a ref,
+  // forgotten or not, as if it never existed.
+  purge(input: { ref: string }): Result<{ ref: string }, NotFound> {
+    const { ref } = input;
+    if (!this.heads.has(ref)) {
+      return notFound(ref);
+    }
+    this.db.delete(records).where(eq(records.ref, ref)).run();
+    this.heads.delete(ref);
+    this.versions.delete(ref);
+    this.index.delete(ref);
+    return ok({ ref });
+  }
+
+  // A user migrating memory: core validation only, so fragments the old
+  // instance accepted are not judged again. Merge only; existing fragments
+  // are never changed. All or nothing.
+  importLog(raw: {
+    content: string;
+    format: ImportFormat;
+  }): Result<ImportResult, InvalidInput> {
+    const input = importInput.safeParse(raw);
+    if (!input.success) {
+      return err(invalid(input.error));
+    }
+    const { content, format } = input.data;
+    const parsed = format === "ndjson" ? parseLog(content) : parseText(content);
+    if ("issues" in parsed) {
+      return err(invalidFile(parsed.issues));
+    }
+    const texts = new Set(
+      [...this.index.values()].map(({ fragment }) => fragment)
+    );
+    const rows: Row[] = [];
+    const conflicts: string[] = [];
+    let imported = 0;
+    let skipped = 0;
+    if ("texts" in parsed) {
+      const at = Date.now();
+      const taken = new Set(this.heads.keys());
+      for (const fragment of parsed.texts) {
+        if (texts.has(fragment)) {
+          skipped += 1;
+          continue;
+        }
+        texts.add(fragment);
+        const ref = freshRef(taken);
+        taken.add(ref);
+        rows.push({ at, by: "user", fragment, op: "remember", ref });
+        imported += 1;
+      }
+    } else {
+      const { corpus, heads } = replay(parsed.rows);
+      const history = Map.groupBy(parsed.rows, ({ ref }) => ref);
+      for (const ref of heads.keys()) {
+        const current = corpus.get(ref)?.fragment ?? null;
+        // A ref known here, forgotten or not, is never changed by a file.
+        if (this.heads.has(ref)) {
+          if ((this.index.get(ref)?.fragment ?? null) === current) {
+            skipped += 1;
+          } else {
+            conflicts.push(ref);
+          }
+          continue;
+        }
+        if (current !== null && texts.has(current)) {
+          skipped += 1;
+          continue;
+        }
+        rows.push(...(history.get(ref) ?? []));
+        if (current !== null) {
+          texts.add(current);
+          imported += 1;
+        }
+      }
+    }
+    this.ctx.storage.transactionSync(() => {
+      for (const row of rows) {
+        this.db.insert(records).values(row).run();
+      }
+    });
+    this.countVersions(rows);
+    const { corpus, heads } = replay(rows);
+    for (const [ref, at] of heads) {
+      this.heads.set(ref, at);
+    }
+    for (const item of corpus.values()) {
+      this.index.set(item);
+    }
+    return ok({ conflicts, imported, skipped });
+  }
+
+  // NDJSON: the latest record of each current fragment, or the whole log.
+  // Current fragments alone have no history, so they carry no op or author.
+  exportLog({ history }: { history: boolean }): string {
+    return serializeLog(
+      history
+        ? this.db.select().from(records).all()
+        : [...this.index.values()].map(({ at, fragment, ref }) => ({
+            at: Date.parse(at),
+            fragment,
+            ref,
+          }))
+    );
+  }
+
+  get(refs: string[]): Fragment[] {
+    return refs.flatMap((ref) => {
+      const item = this.index.get(ref);
+      return item ? [item] : [];
+    });
+  }
+
+  list(input: {
+    cursor?: string | undefined;
+    tag?: string[] | undefined;
+  }): FragmentPage {
     return listFragments(
-      [...this.corpus.values()].map((item) => ({
+      [...this.index.values()].map((item) => ({
         ...item,
         versions: this.versions.get(item.ref) ?? 1,
       })),
@@ -259,12 +383,10 @@ export class MemoryDO extends DurableObject<Env> {
     );
   }
 
-  // Every record of one ref, newest first; null for a ref never written or
-  // purged.
-  history(input: { ref: string }): History | null {
-    const { ref } = inputs.forget.parse(input);
+  // Every record of one ref, newest first.
+  history({ ref }: { ref: string }): Result<History, NotFound> {
     if (!this.heads.has(ref)) {
-      return null;
+      return notFound(ref);
     }
     const rows = this.db
       .select()
@@ -272,13 +394,13 @@ export class MemoryDO extends DurableObject<Env> {
       .where(eq(records.ref, ref))
       .orderBy(desc(records.at))
       .all();
-    return { versions: rows.map(toVersion) };
+    return ok({ versions: rows.map(toVersion) });
   }
 
   // Every record across refs, newest first, paged like the fragment list.
   // Each revise or forget carries the text before it: one indexed lookup
   // per entry, cheaper than a cache for a page at a time.
-  activity(input: { cursor?: string }): ActivityPage {
+  activity(input: { cursor?: string | undefined }): ActivityPage {
     const { cursor: after } = activityInput.parse(input);
     const rows = this.db
       .select()
@@ -316,10 +438,10 @@ export class MemoryDO extends DurableObject<Env> {
 
   // Forgotten refs with their last text, newest forgotten first. Low
   // traffic, so each ref's text is one indexed lookup rather than a cache.
-  listForgotten(): ForgottenList {
+  forgotten(): ForgottenList {
     const fragments = [];
     for (const [ref, forgottenAt] of this.heads) {
-      if (this.corpus.has(ref)) {
+      if (this.index.has(ref)) {
         continue;
       }
       const last = this.db
@@ -346,254 +468,38 @@ export class MemoryDO extends DurableObject<Env> {
     return { fragments };
   }
 
-  // The user's own action, never an agent's: appends a copy of one record,
-  // stamped now. Core validation only and no write hooks, since the text was
-  // accepted once; a revision it lands on stays in the history. On a live
-  // fragment the copy is a revise; only a forgotten one is restored.
-  restore({ at, ref }: { at: number; ref: string }): Restored | null {
-    const row = this.db
-      .select()
-      .from(records)
-      .where(and(eq(records.ref, ref), eq(records.at, at)))
-      .get();
-    if (!row) {
-      return null;
-    }
-    const op = this.corpus.has(ref) ? "revise" : "restore";
-    const restored =
-      row.fragment === null
-        ? this.remove(ref, "user")
-        : Date.parse(this.write(ref, row.fragment, op, "user").at);
-    return {
-      at: new Date(restored).toISOString(),
-      by: "user",
-      fragment: row.fragment,
-      op: row.fragment === null ? "forget" : op,
-      ref,
-      versions: this.versions.get(ref) ?? 1,
-    };
+  search(terms: string[]): SearchHit[] {
+    return this.index.search(terms);
   }
 
-  // NDJSON: the latest record of each current fragment, or the whole log.
-  // Current fragments alone have no history, so they carry no op or author.
-  exportLog(history: boolean): string {
-    return serializeLog(
-      history
-        ? this.db.select().from(records).all()
-        : [...this.corpus.values()].map(({ at, fragment, ref }) => ({
-            at: Date.parse(at),
-            fragment,
-            ref,
-          }))
-    );
+  associated(keys: string[]): Association[] {
+    return this.index.associated(keys);
   }
 
-  // A user migrating memory, not an agent writing: core validation only, no
-  // write hooks, so fragments the old instance accepted are not re-judged.
-  // Merge only; existing fragments are never changed. All or nothing.
-  importFragments(raw: z.input<typeof importInput>): ImportResult | Problem {
-    const input = importInput.safeParse(raw);
-    if (!input.success) {
-      return problem(input.error);
-    }
-    const { content, format } = input.data;
-    const parsed = format === "ndjson" ? parseLog(content) : parseText(content);
-    if ("issues" in parsed) {
-      return fileProblem(parsed.issues);
-    }
-    const texts = new Set(
-      [...this.corpus.values()].map(({ fragment }) => fragment)
-    );
-    const rows: Row[] = [];
-    const conflicts: string[] = [];
-    let imported = 0;
-    let skipped = 0;
-    if ("texts" in parsed) {
-      const at = Date.now();
-      const taken = new Set(this.heads.keys());
-      for (const fragment of parsed.texts) {
-        if (texts.has(fragment)) {
-          skipped += 1;
-          continue;
-        }
-        texts.add(fragment);
-        const ref = freshRef(taken);
-        taken.add(ref);
-        rows.push({ at, by: "user", fragment, op: "remember", ref });
-        imported += 1;
-      }
-    } else {
-      const { corpus, heads } = replay(parsed.rows);
-      const history = Map.groupBy(parsed.rows, ({ ref }) => ref);
-      for (const ref of heads.keys()) {
-        const current = corpus.get(ref)?.fragment ?? null;
-        // A ref known here, forgotten or not, is never changed by a file.
-        if (this.heads.has(ref)) {
-          if ((this.corpus.get(ref)?.fragment ?? null) === current) {
-            skipped += 1;
-          } else {
-            conflicts.push(ref);
-          }
-          continue;
-        }
-        if (current !== null && texts.has(current)) {
-          skipped += 1;
-          continue;
-        }
-        rows.push(...(history.get(ref) ?? []));
-        if (current !== null) {
-          texts.add(current);
-          imported += 1;
-        }
-      }
-    }
-    this.ctx.storage.transactionSync(() => {
-      for (const row of rows) {
-        this.db.insert(records).values(row).run();
-      }
-    });
-    this.count(rows);
-    const { corpus, heads } = replay(rows);
-    for (const [ref, at] of heads) {
-      this.heads.set(ref, at);
-    }
-    for (const [ref, item] of corpus) {
-      this.corpus.set(ref, item);
-    }
-    return { conflicts, imported, skipped };
+  anchors(): AnchorCount[] {
+    return this.index.anchors();
   }
 
-  async revise(
-    input: z.input<typeof inputs.revise>,
-    by: Author
-  ): Promise<WriteResult | null> {
-    const { fragment, ref } = inputs.revise.parse(input);
-    const existing = this.corpus.get(ref);
-    if (!existing) {
-      return null;
-    }
-    const verdict = await runVerdicts(
-      this.plugins,
-      this.pluginEnv,
-      (plugin, ctx) => plugin.beforeRevise?.(ctx, existing, fragment)
-    );
-    const rejected = rejection(verdict);
-    if (rejected) {
-      return rejected;
-    }
-    // Hooks may await I/O, letting another request change the fragment meanwhile.
-    if (this.corpus.get(ref) !== existing) {
-      return {
-        error: "Fragment changed while revising. Recall it and try again.",
-      };
-    }
-    const item = this.write(ref, fragment, "revise", by);
-    return withWarnings(item, verdict);
+  count(): number {
+    return this.index.size;
   }
 
-  forget(input: { ref: string }, by: Author): { ref: string } | null {
-    const { ref } = inputs.forget.parse(input);
-    if (!this.corpus.has(ref)) {
-      return null;
-    }
-    this.remove(ref, by);
-    return { ref };
+  snapshot(): Fragment[] {
+    return [...this.index.values()];
   }
 
-  // The text stays in the log; only purge removes it.
-  private remove(ref: string, by: Author) {
-    const at = this.append(ref, null, "forget", by);
-    this.corpus.delete(ref);
-    return at;
+  readMetadata(key: string): JsonObject | null {
+    return this.metadata.get(key) ?? null;
   }
 
-  // The user's own action, never an agent's: deletes every record of a ref,
-  // forgotten or not, as if it never existed.
-  purge(input: { ref: string }): { ref: string } | null {
-    const { ref } = inputs.forget.parse(input);
-    if (!this.heads.has(ref)) {
-      return null;
-    }
-    this.db.delete(records).where(eq(records.ref, ref)).run();
-    this.heads.delete(ref);
-    this.versions.delete(ref);
-    this.corpus.delete(ref);
-    return { ref };
-  }
-
-  enabledTools(): string[] {
-    return enabledTools(this.plugins).map(({ tool }) => tool.name);
-  }
-
-  async callTool(name: string, input: ToolInput): Promise<string> {
-    const found = enabledTools(this.plugins).find(
-      ({ tool }) => tool.name === name
-    );
-    if (!found) {
-      throw new Error(`Tool ${name} is not enabled`);
-    }
-    const value = await found.tool.run(
-      createCtx(found.state.config, this.pluginEnv),
-      found.tool.input.parse(input)
-    );
-    // Tool output is plugin-defined; JSON keeps it serializable across RPC.
-    return JSON.stringify(value);
-  }
-
-  // Plugin configs are plugin-defined JSON, which RPC types cannot map;
-  // these return HTTP responses the worker passes through unchanged.
-  listPlugins(): Response {
-    return json(this.plugins.map(viewPlugin));
-  }
-
-  updatePlugin(name: string, input: PluginUpdate): Response {
-    const state = this.plugins.find(({ plugin }) => plugin.name === name);
-    if (!state) {
-      return json({ error: `Unknown plugin: ${name}` }, { status: 404 });
-    }
-    const update = pluginUpdate.parse(input);
-    if (update.updatedAt !== state.updatedAt) {
-      return json(
-        {
-          error:
-            "These settings were changed in another window. Reload to see the latest.",
-        },
-        { status: 409 }
-      );
-    }
-    const parsed = state.plugin.config.safeParse(update.config);
-    if (!parsed.success) {
-      return json(problem(parsed.error), { status: 422 });
-    }
-    const row = {
-      config: parsed.data,
-      enabled: update.enabled,
-      name,
-      updatedAt: Date.now(),
-    };
+  patchMetadata(key: string, patch: JsonObject): JsonObject {
+    const value = mergePatch(this.metadata.get(key) ?? {}, patch);
     this.db
-      .insert(pluginConfig)
-      .values(row)
-      .onConflictDoUpdate({ set: row, target: pluginConfig.name })
+      .insert(metadata)
+      .values({ key, value })
+      .onConflictDoUpdate({ set: { value }, target: metadata.key })
       .run();
-    this.loadPlugins();
-    return json(this.view(name));
-  }
-
-  resetPlugin(name: string): Response {
-    if (!this.plugins.some(({ plugin }) => plugin.name === name)) {
-      return json({ error: `Unknown plugin: ${name}` }, { status: 404 });
-    }
-    this.db.delete(pluginConfig).where(eq(pluginConfig.name, name)).run();
-    this.loadPlugins();
-    return json(this.view(name));
-  }
-
-  private view(name: string): PluginView {
-    const state = this.plugins.find(({ plugin }) => plugin.name === name);
-    if (!state) {
-      throw new Error(`Unknown plugin: ${name}`);
-    }
-    return viewPlugin(state);
+    this.metadata.set(key, value);
+    return value;
   }
 }

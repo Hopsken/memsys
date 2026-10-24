@@ -6,8 +6,7 @@ import {
   text,
 } from "drizzle-orm/sqlite-core";
 
-import type { Author, Op } from "../../contract/memory";
-import type { Json } from "../../contract/plugin";
+import type { Author, JsonObject, Op } from "../../contract/memory";
 
 // The fragment log: one row per record, never updated. `at` is epoch
 // milliseconds and orders a ref's records; a null fragment is forgotten.
@@ -29,10 +28,9 @@ export const records = sqliteTable(
   ]
 );
 
-// One row per plugin the user has configured; no row means the plugin's defaults.
-export const pluginConfig = sqliteTable("plugin_config", {
-  config: text({ mode: "json" }).$type<Json>().notNull(),
-  enabled: integer({ mode: "boolean" }).notNull(),
-  name: text().primaryKey(),
-  updatedAt: integer("updated_at").notNull(),
+// Untyped JSON documents by key, kept beside the memory. The core stores
+// them and merges patches into them; it never reads them.
+export const metadata = sqliteTable("metadata", {
+  key: text().primaryKey(),
+  value: text({ mode: "json" }).$type<JsonObject>().notNull(),
 });

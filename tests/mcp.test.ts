@@ -3,16 +3,16 @@ import type { JSONValue } from "hono/utils/types";
 import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "../contract/memory";
-import { JEV_UNAVAILABLE } from "../plugins/jev";
 import worker from "../worker/index";
+import { RELEVANCE_UNAVAILABLE } from "../worker/routes/problem";
 import {
   call,
   content,
   list,
-  memoryOf,
   post,
   useAuth,
   withVersions,
+  patchSettings,
 } from "./helpers";
 import type { User } from "./helpers";
 
@@ -174,14 +174,10 @@ describe("Stateless MCP", () => {
   it("fails recall, saying the owner must act, instead of returning unjudged memories", async () => {
     const user = await signIn();
     await call(user, "remember", { fragment: "Judged memory #test" });
-    await memoryOf(user).updatePlugin("jev", {
-      config: { strictness: "medium" },
-      enabled: true,
-      updatedAt: null,
-    });
+    await patchSettings(user, { relevanceFilter: "medium" });
     // Tests have no Workers AI binding, which retrying cannot fix.
     const failed = await call(user, "recall", { cue: "judged memory" });
-    const owner = `jev: ${JEV_UNAVAILABLE}`;
+    const owner = RELEVANCE_UNAVAILABLE;
     expect({
       isError: failed.isError,
       text: failed.content[0]?.text,

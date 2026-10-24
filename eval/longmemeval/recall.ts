@@ -39,9 +39,9 @@ import {
   readLines,
   SERVER,
   serverInstructions,
-  setPlugins,
+  setSettings,
 } from "./server.ts";
-import type { PluginSettings } from "./server.ts";
+import type { SettingsPatch } from "./server.ts";
 
 const { values: args } = parseArgs({
   options: {
@@ -49,15 +49,13 @@ const { values: args } = parseArgs({
     corpus: { type: "string" },
     model: { default: "opencode-go/deepseek-v4.1-flash", type: "string" },
     only: { type: "string" },
-    // Repeatable: `jev` turns a plugin on with its defaults,
-    // `jev={"strictness":"low"}` with this config over them, `idf=off` off.
-    // Plugins not named stay at their defaults.
-    plugin: { default: [], multiple: true, type: "string" },
     repeats: { default: "3", type: "string" },
     rounds: { default: "5", type: "string" },
     run: { type: "string" },
     // Run only this set's questions of the corpus.
     set: { type: "string" },
+    // JSON over the default settings, e.g. '{"relevanceFilter":"low"}'.
+    settings: { default: "{}", type: "string" },
     thinking: { default: "low", type: "string" },
   },
 });
@@ -67,30 +65,15 @@ if (CORPUS === undefined || RUN === undefined) {
 }
 const RUN_DIR = path.join(RUNS_DIR, RUN);
 const REPEATS = Number(args.repeats);
-const PLUGINS: PluginSettings = Object.fromEntries(
-  args.plugin
-    .map((arg) => {
-      const at = arg.indexOf("=");
-      const name = at === -1 ? arg : arg.slice(0, at);
-      const value = at === -1 ? undefined : arg.slice(at + 1);
-      if (value === "off") {
-        return [name, false] as const;
-      }
-      return [
-        name,
-        value === undefined
-          ? {}
-          : z.record(z.string(), z.json()).parse(JSON.parse(value)),
-      ] as const;
-    })
-    .toSorted(([a], [b]) => a.localeCompare(b))
-);
-// Plugin settings live in the memory space, so each setting gets its own
-// spaces: runs with different plugins can run side by side.
-const pluginKey =
-  args.plugin.length === 0
+const SETTINGS: SettingsPatch = z
+  .record(z.string(), z.json())
+  .parse(JSON.parse(args.settings));
+// Settings live in the memory space, so each setting gets its own spaces:
+// runs with different settings can run side by side.
+const settingsKey =
+  Object.keys(SETTINGS).length === 0
     ? ""
-    : `p${createHash("sha256").update(JSON.stringify(PLUGINS)).digest("hex").slice(0, 8)}-`;
+    : `s${createHash("sha256").update(JSON.stringify(SETTINGS)).digest("hex").slice(0, 8)}-`;
 const ROUNDS = Number(args.rounds);
 
 const { dir: CORPUS_DIR, questions: all } = await loadCorpus(
@@ -112,10 +95,10 @@ await writeFile(
     {
       corpus: CORPUS,
       model: args.model,
-      plugins: PLUGINS,
       recallRounds: ROUNDS,
       repeats: REPEATS,
       set: args.set ?? null,
+      settings: SETTINGS,
       thinking: args.thinking,
     },
     null,
@@ -133,8 +116,8 @@ const prepare = async (id: string) => {
     corpusRecord
   );
   corpusSize[id] = currentMemories(records).size;
-  const space = `c-${CORPUS}-${pluginKey}${id}`;
-  await setPlugins(space, PLUGINS);
+  const space = `c-${CORPUS}-${settingsKey}${id}`;
+  await setSettings(space, SETTINGS);
   const existing = await exportLog(space);
   if (existing.length !== records.length) {
     await importLog(space, records);
@@ -218,10 +201,10 @@ const markdown = report(all, scores, {
   corpus: CORPUS,
   corpusSize,
   model: args.model,
-  plugins: PLUGINS,
   recallRounds: ROUNDS,
   repeats: REPEATS,
   run: RUN,
+  settings: SETTINGS,
   thinking: args.thinking,
 });
 await writeFile(path.join(RUN_DIR, "results.md"), markdown);

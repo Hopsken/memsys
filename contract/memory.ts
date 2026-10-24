@@ -1,4 +1,12 @@
-// Shapes shared by the worker, plugins, and client. Types only; no local imports.
+// Shapes shared by the worker and client. Types only; no local imports.
+
+// Values that cross the Durable Object RPC and HTTP boundaries.
+// Interfaces keep the recursion lazy for RPC type mapping.
+export type Json = string | number | boolean | null | JsonArray | JsonObject;
+export interface JsonObject {
+  [key: string]: Json;
+}
+export type JsonArray = Json[];
 
 // A fragment is its latest record; `at` is when its current text was written.
 export interface Fragment {
@@ -23,12 +31,11 @@ export interface RecallResult {
   truncated: boolean;
 }
 
-// A recall a stage stopped. `retry` is true when trying again shortly can
-// help, false when the owner must act, and absent when the request itself
-// was refused.
+// A recall the relevance filter could not finish. `retry` is true when
+// trying again shortly can help, false when the owner must act.
 export interface RecallFailure {
   error: string;
-  retry?: boolean;
+  retry: boolean;
 }
 
 // A listed fragment also counts the records in its history, so a list can

@@ -46,25 +46,6 @@ export const activityInput = z.object({ cursor: cursor.optional() }).strict();
 
 export const inputs = {
   forget: z.object({ ref }).strict(),
-  recall: z
-    .object({
-      context: z
-        .string()
-        .max(1000)
-        .optional()
-        .describe(
-          "What you are working on right now. Give it whenever you have a task: it helps pick the memories that matter for it."
-        ),
-      cue: z
-        .string()
-        .trim()
-        .min(1)
-        .max(256)
-        .describe(
-          "What you need, as a few distinctive words, a phrase, or #anchors. Matches contain every word; a cue of three or more words may miss one. Fragments sharing an #anchor with a match come too. Too few results: use fewer or other words, or an #anchor. `truncated`: add a distinctive word."
-        ),
-    })
-    .strict(),
   remember: z.object({ fragment }).strict(),
   revise: z.object({ fragment, ref }).strict(),
 };

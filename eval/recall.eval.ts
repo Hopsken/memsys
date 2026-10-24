@@ -6,14 +6,11 @@ import { afterAll, it, vi } from "vitest";
 import { getPlatformProxy } from "wrangler";
 import { z } from "zod";
 
-import type { Fragment } from "../contract/memory";
-import type { Json } from "../contract/plugin";
-import { inputs } from "../core/inputs";
-import { plugins } from "../plugins";
-import { resolvePlugins } from "../worker/plugin-host";
-import type { PluginEnv, StoredConfig } from "../worker/plugin-host";
-import { runRecall } from "../worker/recall/host";
-import { pipeline } from "../worker/recall/pipeline";
+import type { Fragment, JsonObject } from "../contract/memory";
+import { inMemory } from "../core";
+import { jev } from "../worker/clients/jev";
+import type { Ai } from "../worker/clients/jev";
+import { recall as runRecall, recallInput } from "../worker/services/recall";
 import { cases, fragments } from "./dataset";
 import type { EvalCase } from "./dataset";
 import { report } from "./metrics";
@@ -24,23 +21,24 @@ const withJev = process.env["JEV"] === "1";
 const strictness = process.env["JEV_STRICTNESS"] ?? "medium";
 const CONCURRENCY = 4;
 
-const corpus = new Map<string, Fragment>(
-  fragments.map(({ date, fragment, id }) => [
-    id,
-    { at: `${date}T12:00:00.000Z`, fragment, ref: id },
-  ])
-);
+const corpus: Fragment[] = fragments.map(({ date, fragment, id }) => ({
+  at: `${date}T12:00:00.000Z`,
+  fragment,
+  ref: id,
+}));
 
-const row = (name: string, enabled: boolean, config: Json = {}) =>
-  ({ config, enabled, name, updatedAt: 0 }) satisfies StoredConfig;
-
-const setups: { name: string; stored: StoredConfig[]; jev?: boolean }[] = [
-  { name: "core", stored: [row("idf", false)] },
-  { name: "idf", stored: [] },
+// The settings each setup changes from the defaults.
+const setups: { name: string; settings: JsonObject; jev?: boolean }[] = [
+  { name: "idf", settings: {} },
   {
     jev: true,
     name: "idf+jev",
-    stored: [row("jev", true, { strictness })],
+    // Fails the run on an unknown level.
+    settings: {
+      relevanceFilter: z
+        .enum(["low", "medium", "high", "max"])
+        .parse(strictness),
+    },
   },
 ];
 
@@ -55,41 +53,39 @@ afterAll(async () => {
   await proxy?.dispose();
 });
 
-const env: PluginEnv = {
-  ai: {
-    run: async (model, input) => {
-      if (!proxy) {
-        throw new Error("Workers AI is off; set JEV=1");
-      }
-      // SAFETY: the binding's model union has no entry for Jev; the output is
-      // parsed as JSON before plugins see it, as in MemoryDO.
-      return z.json().parse(await proxy.env.AI.run(model as never, input));
-    },
+const ai: Ai = {
+  run: async (model, input) => {
+    if (!proxy) {
+      throw new Error("Workers AI is off; set JEV=1");
+    }
+    // SAFETY: the binding's model union has no entry for Jev; the output is
+    // parsed as JSON before Jev sees it, as in MemoryDO.
+    return z.json().parse(await proxy.env.AI.run(model as never, input));
   },
-  corpus,
 };
 
 // Jev retries and logs each failed attempt itself.
 vi.spyOn(console, "error").mockReturnValue();
 
 // A failed recall scores as returning nothing.
-const recall = async (stored: StoredConfig[], item: EvalCase) => {
-  const input = inputs.recall.parse({
+const recall = async (settings: JsonObject, item: EvalCase) => {
+  const input = recallInput.parse({
     cue: item.cue,
     ...(item.context && { context: item.context }),
   });
   const result = await runRecall(
-    pipeline,
-    resolvePlugins(plugins, stored),
-    env,
+    {
+      judge: jev(ai),
+      memory: inMemory(corpus, { settings }),
+    },
     input
   );
-  return "error" in result
-    ? { failed: true, refs: [] }
-    : {
+  return result.ok
+    ? {
         failed: false,
-        refs: result.fragments.map((fragment) => fragment.ref),
-      };
+        refs: result.value.fragments.map((fragment) => fragment.ref),
+      }
+    : { failed: true, refs: [] };
 };
 
 const pool = async <T, R>(items: T[], task: (item: T) => Promise<R>) => {
@@ -113,7 +109,7 @@ it("scores recall on the evaluation set", async () => {
   for (const setup of setups.filter((item) => withJev || !item.jev)) {
     // oxlint-disable-next-line no-await-in-loop
     const results = await pool(cases, async (item) => ({
-      ...(await recall(setup.stored, item)),
+      ...(await recall(setup.settings, item)),
       case: item,
     }));
     runs.push({

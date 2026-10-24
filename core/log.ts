@@ -4,6 +4,7 @@
 import { z } from "zod";
 
 import type { Author, Fragment, LogRecord, Op } from "../contract/memory";
+import type { Issue } from "../contract/result";
 import { fragment, logRecord } from "./inputs";
 
 // A record as stored: `at` in epoch milliseconds; a null fragment is forgotten.
@@ -29,11 +30,6 @@ const impliedOp = (text: string | null, previous?: string | null): Op => {
   }
   return previous === null ? "restore" : "revise";
 };
-
-export interface Issue {
-  message: string;
-  path: string[];
-}
 
 // A file with more problems than this is not worth listing line by line.
 const MAX_ISSUES = 20;

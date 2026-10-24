@@ -4,7 +4,7 @@ import { Search, SearchX, XIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import type { FormEvent, ReactNode, RefObject } from "react";
 
-import { MemoryLength } from "@/entities/memory";
+import { MemoryLength, useSettings } from "@/entities/memory";
 import { SessionExpired } from "@/features/auth";
 import { api, failure, isExpired } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
@@ -20,7 +20,6 @@ import {
 import { Input } from "@/shared/ui/input";
 import { Skeleton } from "@/shared/ui/skeleton";
 import type { RecallItem, RecallResult } from "@contract/memory";
-import type { PluginView } from "@contract/plugin";
 import { findAnchors } from "@lib/anchor";
 import { formatRelativeDate } from "@lib/date";
 
@@ -169,15 +168,9 @@ const RecallPanel = ({
   const [draft, setDraft] = useState<Request>({ context: "", cue: "" });
   const [request, setRequest] = useState<Request | null>(null);
   const [opened, setOpened] = useState<string | null>(null);
-  const plugins = useQuery({
-    queryFn: ({ signal }) =>
-      api.get("/api/plugins", { signal }).json<PluginView[]>(),
-    queryKey: ["plugins"],
-  });
   // Only the relevance filter reads the context.
   const judged =
-    plugins.data?.some(({ enabled, name }) => enabled && name === "jev") ??
-    false;
+    (useSettings().data?.settings.relevanceFilter ?? "off") !== "off";
   const query = useQuery({
     enabled: request !== null,
     queryFn: ({ signal }) =>

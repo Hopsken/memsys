@@ -1,9 +1,24 @@
 import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "../../contract/memory";
+import { inMemory } from "../../core";
+import { terms } from "../../lib/analyzer";
 import { extractAnchors } from "../../lib/anchor";
-import { terms } from "../../worker/recall/match";
-import { recall } from "../../worker/recall/pipeline";
+import { recall as runRecall, recallInput } from "../../worker/services/recall";
+
+const noJudge = () => Promise.reject(new Error("The relevance filter is off"));
+
+// Recall at the default settings, which never call the model.
+const recall = async (corpus: Iterable<Fragment>, raw: { cue: string }) => {
+  const result = await runRecall(
+    { judge: noJudge, memory: inMemory(corpus) },
+    recallInput.parse(raw)
+  );
+  if (!result.ok) {
+    throw new Error(result.error.kind);
+  }
+  return result.value;
+};
 
 const item = (ref: string, fragment: string, day = "01"): Fragment => ({
   at: `2026-01-${day}T00:00:00.000Z`,
@@ -143,9 +158,9 @@ describe("Recall", () => {
     ).resolves.toStrictEqual(["rare", "common"]);
   });
 
-  it("falls back to phrase matching when the cue has only stopwords", async () => {
+  it("finds nothing for a cue of only stopwords (RFC 0004)", async () => {
     const corpus = [item("a", "To be or not to be"), item("b", "Or else")];
-    await expect(matched(corpus, "to be")).resolves.toStrictEqual(["a"]);
+    await expect(matched(corpus, "to be")).resolves.toStrictEqual([]);
   });
 
   it.each([

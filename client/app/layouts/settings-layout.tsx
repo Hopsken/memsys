@@ -2,7 +2,7 @@ import { NavLink, Outlet } from "react-router";
 
 const TABS = [
   { label: "MCP", to: "mcp" },
-  { label: "Plugins", to: "plugins" },
+  { label: "Features", to: "features" },
   { label: "Data", to: "data" },
   { label: "Account", to: "account" },
 ];
