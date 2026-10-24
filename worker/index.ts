@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { api } from "./api";
 import { getAuth } from "./lib/better-auth";
+import { openUserMemory } from "./middlewares/open-memory";
 import { requireSession } from "./middlewares/require-session";
 import { requireToken } from "./middlewares/require-token";
 import { dev } from "./routes/dev";
@@ -69,8 +70,8 @@ app.on(["GET", "POST"], ["/api/auth/*", "/.well-known/*"], (c) =>
 if (import.meta.env.DEV && process.env.NODE_ENV !== "production") {
   app.route("/", dev);
 }
-app.use("/mcp", requireToken);
-app.use("/api/*", requireSession);
+app.use("/mcp", requireToken, openUserMemory);
+app.use("/api/*", requireSession, openUserMemory);
 
 app.route("/mcp", mcp);
 app.route("/api", api);
@@ -82,6 +83,12 @@ app.onError((cause, c) => {
   if (cause instanceof HTTPException) {
     return cause.getResponse();
   }
+  console.error({
+    error: cause.stack ?? String(cause),
+    event: "request.failed",
+    method: c.req.method,
+    path: c.req.path,
+  });
   return c.json({ error: "Internal server error" }, 500);
 });
 

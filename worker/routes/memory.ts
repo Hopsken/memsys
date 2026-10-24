@@ -10,7 +10,7 @@ import { validator } from "hono/validator";
 
 import { unwrap } from "../lib/problem";
 import { validate } from "../lib/validate";
-import { recallInputSchema } from "../services/recall";
+import { recallInputSchema } from "../services/memory";
 import type { AppEnv } from "../types";
 
 const IMPORT_FORMATS = new Map<string, ImportFormat>([
@@ -79,7 +79,9 @@ export const memory = new Hono<AppEnv>()
     }
   )
   .post("/remember", validate("json", inputSchemas.remember), async (c) => {
-    const result = await c.get("memory").remember(c.req.valid("json"));
+    const result = await c
+      .get("memory")
+      .remember(c.req.valid("json"), c.get("author"));
     return c.json(unwrap(result), 201);
   })
   .post("/recall", validate("json", recallInputSchema), async (c) => {
@@ -87,7 +89,9 @@ export const memory = new Hono<AppEnv>()
     return c.json(unwrap(result));
   })
   .post("/revise", validate("json", inputSchemas.revise), async (c) => {
-    const result = await c.get("memory").revise(c.req.valid("json"));
+    const result = await c
+      .get("memory")
+      .revise(c.req.valid("json"), c.get("author"));
     return c.json(unwrap(result));
   })
   .get("/export", async (c) => {
@@ -123,6 +127,8 @@ export const memory = new Hono<AppEnv>()
     return c.json(unwrap(result));
   })
   .post("/forget", validate("json", inputSchemas.forget), async (c) => {
-    const result = await c.get("memory").forget(c.req.valid("json"));
+    const result = await c
+      .get("memory")
+      .forget(c.req.valid("json"), c.get("author"));
     return c.json(unwrap(result));
   });

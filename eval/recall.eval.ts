@@ -10,7 +10,10 @@ import { z } from "zod";
 
 import { jev } from "../worker/clients/jev";
 import type { Ai } from "../worker/clients/jev";
-import { RecallService, recallInputSchema } from "../worker/services/recall";
+import {
+  recall as recallWith,
+  recallInputSchema,
+} from "../worker/services/memory/recall";
 import { cases, fragments } from "./dataset";
 import type { EvalCase } from "./dataset";
 import { report } from "./metrics";
@@ -72,10 +75,11 @@ const recall = async (settings: Metadata, item: EvalCase) => {
     cue: item.cue,
     ...(item.context && { context: item.context }),
   });
-  const result = await new RecallService(
+  const result = await recallWith(
     inMemory(corpus, { settings }),
+    input,
     jev(ai)
-  ).recall(input);
+  );
   return result.ok
     ? {
         failed: false,

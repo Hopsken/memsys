@@ -5,7 +5,7 @@ import { afterAll, beforeAll, vi } from "vitest";
 import { z } from "zod";
 
 import worker from "../worker/index";
-import { defaultSpace } from "../worker/lib/memory";
+import { defaultSpace } from "../worker/memory";
 
 export const ORIGIN = "https://memsys.test";
 

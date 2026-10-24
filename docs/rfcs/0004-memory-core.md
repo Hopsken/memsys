@@ -87,9 +87,10 @@ The owner's length limits are checked by the Worker before it writes. They need 
 The Worker follows the layout common to Hono and other Node backends, with Hono's guidance: no controller classes, handlers written on the route, input checked with schemas.
 
 - Dependencies point one way: routes call services; services hold the rules, call the core, and import no HTTP or platform API, so tests run them in Node against the in-memory core. Lint enforces it, as it does the client's layers.
-- Every call to a memory space goes through one service per request, which applies the Worker's rules, such as the owner's length limits on agent writes, so no route or tool can skip them. One module holds the Durable Object binding.
-- Bindings come from the platform's global environment. Only values that change per request travel with the request: who is calling and what they may do.
+- Every call to a memory space goes through one service per request, which applies the Worker's rules, such as the owner's length limits on agent writes, so no route or tool can skip them. One module holds the Durable Object binding and puts services together with their clients; a middleware opens the memory space after sign-in has said whose it is.
+- Bindings come from the platform's global environment. Only values that change per request travel with the request: who is calling and what they may do. Routes pass the caller to each write, as the core's interface does, so the memory service is about a memory space, not about a caller.
 - No service subclasses the Durable Object, so the Worker's rules stay out of the core. Outside services, such as the relevance model, are passed to services, so tests and the eval can pass a fake.
+- Recall policy is functions, not a service: it has no state of its own, only the memory space, the cue, and the relevance judge. The judge's type is declared where recall uses it, and the client that implements it matches it by shape.
 - **The Worker owns its HTTP API.** The types of what the API takes and returns come from the routes, and the web UI infers them from the Worker; it does not import hand-written copies, and it never imports the core. The types of the Worker's own values, such as recall results and settings, belong to the Worker.
 
 ### 8. The core is a module now and a package later

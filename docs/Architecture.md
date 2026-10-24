@@ -63,7 +63,7 @@ Any future "let's add X" starts here. Features are code in this repo, not plugin
 Four tools, the minimal complete operation set of a memory: write, change, forget, bring back.
 
 - **The contract** — tool names, input schemas, output shape, field meanings — is meant to hold for years. New fields are additive, with defaults that reproduce prior behavior.
-- **`recall` is one method**: match the cue, spread to associations, rank them, filter if the owner turned the filter on, cut to the result size ([RFC 0002](rfcs/0002-recall-contract.md) fixes the contract). The agent sends only `cue` and `context`.
+- **`recall` is one function** called by the memory service: match the cue, spread to associations, rank them, filter if the owner turned the filter on, cut to the result size ([RFC 0002](rfcs/0002-recall-contract.md) fixes the contract). The agent sends only `cue` and `context`.
 - **`recall` returns one list**: cue matches first, then associations. An item's `via` (the shared anchors) is both its kind and the reason it was associated. `truncated` means a more specific cue would bring back memories that were left out.
 - **Core carries information only a feature uses.** `context` (what the agent is doing) is accepted on every recall; only the relevance filter reads it.
 - **Core keeps an absolute safety ceiling; the owner's limits sit under it.** No setting can let an unbounded fragment in. Tool descriptions carry no instance-specific numbers; warnings and rejections do.
@@ -102,7 +102,7 @@ The client infers the Worker API's types from the Worker and runs none of its co
 
 `core/` is the memory core: the fragment log, its search and anchor indexes, and untyped metadata by key, in one Durable Object per memory space. It knows nothing of recall policy, settings, models, or HTTP, and apps reach it only through its entry point ([RFC 0004](rfcs/0004-memory-core.md)).
 
-`worker/` is laid out as routes, services, and clients. Routes speak HTTP and MCP; services hold the rules and import no HTTP or platform API; clients call outside services; middlewares sign the caller in. Every call to a memory space goes through one service per request, so none skips the Worker's rules, and only one module touches the memory binding. Only per-request values, who is calling and what they may do, travel with the request.
+`worker/` is laid out as routes, services, and clients. Routes speak HTTP and MCP; services hold the rules and import no HTTP or platform API; clients call outside services; middlewares sign the caller in, then open the caller's memory space. Every call to a memory space goes through one service per request, so none skips the Worker's rules, and only one module touches the memory binding and puts services together with their clients. Only per-request values, who is calling and what they may do, travel with the request; routes pass the caller to each write, so the memory service is about a memory space, not a caller.
 
 Failures are values with a canonical code, a reason, and a message written where they are made ([RFC 0004](rfcs/0004-memory-core.md)). Only the code decides the HTTP status, in one place. Lint enforces all of these boundaries.
 

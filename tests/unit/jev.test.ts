@@ -10,8 +10,12 @@ import {
   jev,
 } from "../../worker/clients/jev";
 import type { Ai } from "../../worker/clients/jev";
-import { JUDGE_BUDGET, RecallService } from "../../worker/services/recall";
-import type { RecallItem } from "../../worker/services/recall";
+import {
+  JUDGE_BUDGET,
+  keepOnlyJudgedRelevant,
+  recall,
+} from "../../worker/services/memory/recall";
+import type { RecallItem } from "../../worker/services/memory/recall";
 import type { Strictness } from "../../worker/services/settings";
 
 const item = (ref: string, fragment: string, via?: string[]): RecallItem => ({
@@ -64,12 +68,7 @@ const stage = (
   run: Run,
   rows: RecallItem[] = items,
   strictness: Strictness = "medium"
-) =>
-  new RecallService(inMemory([]), jev({ run })).keepOnlyJudgedRelevant(
-    rows,
-    input,
-    strictness
-  );
+) => keepOnlyJudgedRelevant(jev({ run }), rows, input, strictness);
 
 const refs = (result: Awaited<ReturnType<typeof stage>>) =>
   result.ok ? result.value.items.map((row) => row.ref) : result.error;
@@ -257,10 +256,11 @@ describe("Relevance filter", () => {
   });
 
   it("fails the recall as persistent when no response parses", async () => {
-    const result = await new RecallService(
+    const result = await recall(
       inMemory(corpus, { settings: { relevanceFilter: "medium" } }),
+      input,
       jev({ run: malformed })
-    ).recall(input);
+    );
     expect(result).toStrictEqual(failed(false));
   });
 });

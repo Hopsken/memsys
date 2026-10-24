@@ -9,8 +9,9 @@ import {
   isAllowedEmail,
 } from "../lib/better-auth";
 import { corpusLog } from "../lib/dev-corpus";
-import { defaultSpace, openMemory } from "../lib/memory";
 import { unwrap } from "../lib/problem";
+import { defaultSpace, openMemory } from "../memory";
+import { openMemoryOf } from "../middlewares/open-memory";
 import type { AppEnv } from "../types";
 import { mcp } from "./mcp";
 import { settings } from "./settings";
@@ -18,7 +19,7 @@ import { settings } from "./settings";
 const seedInputSchema = z.object({ email: z.email() });
 
 const seed = (spaceId: string) =>
-  openMemory(spaceId, "user").importLog({
+  openMemory(spaceId).importLog({
     content: corpusLog,
     format: "ndjson",
   });
@@ -82,11 +83,15 @@ export const dev =
         sameOriginPath(c.req.query("returnTo"), new URL(c.req.url).origin)
       );
     })
-    .use("/__dev/eval/:space/*", (c, next) => {
-      c.set("memory", openMemory(`eval:${c.req.param("space")}`, "agent:eval"));
-      c.set("scopes", new Set([MEMORY_READ, MEMORY_WRITE]));
-      return next();
-    })
+    .use(
+      "/__dev/eval/:space/*",
+      (c, next) => {
+        c.set("author", "agent:eval");
+        c.set("scopes", new Set([MEMORY_READ, MEMORY_WRITE]));
+        return next();
+      },
+      openMemoryOf((c) => `eval:${c.req.param("space")}`)
+    )
     .route("/__dev/eval/:space/mcp", mcp)
     .route("/__dev/eval/:space/settings", settings)
     .get("/__dev/eval/:space/export", async (c) =>

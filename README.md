@@ -18,7 +18,7 @@ The app uses Vite, React, Tailwind CSS 4, and shadcn/ui in `client/`. The memory
 
 ## How it works
 
-Agents connect over MCP at `/mcp` (stateless Streamable HTTP) with an OAuth access token or an API key. The tools are `remember`, `recall`, `revise`, `forget`, and `list_tags`. The web UI uses the same operations through a JSON API under `/api/`. Input schemas live in `core/inputs.ts` (writes) and `worker/services/recall.ts` (recall).
+Agents connect over MCP at `/mcp` (stateless Streamable HTTP) with an OAuth access token or an API key. The tools are `remember`, `recall`, `revise`, `forget`, and `list_tags`. The web UI uses the same operations through a JSON API under `/api/`. Input schemas live in `core/inputs.ts` (writes) and `worker/services/memory/recall.ts` (recall).
 
 - **Recall** matches fragments that contain every word of the cue, in any order; English words are stemmed, and a cue of three or more words may miss one. Fragments containing the whole cue as a phrase come first, the rest rank by words matched and BM25. Recall then follows one hop through shared `#anchors`. Associated results list those anchors in `via`. Association splits anchors on `-` and stems English words; `/` namespaces match exactly.
 - **Recall size** is 10 fragments; the first 10 cue matches seed association. `truncated` is set when a cue match was left out.
@@ -32,7 +32,7 @@ Two stores, each with its own Drizzle schema and migrations:
 - **D1** (`DB`) is the Worker's database: users, sessions, sign-in codes, rate-limit counters, API keys, and OAuth clients, consents, and signing keys. Schema in `worker/db/schema.ts`, migrations in `migrations/`, applied by `wrangler d1 migrations`.
 - **One SQLite Durable Object per user** holds that user's memory. Schema in `core/db/schema.ts`, migrations in `core/migrations/`, bundled into the object.
 
-A memory space id names each memory object. For now every user has one default space whose id is their Better Auth user id (`defaultSpace` in `worker/lib/memory.ts`). A session, an OAuth access token, and an API key all resolve to it, so REST and MCP reach the same object. Clients cannot select another user's memory space.
+A memory space id names each memory object. For now every user has one default space whose id is their Better Auth user id (`defaultSpace` in `worker/memory.ts`). A session, an OAuth access token, and an API key all resolve to it, so REST and MCP reach the same object. Clients cannot select another user's memory space.
 
 In the memory object, `records` holds the fragment log, each record with the action that wrote it (`op`: `remember`, `revise`, `forget`, or `restore`) and who took it (`by`: `user`, or `agent:` and the app or API key name at the time; null for records written before it was kept); `metadata` holds untyped JSON documents by key, which the core never reads; the Worker keeps the owner's settings under `settings`. Drizzle migrations run inside `blockConcurrencyWhile` before the object accepts requests. The object then replays the log into a map of current fragments and builds its search and anchor indexes. Writes append to SQLite before updating the map and the indexes. Object eviction removes only memory; the next instance rebuilds it from SQLite.
 

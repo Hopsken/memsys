@@ -12,9 +12,9 @@ import { associationKeys, extractAnchors } from "@lib/anchor";
 import { err, ok } from "@lib/result";
 import type { Result } from "@lib/result";
 
-import type { RelevanceUnavailable } from "../errors";
-import { SettingsService } from "./settings";
-import type { Strictness } from "./settings";
+import type { RelevanceUnavailable } from "../../errors";
+import { SettingsService } from "../settings";
+import type { Strictness } from "../settings";
 
 export const recallInputSchema = z
   .object({
@@ -142,77 +142,68 @@ type RecallMemory = Pick<
   | "search"
 >;
 
-export class RecallService {
-  readonly #memory: RecallMemory;
-  readonly #judge: Judge;
-  readonly #settings: SettingsService;
-
-  constructor(memory: RecallMemory, judge: Judge) {
-    this.#memory = memory;
-    this.#judge = judge;
-    this.#settings = new SettingsService(memory);
+export const keepOnlyJudgedRelevant = async (
+  judge: Judge,
+  items: readonly RecallItem[],
+  input: RecallInput,
+  strictness: Strictness
+): Promise<
+  Result<{ items: RecallItem[]; truncated: boolean }, RelevanceUnavailable>
+> => {
+  const judged = items.slice(0, JUDGE_BUDGET);
+  const truncated = droppedMatch(items.slice(JUDGE_BUDGET));
+  if (judged.length === 0) {
+    return ok({ items: [], truncated });
   }
-
-  async recall(
-    input: RecallInput
-  ): Promise<Result<RecallResult, RelevanceUnavailable>> {
-    const memory = this.#memory;
-    const query = cueTerms(input.cue);
-    const [settings, hits] = await Promise.all([
-      this.#settings.read(),
-      query.length > 0 ? memory.search(query) : [],
-    ]);
-    const matches = selectMatches(input.cue, query, hits);
-    const keys = seedKeys(matches);
-    const [found, anchors, size] =
-      keys.length > 0
-        ? await Promise.all([
-            memory.associated(keys),
-            memory.anchors(),
-            memory.count(),
-          ])
-        : [[], [], 0];
-    let items: RecallItem[] = [
-      ...matches,
-      ...rankByRarestSharedAnchor(found, matches, anchors, size),
-    ];
-    let truncated = false;
-    if (settings.relevanceFilter !== "off") {
-      const filtered = await this.keepOnlyJudgedRelevant(
-        items,
-        input,
-        settings.relevanceFilter
-      );
-      if (!filtered.ok) {
-        return err(filtered.error);
-      }
-      ({ items, truncated } = filtered.value);
-    }
-    return ok(cut(items, truncated));
+  const scores = await judge(judged, input);
+  if (!scores.ok) {
+    return scores;
   }
+  const threshold = STRICTNESS[strictness];
+  return ok({
+    items: judged.filter(
+      (item) => (scores.value.get(item.ref) ?? 0) >= threshold
+    ),
+    truncated,
+  });
+};
 
-  async keepOnlyJudgedRelevant(
-    items: readonly RecallItem[],
-    input: RecallInput,
-    strictness: Strictness
-  ): Promise<
-    Result<{ items: RecallItem[]; truncated: boolean }, RelevanceUnavailable>
-  > {
-    const judged = items.slice(0, JUDGE_BUDGET);
-    const truncated = droppedMatch(items.slice(JUDGE_BUDGET));
-    if (judged.length === 0) {
-      return ok({ items: [], truncated });
+export const recall = async (
+  memory: RecallMemory,
+  input: RecallInput,
+  judge: Judge
+): Promise<Result<RecallResult, RelevanceUnavailable>> => {
+  const query = cueTerms(input.cue);
+  const [{ relevanceFilter }, hits] = await Promise.all([
+    new SettingsService(memory).read(),
+    query.length > 0 ? memory.search(query) : [],
+  ]);
+  const matches = selectMatches(input.cue, query, hits);
+  const keys = seedKeys(matches);
+  const [found, anchors, size] =
+    keys.length > 0
+      ? await Promise.all([
+          memory.associated(keys),
+          memory.anchors(),
+          memory.count(),
+        ])
+      : [[], [], 0];
+  let items: RecallItem[] = [
+    ...matches,
+    ...rankByRarestSharedAnchor(found, matches, anchors, size),
+  ];
+  let truncated = false;
+  if (relevanceFilter !== "off") {
+    const filtered = await keepOnlyJudgedRelevant(
+      judge,
+      items,
+      input,
+      relevanceFilter
+    );
+    if (!filtered.ok) {
+      return err(filtered.error);
     }
-    const scores = await this.#judge(judged, input);
-    if (!scores.ok) {
-      return scores;
-    }
-    const threshold = STRICTNESS[strictness];
-    return ok({
-      items: judged.filter(
-        (item) => (scores.value.get(item.ref) ?? 0) >= threshold
-      ),
-      truncated,
-    });
+    ({ items, truncated } = filtered.value);
   }
-}
+  return ok(cut(items, truncated));
+};

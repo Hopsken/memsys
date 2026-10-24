@@ -1,9 +1,10 @@
 import type { Fragment } from "@core";
 import { env } from "cloudflare:workers";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import worker from "../worker/index";
-import { list, post, useAuth, withVersions } from "./helpers";
+import { MemoryService } from "../worker/services/memory";
+import { getList, list, post, useAuth, withVersions } from "./helpers";
 
 describe("HTTP request safety", () => {
   const signIn = useAuth();
@@ -108,4 +109,24 @@ describe("HTTP request safety", () => {
       ).resolves.toMatchObject({ status: path === "/mcp" ? 200 : 201 });
     }
   );
+
+  it("answers an unexpected failure with a generic 500 and logs the cause", async () => {
+    const user = await signIn();
+    const log = vi.spyOn(console, "error").mockReturnValue();
+    vi.spyOn(MemoryService.prototype, "list").mockRejectedValueOnce(
+      new Error("internal detail 7f3a")
+    );
+    const response = await getList(user);
+    expect(response.status).toBe(500);
+    await expect(response.text()).resolves.toBe(
+      '{"error":"Internal server error"}'
+    );
+    expect(log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.stringContaining("internal detail 7f3a"),
+        event: "request.failed",
+      })
+    );
+    vi.restoreAllMocks();
+  });
 });

@@ -5,13 +5,18 @@ import { describe, expect, it } from "vitest";
 import { terms } from "@lib/analyzer";
 import { extractAnchors } from "@lib/anchor";
 
-import { RecallService, recallInputSchema } from "../../worker/services/recall";
+import {
+  recall as recallWith,
+  recallInputSchema,
+} from "../../worker/services/memory/recall";
 
 const noJudge = () => Promise.reject(new Error("The relevance filter is off"));
 
 const recall = async (corpus: Iterable<Fragment>, raw: { cue: string }) => {
-  const result = await new RecallService(inMemory(corpus), noJudge).recall(
-    recallInputSchema.parse(raw)
+  const result = await recallWith(
+    inMemory(corpus),
+    recallInputSchema.parse(raw),
+    noJudge
   );
   if (!result.ok) {
     throw new Error(result.error.reason);
