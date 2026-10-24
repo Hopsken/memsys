@@ -53,8 +53,8 @@ export default defineConfig(async (): Promise<ViteUserConfig> => {
                   TEST_MIGRATIONS: migrations,
                 },
               },
-              // Tests never reach Workers AI; the relevance filter gets a fake `ai`. Without this, the
-              // AI binding opens a remote session that needs Cloudflare credentials.
+              // Without this, the AI binding opens a remote session that needs
+              // Cloudflare credentials.
               remoteBindings: false,
               wrangler: { configPath: "./wrangler.jsonc" },
             }),

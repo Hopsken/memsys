@@ -16,7 +16,6 @@ const layerRules = LAYERS.map((layer, index): OxlintOverride => {
     | { group: string[] }
     | { regex: string }
   ))[] = [
-    // RFC 0004: the web UI reaches the core only through the Worker.
     {
       group: ["@core", "@core/**", "**/core", "**/core/**"],
       message: "client/ may not import the core; call the Worker API.",
@@ -44,9 +43,6 @@ const layerRules = LAYERS.map((layer, index): OxlintOverride => {
   };
 });
 
-// The memory core and the Worker built on it (RFC 0004). Apps reach the core
-// only through core/index.ts, and the Durable Object class through core/do.ts:
-// `@core` and `@core/do`. Each rule lists relative paths and their aliases.
 const coreInternals = {
   group: ["**/core/*", "@core/*", "!**/core/do", "!**/core/index", "!@core/do"],
   message:
