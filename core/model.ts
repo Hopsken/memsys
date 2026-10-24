@@ -5,12 +5,12 @@ import { FRAGMENT_MAX, fragmentLength } from "@lib/fragment";
 export const REF_ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz";
 export const REF_LENGTH = 7;
 
-export const ref = z
+export const refSchema = z
   .string()
   .length(REF_LENGTH)
   .regex(/^[23456789abcdefghjkmnpqrstuvwxyz]+$/u);
 
-export const fragmentText = z
+export const fragmentTextSchema = z
   .string()
   .min(1)
   .refine((value) => value.trim().length > 0)
@@ -21,32 +21,36 @@ export const fragmentText = z
     "One atomic text fragment. Keep it short: a few sentences at most. Long fragments may be warned about or rejected."
   );
 
-const at = z.iso.datetime({ precision: 3 });
+const atSchema = z.iso.datetime({ precision: 3 });
 
-export const op = z.enum(["remember", "revise", "forget", "restore"]);
+export const opSchema = z.enum(["remember", "revise", "forget", "restore"]);
 
-export const author = z.union([
+export const authorSchema = z.union([
   z.literal("user"),
   z.templateLiteral(["agent:", z.string().max(256)]),
 ]);
 
-export const fragment = z.object({ at, fragment: fragmentText, ref });
-
-export const version = z.object({
-  at,
-  by: author.nullable(),
-  fragment: fragmentText.nullable(),
-  op,
-  ref,
+export const fragmentSchema = z.object({
+  at: atSchema,
+  fragment: fragmentTextSchema,
+  ref: refSchema,
 });
 
-export const logRecord = z
+export const versionSchema = z.object({
+  at: atSchema,
+  by: authorSchema.nullable(),
+  fragment: fragmentTextSchema.nullable(),
+  op: opSchema,
+  ref: refSchema,
+});
+
+export const logRecordSchema = z
   .object({
-    at: at.transform((value) => Date.parse(value)),
-    by: author.optional(),
-    fragment: fragmentText.nullable(),
-    op: op.optional(),
-    ref,
+    at: atSchema.transform((value) => Date.parse(value)),
+    by: authorSchema.optional(),
+    fragment: fragmentTextSchema.nullable(),
+    op: opSchema.optional(),
+    ref: refSchema,
     v: z.literal(1),
   })
   .refine(
@@ -56,8 +60,8 @@ export const logRecord = z
     { message: "Only a forget has no fragment", path: ["op"] }
   );
 
-export type Op = z.infer<typeof op>;
-export type Author = z.infer<typeof author>;
-export type Fragment = z.infer<typeof fragment>;
-export type Version = z.infer<typeof version>;
-export type LogRecord = z.input<typeof logRecord>;
+export type Op = z.infer<typeof opSchema>;
+export type Author = z.infer<typeof authorSchema>;
+export type Fragment = z.infer<typeof fragmentSchema>;
+export type Version = z.infer<typeof versionSchema>;
+export type LogRecord = z.input<typeof logRecordSchema>;

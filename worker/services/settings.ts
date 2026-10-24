@@ -21,11 +21,11 @@ export interface SettingsView {
 
 const SETTINGS_KEY = "settings";
 
-const characters = z.int().min(1).max(FRAGMENT_MAX);
+const charactersSchema = z.int().min(1).max(FRAGMENT_MAX);
 
 const fields = {
   length: z
-    .object({ refuse: characters, warn: characters })
+    .object({ refuse: charactersSchema, warn: charactersSchema })
     .refine((value) => value.warn <= value.refuse, {
       message: "Can’t be higher than Refuse above.",
       path: ["warn"],
@@ -38,7 +38,7 @@ export const DEFAULT_SETTINGS: Settings = {
   relevanceFilter: "off",
 };
 
-const settingsPatch = z
+const settingsPatchSchema = z
   .object({
     length: fields.length.nullable().optional(),
     relevanceFilter: fields.relevanceFilter.nullable().optional(),
@@ -84,7 +84,7 @@ export class SettingsService {
   async update(
     patch: Metadata
   ): Promise<Result<SettingsView, InvalidSettings>> {
-    const parsed = settingsPatch.safeParse(patch);
+    const parsed = settingsPatchSchema.safeParse(patch);
     if (!parsed.success) {
       return err({
         code: "invalid",

@@ -37,22 +37,22 @@ export const isAllowedEmail = (env: Env, email: string) => {
     );
 };
 
-const signInCodeRequest = z.object({
+const signInCodeRequestSchema = z.object({
   email: z.string(),
   type: z.literal("sign-in"),
 });
 
-const clientRegistration = z.looseObject({
+const clientRegistrationSchema = z.looseObject({
   application_type: z.string().optional(),
   redirect_uris: z.array(z.string()).min(1),
 });
 
-const authorizationRequest = z.looseObject({ scope: z.string() });
+const authorizationRequestSchema = z.looseObject({ scope: z.string() });
 
 interface BeforeHookOverride {
   context:
-    | { body: z.output<typeof clientRegistration> }
-    | { query: z.output<typeof authorizationRequest> };
+    | { body: z.output<typeof clientRegistrationSchema> }
+    | { query: z.output<typeof authorizationRequestSchema> };
 }
 
 const isNativeRedirect = (uri: string) => {
@@ -68,7 +68,7 @@ const isNativeRedirect = (uri: string) => {
 
 const registerLoopbackOnlyAppsAsNative = (
   path: string,
-  client: z.output<typeof clientRegistration> | undefined
+  client: z.output<typeof clientRegistrationSchema> | undefined
 ): BeforeHookOverride | null => {
   if (
     path !== "/oauth2/register" ||
@@ -83,7 +83,7 @@ const registerLoopbackOnlyAppsAsNative = (
 
 const requestRefreshTokensForEveryApp = (
   path: string,
-  authorization: z.output<typeof authorizationRequest> | undefined
+  authorization: z.output<typeof authorizationRequestSchema> | undefined
 ): BeforeHookOverride | null => {
   if (
     path !== "/oauth2/authorize" ||
@@ -105,7 +105,7 @@ const requestRefreshTokensForEveryApp = (
 const refuseSignInCodesToUnlistedEmails = (
   env: Env,
   path: string,
-  request: z.output<typeof signInCodeRequest> | undefined
+  request: z.output<typeof signInCodeRequestSchema> | undefined
 ) => {
   if (
     path === "/email-otp/send-verification-otp" &&
@@ -179,16 +179,16 @@ const createAuth = (env: Env) =>
           refuseSignInCodesToUnlistedEmails(
             env,
             ctx.path,
-            signInCodeRequest.safeParse(ctx.body).data
+            signInCodeRequestSchema.safeParse(ctx.body).data
           );
           return Promise.resolve(
             registerLoopbackOnlyAppsAsNative(
               ctx.path,
-              clientRegistration.safeParse(ctx.body).data
+              clientRegistrationSchema.safeParse(ctx.body).data
             ) ??
               requestRefreshTokensForEveryApp(
                 ctx.path,
-                authorizationRequest.safeParse(ctx.query).data
+                authorizationRequestSchema.safeParse(ctx.query).data
               )
           );
         }
@@ -275,7 +275,7 @@ export const getAuth = (env: Env, ctx?: ExecutionContext) => {
   return instance.auth;
 };
 
-const accessToken = z.object({
+const accessTokenSchema = z.object({
   azp: z.string(),
   cnf: z.unknown().optional(),
   scope: z.string().default(""),
@@ -297,7 +297,7 @@ export const verifyAccessToken = async (env: Env, token: string) => {
     jwksFetch: readJwksInProcess,
     verifyOptions: { audience: mcpResource(env), issuer: issuer(env) },
   }).catch(() => null);
-  const claims = accessToken.safeParse(payload);
+  const claims = accessTokenSchema.safeParse(payload);
   const isSenderConstrained = claims.data?.cnf !== undefined;
   if (!claims.success || isSenderConstrained) {
     return null;

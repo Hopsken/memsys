@@ -1,15 +1,15 @@
 import { terms } from "@lib/analyzer";
 import { associationKeys, extractAnchors } from "@lib/anchor";
 
+import { mergePatch } from "./merge-patch";
+import type { Fragment } from "./model";
 import type {
   AnchorCount,
   Association,
   Memory,
   Metadata,
   SearchHit,
-} from "./api";
-import { mergePatch } from "./merge-patch";
-import type { Fragment } from "./model";
+} from "./types";
 
 const BM25_K1 = 1.2;
 const BM25_B = 0.75;

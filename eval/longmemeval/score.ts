@@ -9,21 +9,21 @@ import { READ_TOOLS } from "./pi.ts";
 import type { PiRun, ToolCall } from "./pi.ts";
 import type { SettingsMergePatch } from "./server.ts";
 
-const recalled = z.object({
+const recalledSchema = z.object({
   fragments: z.array(z.looseObject({ fragment: z.string(), ref: z.string() })),
 });
-const recallArgs = z.looseObject({
+const recallArgsSchema = z.looseObject({
   context: z.string().nullish(),
   cue: z.string(),
 });
 
-export const round = z.object({
+export const roundSchema = z.object({
   cue: z.string(),
   evidence: z.array(z.string()),
   returned: z.number(),
 });
 
-export const score = z.object({
+export const scoreSchema = z.object({
   answer: z.number(),
   answerText: z.string(),
   cost: z.number(),
@@ -34,12 +34,12 @@ export const score = z.object({
   read: z.number(),
   readTokens: z.number(),
   repeat: z.number(),
-  rounds: z.array(round),
+  rounds: z.array(roundSchema),
   stale: z.number(),
   type: z.string(),
   writeMiss: z.boolean(),
 });
-export type Score = z.infer<typeof score>;
+export type Score = z.infer<typeof scoreSchema>;
 
 const isBlocked = (tool: ToolCall) =>
   tool.isError && tool.result.includes(BUDGET_REASON);
@@ -75,9 +75,9 @@ export const scoreRun = (
     .map((tool) => {
       const fragments = tool.isError
         ? []
-        : recalled.parse(JSON.parse(tool.result)).fragments;
+        : recalledSchema.parse(JSON.parse(tool.result)).fragments;
       return {
-        cue: recallArgs.safeParse(tool.args).data?.cue ?? "",
+        cue: recallArgsSchema.safeParse(tool.args).data?.cue ?? "",
         evidence: fragments
           .map((f) => f.ref)
           .filter((ref) => evidenceRefs.has(ref)),

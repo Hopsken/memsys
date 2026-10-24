@@ -8,6 +8,21 @@ import { z } from "zod";
 import { err, ok } from "@lib/result";
 import type { Issue, Result } from "@lib/result";
 
+import { metadata, records } from "./db/schema";
+import {
+  activityInputSchema,
+  importInputSchema,
+  inputSchemas,
+  listFragments,
+  PAGE_SIZE,
+} from "./inputs";
+import { parseLog, parseText, replay, serializeLog } from "./log";
+import type { Row } from "./log";
+import { mergePatch } from "./merge-patch";
+import migrations from "./migrations/migrations.js";
+import { REF_ALPHABET, REF_LENGTH } from "./model";
+import type { Author, Fragment, Op, Version } from "./model";
+import { FragmentIndex } from "./search";
 import type {
   ActivityPage,
   AnchorCount,
@@ -23,22 +38,7 @@ import type {
   NotFound,
   Restored,
   SearchHit,
-} from "./api";
-import { metadata, records } from "./db/schema";
-import {
-  activityInput,
-  importInput,
-  inputs,
-  listFragments,
-  PAGE_SIZE,
-} from "./inputs";
-import { parseLog, parseText, replay, serializeLog } from "./log";
-import type { Row } from "./log";
-import { mergePatch } from "./merge-patch";
-import migrations from "./migrations/migrations.js";
-import { REF_ALPHABET, REF_LENGTH } from "./model";
-import type { Author, Fragment, Op, Version } from "./model";
-import { FragmentIndex } from "./search";
+} from "./types";
 
 const newRef = customAlphabet(REF_ALPHABET, REF_LENGTH);
 
@@ -166,7 +166,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     input: { fragment: string },
     by: Author
   ): Result<Fragment, InvalidInput> {
-    const parsed = inputs.remember.safeParse(input);
+    const parsed = inputSchemas.remember.safeParse(input);
     if (!parsed.success) {
       return err(invalid(parsed.error));
     }
@@ -184,7 +184,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     input: { fragment: string; ref: string },
     by: Author
   ): Result<Fragment, InvalidInput | NotFound> {
-    const parsed = inputs.revise.safeParse(input);
+    const parsed = inputSchemas.revise.safeParse(input);
     if (!parsed.success) {
       return err(invalid(parsed.error));
     }
@@ -253,7 +253,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     content: string;
     format: ImportFormat;
   }): Result<ImportResult, InvalidInput> {
-    const input = importInput.safeParse(raw);
+    const input = importInputSchema.safeParse(raw);
     if (!input.success) {
       return err(invalid(input.error));
     }
@@ -369,7 +369,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   }
 
   activity(input: { cursor?: string | undefined }): ActivityPage {
-    const { cursor: after } = activityInput.parse(input);
+    const { cursor: after } = activityInputSchema.parse(input);
     const rows = this.db
       .select()
       .from(records)

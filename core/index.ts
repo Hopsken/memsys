@@ -16,8 +16,19 @@ export type {
   NotFound,
   Restored,
   SearchHit,
-} from "./api";
-export { activityInput, inputs, listInput, restoreInput } from "./inputs";
-export { author, fragment, logRecord, op, version } from "./model";
+} from "./types";
+export {
+  activityInputSchema,
+  inputSchemas,
+  listInputSchema,
+  restoreInputSchema,
+} from "./inputs";
+export {
+  authorSchema,
+  fragmentSchema,
+  logRecordSchema,
+  opSchema,
+  versionSchema,
+} from "./model";
 export type { Author, Fragment, LogRecord, Op, Version } from "./model";
 export { FragmentIndex, inMemory } from "./search";

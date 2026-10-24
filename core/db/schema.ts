@@ -6,8 +6,8 @@ import {
   text,
 } from "drizzle-orm/sqlite-core";
 
-import type { Metadata } from "../api";
 import type { Author, Op } from "../model";
+import type { Metadata } from "../types";
 
 export const records = sqliteTable(
   "records",

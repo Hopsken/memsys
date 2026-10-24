@@ -62,16 +62,16 @@ export interface Ai {
   run: (model: string, input: Record<string, Json>) => Promise<Json>;
 }
 
-const answers = z.object({
+const answersSchema = z.object({
   answers: z.record(z.string(), z.object({ noul: z.number().min(0).max(1) })),
 });
-const bareOrGatewayEnveloped = z.union([
-  answers,
-  z.object({ result: answers }).transform(({ result }) => result),
+const bareOrGatewayEnvelopedSchema = z.union([
+  answersSchema,
+  z.object({ result: answersSchema }).transform(({ result }) => result),
 ]);
 
 const parseScores = (value: Json) => {
-  const parsed = bareOrGatewayEnveloped.safeParse(value);
+  const parsed = bareOrGatewayEnvelopedSchema.safeParse(value);
   if (!parsed.success) {
     const keys = Object.keys(z.looseObject({}).safeParse(value).data ?? {});
     throw new JevAttemptError(

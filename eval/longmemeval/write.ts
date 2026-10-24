@@ -7,7 +7,7 @@ import { parseArgs } from "node:util";
 
 import { z } from "zod";
 
-import { corpusEntry, HARNESS, HUB, SETS_DIR } from "./corpus.ts";
+import { corpusEntrySchema, HARNESS, HUB, SETS_DIR } from "./corpus.ts";
 import type { CorpusEntry } from "./corpus.ts";
 import {
   loadQuestions,
@@ -18,7 +18,7 @@ import {
   transcript,
 } from "./dataset.ts";
 import type { Question } from "./dataset.ts";
-import { piRun, runPi } from "./pi.ts";
+import { piRunSchema, runPi } from "./pi.ts";
 import {
   exportLog,
   pool,
@@ -33,14 +33,14 @@ const WRITE_TOOLS = ["remember", "revise", "forget"] as const;
 const WRITER_VERSION = 1;
 const WRITE_SOURCES = ["write.ts", "pi.ts", "dataset.ts"];
 
-const sessionLog = piRun.extend({
+const sessionLogSchema = piRunSchema.extend({
   date: z.string(),
   end: z.number(),
   index: z.number(),
   sessionId: z.string(),
   start: z.number(),
 });
-type SessionLog = z.infer<typeof sessionLog>;
+type SessionLog = z.infer<typeof sessionLogSchema>;
 
 const sha = (text: string) =>
   createHash("sha256").update(text).digest("hex").slice(0, 12);
@@ -52,7 +52,7 @@ const writeSessions = async (
   space: string
 ) => {
   const file = path.join(dir, "sessions.jsonl");
-  const logged = await readLines(file, sessionLog);
+  const logged = await readLines(file, sessionLogSchema);
   const done = new Set(logged.map((s) => s.index));
   for (const [index, turns] of q.haystack_sessions.entries()) {
     if (done.has(index)) {
@@ -90,7 +90,10 @@ const redate = async (q: Question, dir: string, space: string) => {
   if (existsSync(file)) {
     return;
   }
-  const logged = await readLines(path.join(dir, "sessions.jsonl"), sessionLog);
+  const logged = await readLines(
+    path.join(dir, "sessions.jsonl"),
+    sessionLogSchema
+  );
   const sessions = logged.toSorted((a, b) => a.start - b.start);
   const days = Map.groupBy(
     sessions,
@@ -239,7 +242,7 @@ for (const q of written) {
   // oxlint-disable-next-line no-await-in-loop
   const sessions = await readLines(
     path.join(dir, "sessions.jsonl"),
-    sessionLog
+    sessionLogSchema
   );
   cost += sessions.reduce((sum, s) => sum + s.cost, 0);
   // oxlint-disable-next-line no-await-in-loop
@@ -248,7 +251,7 @@ for (const q of written) {
 }
 const META = path.join(DIR, "corpus.json");
 const previous = existsSync(META)
-  ? await readJson(META, corpusEntry)
+  ? await readJson(META, corpusEntrySchema)
   : undefined;
 const entry: CorpusEntry = {
   cost,

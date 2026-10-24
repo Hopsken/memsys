@@ -7,13 +7,13 @@ import type { SlimQuestion } from "./dataset.ts";
 
 const ATTEMPTS = 3;
 
-const answers = z.object({
+const answersSchema = z.object({
   answers: z.record(z.string(), z.object({ noul: z.number() })),
 });
-const output = z.union([
-  answers,
+const outputSchema = z.union([
+  answersSchema,
   z
-    .object({ result: answers.extend({ model: z.string().optional() }) })
+    .object({ result: answersSchema.extend({ model: z.string().optional() }) })
     .transform(({ result }) => result),
 ]);
 
@@ -44,7 +44,7 @@ export const jev = async () => {
             questions,
             state,
           });
-          const parsed = output.parse(raw);
+          const parsed = outputSchema.parse(raw);
           return {
             model: "model" in parsed ? (parsed.model ?? "") : "",
             scores: Object.fromEntries(

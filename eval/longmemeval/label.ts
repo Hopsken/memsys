@@ -4,8 +4,8 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 
 import {
-  corpusRecord,
-  labels,
+  corpusRecordSchema,
+  labelsSchema,
   loadCorpus,
   requiredSessions,
 } from "./corpus.ts";
@@ -23,7 +23,9 @@ if (NAME === undefined) {
 }
 const { dir: DIR, questions } = await loadCorpus(NAME);
 const LABELS = path.join(DIR, "labels.json");
-const known: Labels = existsSync(LABELS) ? await readJson(LABELS, labels) : {};
+const known: Labels = existsSync(LABELS)
+  ? await readJson(LABELS, labelsSchema)
+  : {};
 
 interface Row {
   candidates: { ref: string; score: number; text: string }[];
@@ -37,7 +39,7 @@ try {
     // oxlint-disable-next-line no-await-in-loop
     const records = await readLines(
       path.join(DIR, q.id, "memory.ndjson"),
-      corpusRecord
+      corpusRecordSchema
     );
     const current = currentMemories(records);
     const labeled = (known[q.id] ??= {});

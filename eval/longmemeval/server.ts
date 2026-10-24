@@ -58,10 +58,12 @@ export const toolDescriptions = async () =>
 
 export type SettingsMergePatch = Record<string, z.core.util.JSONType>;
 
-const settingsView = z.object({ defaults: z.record(z.string(), z.json()) });
+const settingsViewSchema = z.object({
+  defaults: z.record(z.string(), z.json()),
+});
 
 export const setSettings = async (space: string, patch: SettingsMergePatch) => {
-  const view = settingsView.parse(
+  const view = settingsViewSchema.parse(
     JSON.parse(await server(`${space}/settings`))
   );
   const reset = Object.fromEntries(
@@ -74,12 +76,12 @@ export const setSettings = async (space: string, patch: SettingsMergePatch) => {
   });
 };
 
-export const logRecord = z.looseObject({
+export const logRecordSchema = z.looseObject({
   at: z.string(),
   fragment: z.string().nullable(),
   ref: z.string(),
 });
-export type LogRecord = z.infer<typeof logRecord>;
+export type LogRecord = z.infer<typeof logRecordSchema>;
 
 export const readLines = async <T>(
   file: string,
@@ -105,7 +107,7 @@ export const exportLog = async (space: string) => {
   return text
     .split("\n")
     .filter(Boolean)
-    .map((line) => logRecord.parse(JSON.parse(line)));
+    .map((line) => logRecordSchema.parse(JSON.parse(line)));
 };
 
 export const importLog = async (space: string, records: LogRecord[]) => {

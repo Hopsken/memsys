@@ -38,7 +38,7 @@ const register = async () => {
     .client_id;
 };
 
-const redirect = z.object({ url: z.string() });
+const redirectSchema = z.object({ url: z.string() });
 
 interface App {
   credentials: () => Promise<Record<string, string>>;
@@ -89,7 +89,7 @@ const authorize = async (
     { Cookie: user.cookie, Origin: ORIGIN, "cf-connecting-ip": randomIp() }
   );
   expect(consented.status).toBe(200);
-  const callback = new URL(redirect.parse(await consented.json()).url);
+  const callback = new URL(redirectSchema.parse(await consented.json()).url);
   expect(callback.searchParams.get("state")).toBe("state-1");
   const token = await request("/api/auth/oauth2/token", {
     body: new URLSearchParams({

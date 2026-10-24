@@ -3,14 +3,14 @@ import type { Fragment } from "@core";
 import { describe, expect, it } from "vitest";
 
 import { groupByMatch } from "../../client/widgets/recall-preview/lib/group";
-import { RecallService, recallInput } from "../../worker/services/recall";
+import { RecallService, recallInputSchema } from "../../worker/services/recall";
 import type { RecallItem } from "../../worker/services/recall";
 
 const noJudge = () => Promise.reject(new Error("The relevance filter is off"));
 
 const recall = async (corpus: Iterable<Fragment>, raw: { cue: string }) => {
   const result = await new RecallService(inMemory(corpus), noJudge).recall(
-    recallInput.parse(raw)
+    recallInputSchema.parse(raw)
   );
   if (!result.ok) {
     throw new Error(result.error.reason);

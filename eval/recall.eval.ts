@@ -10,7 +10,7 @@ import { z } from "zod";
 
 import { jev } from "../worker/clients/jev";
 import type { Ai } from "../worker/clients/jev";
-import { RecallService, recallInput } from "../worker/services/recall";
+import { RecallService, recallInputSchema } from "../worker/services/recall";
 import { cases, fragments } from "./dataset";
 import type { EvalCase } from "./dataset";
 import { report } from "./metrics";
@@ -68,7 +68,7 @@ const ai: Ai = {
 vi.spyOn(console, "error").mockReturnValue();
 
 const recall = async (settings: Metadata, item: EvalCase) => {
-  const input = recallInput.parse({
+  const input = recallInputSchema.parse({
     cue: item.cue,
     ...(item.context && { context: item.context }),
   });

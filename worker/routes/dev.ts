@@ -15,7 +15,7 @@ import { mcp } from "./mcp";
 import { unwrap } from "./problem";
 import { settings } from "./settings";
 
-const seedInput = z.object({ email: z.email() });
+const seedInputSchema = z.object({ email: z.email() });
 
 const seed = (spaceId: string) =>
   openMemory(spaceId, "user").importLog({
@@ -37,7 +37,7 @@ export const dev =
   /* @__PURE__ */
   new Hono<AppEnv>()
     .post("/api/dev/seed", async (c) => {
-      const { email } = seedInput.parse(await c.req.json());
+      const { email } = seedInputSchema.parse(await c.req.json());
       const { internalAdapter } = await getAuth(c.env).$context;
       const found = await internalAdapter.findUserByEmail(email);
       if (!found) {

@@ -4,9 +4,9 @@ import path from "node:path";
 
 import { z } from "zod";
 
-import { SETS, slimQuestion } from "./dataset.ts";
+import { SETS, slimQuestionSchema } from "./dataset.ts";
 import type { SetName, SlimQuestion } from "./dataset.ts";
-import { logRecord, readJson } from "./server.ts";
+import { logRecordSchema, readJson } from "./server.ts";
 
 export const HARNESS =
   "You are the user's personal assistant across many separate conversations. Nothing carries over between conversations except what is in memsys, your long-term memory.";
@@ -32,7 +32,7 @@ export const pull = (...patterns: string[]) => {
   );
 };
 
-export const corpusEntry = z.object({
+export const corpusEntrySchema = z.object({
   cost: z.number(),
   key: z.string(),
   model: z.string(),
@@ -48,16 +48,18 @@ export const corpusEntry = z.object({
   }),
   writtenAt: z.string(),
 });
-export type CorpusEntry = z.infer<typeof corpusEntry>;
+export type CorpusEntry = z.infer<typeof corpusEntrySchema>;
 
-export const corpusRecord = logRecord.extend({ session: z.number() });
-export type CorpusRecord = z.infer<typeof corpusRecord>;
+export const corpusRecordSchema = logRecordSchema.extend({
+  session: z.number(),
+});
+export type CorpusRecord = z.infer<typeof corpusRecordSchema>;
 
-export const labels = z.record(
+export const labelsSchema = z.record(
   z.string(),
   z.record(z.string(), z.array(z.string()))
 );
-export type Labels = z.infer<typeof labels>;
+export type Labels = z.infer<typeof labelsSchema>;
 
 export const requiredSessions = (q: SlimQuestion): number[] => {
   if (q.abstain) {
@@ -74,7 +76,7 @@ export const readSet = (set: SetName) => {
   if (!existsSync(file)) {
     pull(`sets/${set}.json`);
   }
-  return readJson(file, z.array(slimQuestion));
+  return readJson(file, z.array(slimQuestionSchema));
 };
 
 export const loadCorpus = async (name: string, subset?: SetName) => {
@@ -86,7 +88,7 @@ export const loadCorpus = async (name: string, subset?: SetName) => {
   if (!existsSync(meta)) {
     throw new Error(`${name} is not on ${REPO}`);
   }
-  const entry = await readJson(meta, corpusEntry);
+  const entry = await readJson(meta, corpusEntrySchema);
   const setQuestions = await readSet(entry.set);
   const written = (q: SlimQuestion) =>
     existsSync(path.join(dir, q.id, "memory.ndjson"));

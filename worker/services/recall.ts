@@ -16,7 +16,7 @@ import type { RelevanceUnavailable } from "../errors";
 import { SettingsService } from "./settings";
 import type { Strictness } from "./settings";
 
-export const recallInput = z
+export const recallInputSchema = z
   .object({
     context: z
       .string()
@@ -36,7 +36,7 @@ export const recallInput = z
   })
   .strict();
 
-export type RecallInput = z.infer<typeof recallInput>;
+export type RecallInput = z.infer<typeof recallInputSchema>;
 
 export type RecallItem = Fragment & { via?: string[] };
 
