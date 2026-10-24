@@ -34,6 +34,71 @@ const layerRules = LAYERS.map((layer, index): OxlintOverride => {
   };
 });
 
+// The memory core and the Worker built on it (RFC 0004). Apps reach the core
+// only through core/index.ts, and the Durable Object class through core/do.ts.
+const coreInternals = {
+  group: ["**/core/*", "!**/core/do", "!**/core/index"],
+  message:
+    "Import the core through core/index.ts (or core/do.ts for the Durable Object class).",
+};
+const restrict = (
+  files: string[],
+  patterns: { group: string[]; message: string }[]
+): OxlintOverride => ({
+  files,
+  rules: { "no-restricted-imports": ["error", { patterns }] },
+});
+
+// Worker: routes → services → clients and lib. Services hold the rules and
+// stay free of HTTP and platform APIs, so tests run them in Node. A later
+// override replaces an earlier one's patterns, so each repeats coreInternals.
+const workerRules = [
+  restrict(["worker/**"], [coreInternals]),
+  restrict(
+    ["worker/services/**"],
+    [
+      coreInternals,
+      {
+        group: [
+          "hono",
+          "hono/*",
+          "cloudflare:*",
+          "better-auth*",
+          "@better-auth/*",
+          "@modelcontextprotocol/*",
+          "**/routes/**",
+          "**/middlewares/**",
+          "**/clients/**",
+          // The Worker's own lib/, not the shared root lib/.
+          "../lib/*",
+        ],
+        message:
+          "worker/services may import only the core, contract/, lib/, and worker/errors.",
+      },
+    ]
+  ),
+  restrict(
+    ["worker/clients/**", "worker/lib/**", "worker/middlewares/**"],
+    [
+      coreInternals,
+      {
+        group: ["**/routes/**", "**/services/**"],
+        message:
+          "Only routes call services; clients, lib, and middlewares sit below them.",
+      },
+    ]
+  ),
+  restrict(
+    ["core/**"],
+    [
+      {
+        group: ["**/worker/**", "**/client/**"],
+        message: "core/ may import only contract/, lib/, and packages.",
+      },
+    ]
+  ),
+];
+
 export default defineConfig({
   extends: [core, antiSlop, vitest],
   ignorePatterns: [
@@ -46,17 +111,23 @@ export default defineConfig({
   ],
   overrides: [
     {
-      // Plugins meet the worker only through contract/ and shared lib/.
-      files: ["contract/**", "lib/**", "plugins/**"],
+      // Shared code meets the worker and client only through contract/ and lib/.
+      files: ["contract/**", "lib/**"],
       rules: {
         "no-restricted-imports": [
           "error",
           {
             patterns: [
               {
-                group: ["**/worker/**", "**/client/**", "cloudflare:*"],
+                group: [
+                  "**/worker/**",
+                  "**/client/**",
+                  "**/core/**",
+                  "**/core",
+                  "cloudflare:*",
+                ],
                 message:
-                  "contract/, lib/, and plugins/ may import only contract/, lib/, and packages.",
+                  "contract/ and lib/ may import only contract/, lib/, and packages.",
               },
             ],
           },
@@ -64,6 +135,7 @@ export default defineConfig({
       },
     },
     ...layerRules,
+    ...workerRules,
   ],
   rules: {
     "sort-keys": ["error", "asc", { allowLineSeparatedGroups: true }],
