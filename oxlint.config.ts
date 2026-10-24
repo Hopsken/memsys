@@ -15,7 +15,15 @@ const layerRules = LAYERS.map((layer, index): OxlintOverride => {
     ...LAYERS.slice(0, index),
     ...(SLICED.has(layer) ? [layer] : []),
   ];
-  const patterns = [
+  const patterns: ({ message: string } & (
+    | { group: string[] }
+    | { regex: string }
+  ))[] = [
+    // RFC 0004: the web UI reaches the core only through the Worker.
+    {
+      group: ["@core", "@core/**", "**/core", "**/core/**"],
+      message: "client/ may not import the core; call the Worker API.",
+    },
     {
       message: "Import a slice through its index.ts.",
       regex:
