@@ -4,13 +4,15 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 
-import { getAuth, requireSession, requireToken } from "./auth";
-import type { AppEnv } from "./auth";
-import { dev } from "./dev";
+import { getAuth } from "./lib/better-auth";
+import { requireSession } from "./middlewares/require-session";
+import { requireToken } from "./middlewares/require-token";
 import { connections } from "./routes/connections";
+import { dev } from "./routes/dev";
 import { mcp } from "./routes/mcp";
 import { memory } from "./routes/memory";
 import { plugins } from "./routes/plugins";
+import type { AppEnv } from "./types";
 
 const app = new Hono<AppEnv>();
 
@@ -72,7 +74,7 @@ app.use("/api/*", (c, next) => {
 app.on(["GET", "POST"], ["/api/auth/*", "/.well-known/*"], (c) =>
   getAuth(c.env).handler(c.req.raw)
 );
-// Replaced with `false` in production builds, which then drop worker/dev.
+// Replaced with `false` in production builds, which then drop routes/dev.
 if (import.meta.env.DEV && process.env.NODE_ENV !== "production") {
   app.route("/", dev);
 }

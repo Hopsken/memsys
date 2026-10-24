@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 
-import type { AppEnv } from "../auth";
 import { pluginUpdate } from "../plugin-host";
+import type { AppEnv } from "../types";
 
 // Plugin settings for the web UI, mounted at /api/plugins.
 export const plugins = new Hono<AppEnv>()

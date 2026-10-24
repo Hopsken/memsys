@@ -8,8 +8,8 @@ import type {
   FragmentPage,
   ListedFragment,
 } from "../contract/memory";
-import { defaultSpace, memoryOf as memoryOfSpace } from "../worker/auth";
 import worker from "../worker/index";
+import { defaultSpace, memoryOf as memoryOfSpace } from "../worker/lib/memory";
 
 export const ORIGIN = "https://memsys.test";
 
@@ -116,8 +116,7 @@ export const useAuth = () => {
 
 export const sentCode = (email: string) => codes.get(email);
 
-export const memoryOf = (user: User) =>
-  memoryOfSpace(env, defaultSpace(user.id));
+export const memoryOf = (user: User) => memoryOfSpace(defaultSpace(user.id));
 
 export const getList = (user: User | null, query = "") =>
   worker.fetch(

@@ -7,7 +7,7 @@ import {
   listInput,
   restoreInput,
 } from "../../core/inputs";
-import type { AppEnv } from "../auth";
+import type { AppEnv } from "../types";
 
 // The file's media type picks how it is read; the content is never sniffed.
 const IMPORT_FORMATS = new Map<string, ImportFormat>([

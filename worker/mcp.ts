@@ -5,8 +5,8 @@ import type { Author, RecallResult } from "../contract/memory";
 import type { MemoryDO, WriteResult } from "../core/do";
 import { inputs } from "../core/inputs";
 import { plugins } from "../plugins";
-import { MEMORY_READ, MEMORY_WRITE } from "./auth";
-import type { Scope } from "./auth";
+import { MEMORY_READ, MEMORY_WRITE } from "./lib/better-auth";
+import type { Scope } from "./lib/better-auth";
 
 const error = (text: string): CallToolResult => ({
   content: [{ text, type: "text" }],

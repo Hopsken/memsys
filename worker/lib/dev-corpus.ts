@@ -1,4 +1,4 @@
-// Seed data for local development; imported only by worker/dev.
+// Seed data for local development; imported only by routes/dev.ts.
 
 export interface SeedFragment {
   fragment: string;

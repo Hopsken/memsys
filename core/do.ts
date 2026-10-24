@@ -21,7 +21,7 @@ import type {
 } from "../contract/memory";
 import type { PluginView, Verdict } from "../contract/plugin";
 import { plugins } from "../plugins";
-import type { SeedFragment } from "../worker/dev/corpus";
+import type { SeedFragment } from "../worker/lib/dev-corpus";
 import {
   assertRegistry,
   createCtx,

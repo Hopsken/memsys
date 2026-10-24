@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 
-import { getAuth } from "../auth";
-import type { AppEnv } from "../auth";
+import { getAuth } from "../lib/better-auth";
+import type { AppEnv } from "../types";
 
 interface Consent {
   clientId: string;

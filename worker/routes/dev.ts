@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setSignedCookie } from "hono/cookie";
 import { z } from "zod";
@@ -5,15 +6,14 @@ import { z } from "zod";
 import {
   MEMORY_READ,
   MEMORY_WRITE,
-  defaultSpace,
   getAuth,
   isAllowedEmail,
-  memoryOf,
-} from "../auth";
-import type { AppEnv } from "../auth";
-import { mcp } from "../routes/mcp";
-import { plugins } from "../routes/plugins";
-import { corpus } from "./corpus";
+} from "../lib/better-auth";
+import { corpus } from "../lib/dev-corpus";
+import { defaultSpace, memoryOf } from "../lib/memory";
+import type { AppEnv } from "../types";
+import { mcp } from "./mcp";
+import { plugins } from "./plugins";
 
 const seedInput = z.object({ email: z.email() });
 
@@ -47,7 +47,7 @@ export const dev =
         );
       }
       return c.json(
-        await memoryOf(c.env, defaultSpace(found.user.id)).seed(corpus)
+        await env.MEMORY.getByName(defaultSpace(found.user.id)).seed(corpus)
       );
     })
     // Signs the browser in as anyone on the allowlist, creating the account
@@ -73,7 +73,7 @@ export const dev =
           { email: email.data, emailVerified: true, name: "" },
           { method: "email-otp" }
         );
-        await memoryOf(c.env, defaultSpace(user.id)).seed(corpus);
+        await env.MEMORY.getByName(defaultSpace(user.id)).seed(corpus);
       }
       const session = await internalAdapter.createSession(user.id);
       // The cookie Better Auth sets on sign-in, signed the same way.
@@ -92,7 +92,7 @@ export const dev =
     // account behind them: MCP with every tool, plugin settings, and the whole
     // log out and in.
     .use("/__dev/eval/:space/*", (c, next) => {
-      c.set("memory", memoryOf(c.env, `eval:${c.req.param("space")}`));
+      c.set("memory", memoryOf(`eval:${c.req.param("space")}`));
       c.set("scopes", new Set([MEMORY_READ, MEMORY_WRITE]));
       c.set("by", "agent:eval");
       return next();

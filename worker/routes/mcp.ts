@@ -5,8 +5,8 @@ import {
 } from "@modelcontextprotocol/server";
 import { Hono } from "hono";
 
-import type { AppEnv } from "../auth";
 import { createMcpServer } from "../mcp";
+import type { AppEnv } from "../types";
 
 // Stateless MCP over Streamable HTTP, mounted at /mcp. Each request gets its
 // own server bound to the caller's memory and scopes.

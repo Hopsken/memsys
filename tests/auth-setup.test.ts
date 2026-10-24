@@ -5,8 +5,8 @@ import {
 import { env } from "cloudflare:workers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getAuth } from "../worker/auth";
 import worker from "../worker/index";
+import { getAuth } from "../worker/lib/better-auth";
 import { ORIGIN, randomIp, useAuth } from "./helpers";
 
 // Each test gets its own env object, so its own Better Auth instance.

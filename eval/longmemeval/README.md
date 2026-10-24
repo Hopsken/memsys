@@ -43,4 +43,4 @@ hf upload Hopsken/memsys-longmemeval-corpora eval/longmemeval/hub . --repo-type 
 hf download Hopsken/memsys-longmemeval-corpora --repo-type dataset --include "runs/<run>/*" --local-dir eval/longmemeval/hub
 ```
 
-The dev routes behind this (`/__dev/eval/:space/mcp`, `/export`, `/import` in `worker/dev`) take no credentials and exist only in development builds.
+The dev routes behind this (`/__dev/eval/:space/mcp`, `/export`, `/import` in `worker/routes/dev.ts`) take no credentials and exist only in development builds.

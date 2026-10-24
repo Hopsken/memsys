@@ -7,37 +7,25 @@ import { APIError, createAuthMiddleware } from "better-auth/api";
 import { verifyJwsAccessToken } from "better-auth/oauth2";
 import { jwt } from "better-auth/plugins";
 import { emailOTP } from "better-auth/plugins/email-otp";
-import type { Context } from "hono";
-import { createMiddleware } from "hono/factory";
 import { z } from "zod";
 
-import type { Author } from "../contract/memory";
-import type { MemoryDO } from "../core/do";
-import { sendSignInCode } from "./email";
+import { sendSignInCode } from "../../clients/resend";
 
 // What an MCP caller may do. API keys may do both.
 export const MEMORY_READ = "memory:read";
 export const MEMORY_WRITE = "memory:write";
 export type Scope = typeof MEMORY_READ | typeof MEMORY_WRITE;
-const ALL_SCOPES: ReadonlySet<Scope> = new Set([MEMORY_READ, MEMORY_WRITE]);
+export const ALL_SCOPES: ReadonlySet<Scope> = new Set([
+  MEMORY_READ,
+  MEMORY_WRITE,
+]);
 // Refresh tokens are issued only with offline_access; without it an app
 // would need the user to sign in again every hour.
-const OAUTH_SCOPES = [MEMORY_READ, MEMORY_WRITE, "offline_access"];
-
-export interface AppEnv {
-  Bindings: Env;
-  Variables: {
-    // Who writes through this request, recorded with each record.
-    by: Author;
-    memory: DurableObjectStub<MemoryDO>;
-    scopes: ReadonlySet<Scope>;
-    userId: string;
-  };
-}
+export const OAUTH_SCOPES = [MEMORY_READ, MEMORY_WRITE, "offline_access"];
 
 // The /mcp URL is the OAuth resource: tokens name it as their audience.
 export const mcpResource = (env: Env) => `${env.PUBLIC_URL}/mcp`;
-const resourceMetadataUrl = (env: Env) =>
+export const resourceMetadataUrl = (env: Env) =>
   `${env.PUBLIC_URL}/.well-known/oauth-protected-resource/mcp`;
 const issuer = (env: Env) => `${env.PUBLIC_URL}/api/auth`;
 
@@ -198,13 +186,13 @@ const createAuth = (env: Env) =>
         // Codes go only to allowed addresses.
         sendVerificationOTP: async ({ email, otp, type }) => {
           if (type === "sign-in" && isAllowedEmail(env, email)) {
-            await sendSignInCode(env, email, otp);
+            await sendSignInCode(email, otp);
           }
         },
         storeOTP: "hashed",
       }),
       // API keys for /mcp. A key never stands in for a session, so it cannot reach
-      // /api: plugin configuration and token management stay with the user.
+      // /api: settings and token management stay with the user.
       apiKey({
         defaultPrefix: "memsys_",
         enableSessionForAPIKeys: false,
@@ -283,37 +271,6 @@ export const getAuth = (env: Env, ctx?: ExecutionContext) => {
   return instance.auth;
 };
 
-// A memory space id names one memory object. Each user has a default space
-// whose id is their user id; this is the only place that ties the two, so
-// more spaces per user, or another sign-in system, change only this.
-export const defaultSpace = (userId: string) => userId;
-
-export const memoryOf = (env: Env, spaceId: string) =>
-  env.MEMORY.getByName(spaceId);
-
-// Points apps without a token to OAuth sign-in (RFC 9728).
-const unauthorized = (c: Context<AppEnv>) => {
-  c.header(
-    "WWW-Authenticate",
-    `Bearer resource_metadata="${resourceMetadataUrl(c.env)}", scope="${OAUTH_SCOPES.join(" ")}"`
-  );
-  return c.json({ error: "Authentication required" }, 401);
-};
-
-// The web UI and /api: a signed-in browser session.
-export const requireSession = createMiddleware<AppEnv>(async (c, next) => {
-  const result = await getAuth(c.env).api.getSession({
-    headers: c.req.raw.headers,
-  });
-  if (!result) {
-    return c.json({ error: "Authentication required" }, 401);
-  }
-  c.set("by", "user");
-  c.set("memory", memoryOf(c.env, defaultSpace(result.user.id)));
-  c.set("userId", result.user.id);
-  return next();
-});
-
 const accessToken = z.object({
   azp: z.string(),
   cnf: z.unknown().optional(),
@@ -326,7 +283,7 @@ const jwksCacheKeys = new WeakMap<Env, object>();
 
 // An OAuth access token for /mcp: signed by us, for /mcp, and from an app
 // the user has not disconnected since.
-const verifyAccessToken = async (env: Env, token: string) => {
+export const verifyAccessToken = async (env: Env, token: string) => {
   const auth = getAuth(env);
   let jwksCacheKey = jwksCacheKeys.get(env);
   if (!jwksCacheKey) {
@@ -367,46 +324,3 @@ const verifyAccessToken = async (env: Env, token: string) => {
     userId: claims.data.sub,
   };
 };
-
-// An app names itself when it registers, so its name is only ever shown as
-// an agent's and cannot pass for the user.
-const agent = (name: string | null | undefined): Author =>
-  `agent:${name ?? ""}`;
-
-// /mcp: an API key or an OAuth access token as a bearer token,
-// naming the user who created it.
-export const requireToken = createMiddleware<AppEnv>(async (c, next) => {
-  const key = /^Bearer\s+(?<key>\S+)$/iu.exec(
-    c.req.header("Authorization") ?? ""
-  )?.groups?.["key"];
-  if (!key) {
-    return unauthorized(c);
-  }
-  if (key.startsWith("memsys_")) {
-    const verified = await getAuth(c.env).api.verifyApiKey({ body: { key } });
-    if (!verified.valid || !verified.key) {
-      return unauthorized(c);
-    }
-    c.set("by", agent(verified.key.name));
-    c.set("memory", memoryOf(c.env, defaultSpace(verified.key.referenceId)));
-    c.set("scopes", ALL_SCOPES);
-    c.set("userId", verified.key.referenceId);
-    return next();
-  }
-  const verified = await verifyAccessToken(c.env, key);
-  if (!verified) {
-    return unauthorized(c);
-  }
-  if (verified.scopes.size === 0) {
-    c.header(
-      "WWW-Authenticate",
-      `Bearer error="insufficient_scope", scope="${[...ALL_SCOPES].join(" ")}", resource_metadata="${resourceMetadataUrl(c.env)}"`
-    );
-    return c.json({ error: "Insufficient scope" }, 403);
-  }
-  c.set("by", agent(verified.name));
-  c.set("memory", memoryOf(c.env, defaultSpace(verified.userId)));
-  c.set("scopes", verified.scopes);
-  c.set("userId", verified.userId);
-  return next();
-});
