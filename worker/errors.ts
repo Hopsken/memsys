@@ -1,4 +1,4 @@
-import type { Issue } from "../contract/result";
+import type { Issue } from "@contract/result";
 
 // The Worker's own expected failures, told apart by `kind` like the core's.
 

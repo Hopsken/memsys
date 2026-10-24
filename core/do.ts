@@ -18,9 +18,10 @@ import type {
   Op,
   Restored,
   Version,
-} from "../contract/memory";
-import { err, ok } from "../contract/result";
-import type { InvalidInput, Issue, NotFound, Result } from "../contract/result";
+} from "@contract/memory";
+import { err, ok } from "@contract/result";
+import type { InvalidInput, Issue, NotFound, Result } from "@contract/result";
+
 import type {
   AnchorCount,
   Association,

@@ -1,7 +1,8 @@
 import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
-import type { InvalidInput, Issue, NotFound } from "../../contract/result";
+import type { InvalidInput, Issue, NotFound } from "@contract/result";
+
 import type { InvalidSettings, RelevanceUnavailable, TooLong } from "../errors";
 
 export type AppError =

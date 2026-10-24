@@ -1,7 +1,9 @@
-import type { Author, Fragment } from "../../contract/memory";
-import { err, ok } from "../../contract/result";
-import type { InvalidInput, NotFound, Result } from "../../contract/result";
-import type { Memory } from "../../core";
+import type { Memory } from "@core";
+
+import type { Author, Fragment } from "@contract/memory";
+import { err, ok } from "@contract/result";
+import type { InvalidInput, NotFound, Result } from "@contract/result";
+
 import type { TooLong } from "../errors";
 import { checkLength, readSettings } from "./settings";
 

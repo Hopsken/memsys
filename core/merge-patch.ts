@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { Json, JsonObject } from "../contract/memory";
+import type { Json, JsonObject } from "@contract/memory";
 
 const jsonObject = z.record(z.string(), z.json());
 

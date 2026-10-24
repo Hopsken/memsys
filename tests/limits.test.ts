@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { Fragment } from "../contract/memory";
+import type { Fragment } from "@contract/memory";
+
 import { call, content, list, patchSettings, post, useAuth } from "./helpers";
 import type { User } from "./helpers";
 

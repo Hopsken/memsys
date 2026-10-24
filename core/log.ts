@@ -3,8 +3,9 @@
 
 import { z } from "zod";
 
-import type { Author, Fragment, LogRecord, Op } from "../contract/memory";
-import type { Issue } from "../contract/result";
+import type { Author, Fragment, LogRecord, Op } from "@contract/memory";
+import type { Issue } from "@contract/result";
+
 import { fragment, logRecord } from "./inputs";
 
 // A record as stored: `at` in epoch milliseconds; a null fragment is forgotten.

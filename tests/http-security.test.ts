@@ -1,7 +1,8 @@
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
-import type { Fragment } from "../contract/memory";
+import type { Fragment } from "@contract/memory";
+
 import worker from "../worker/index";
 import { list, post, useAuth, withVersions } from "./helpers";
 

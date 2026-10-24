@@ -1,11 +1,12 @@
+import type { Memory } from "@core";
 import { z } from "zod";
 
-import type { Json, JsonObject } from "../../contract/memory";
-import { err, ok } from "../../contract/result";
-import type { Result } from "../../contract/result";
-import type { Settings, SettingsView } from "../../contract/settings";
-import type { Memory } from "../../core";
-import { FRAGMENT_MAX, fragmentLength } from "../../lib/fragment";
+import type { Json, JsonObject } from "@contract/memory";
+import { err, ok } from "@contract/result";
+import type { Result } from "@contract/result";
+import type { Settings, SettingsView } from "@contract/settings";
+import { FRAGMENT_MAX, fragmentLength } from "@lib/fragment";
+
 import type { InvalidSettings, TooLong } from "../errors";
 
 // The owner's settings are one metadata document in the core.

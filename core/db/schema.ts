@@ -6,7 +6,7 @@ import {
   text,
 } from "drizzle-orm/sqlite-core";
 
-import type { Author, JsonObject, Op } from "../../contract/memory";
+import type { Author, JsonObject, Op } from "@contract/memory";
 
 // The fragment log: one row per record, never updated. `at` is epoch
 // milliseconds and orders a ref's records; a null fragment is forgotten.

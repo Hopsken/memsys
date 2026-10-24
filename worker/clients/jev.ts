@@ -1,13 +1,9 @@
 import { z } from "zod";
 
-import type {
-  Fragment,
-  Json,
-  JsonObject,
-  RecallInput,
-} from "../../contract/memory";
-import { err, ok } from "../../contract/result";
-import type { Result } from "../../contract/result";
+import type { Fragment, Json, JsonObject, RecallInput } from "@contract/memory";
+import { err, ok } from "@contract/result";
+import type { Result } from "@contract/result";
+
 import type { RelevanceUnavailable } from "../errors";
 
 // Jev on Workers AI scores every candidate: one independent noul per

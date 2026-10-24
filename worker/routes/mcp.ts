@@ -1,3 +1,5 @@
+import { inputs } from "@core";
+import type { Memory } from "@core";
 import {
   McpServer,
   WebStandardStreamableHTTPServerTransport,
@@ -8,11 +10,10 @@ import type { CallToolResult } from "@modelcontextprotocol/server";
 import { Hono } from "hono";
 import { z } from "zod";
 
-import type { Author } from "../../contract/memory";
-import { ok } from "../../contract/result";
-import type { Result } from "../../contract/result";
-import { inputs } from "../../core";
-import type { Memory } from "../../core";
+import type { Author } from "@contract/memory";
+import { ok } from "@contract/result";
+import type { Result } from "@contract/result";
+
 import { relevanceJudge } from "../clients/workers-ai";
 import { MEMORY_READ, MEMORY_WRITE } from "../lib/better-auth";
 import type { Scope } from "../lib/better-auth";

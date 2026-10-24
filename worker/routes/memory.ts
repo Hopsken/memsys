@@ -1,7 +1,8 @@
+import { activityInput, inputs, listInput, restoreInput } from "@core";
 import { Hono } from "hono";
 
-import type { ImportFormat } from "../../contract/memory";
-import { activityInput, inputs, listInput, restoreInput } from "../../core";
+import type { ImportFormat } from "@contract/memory";
+
 import { relevanceJudge } from "../clients/workers-ai";
 import { remember, revise } from "../services/memory";
 import { recall, recallInput } from "../services/recall";

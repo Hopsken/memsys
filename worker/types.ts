@@ -1,5 +1,7 @@
-import type { Author } from "../contract/memory";
-import type { Memory } from "../core";
+import type { Memory } from "@core";
+
+import type { Author } from "@contract/memory";
+
 import type { Scope } from "./lib/better-auth";
 
 // What the sign-in middlewares hand to every route: who is calling, and

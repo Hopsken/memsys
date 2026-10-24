@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { Fragment } from "../contract/memory";
+import type { Fragment } from "@contract/memory";
+
 import { call, content, list, post, useAuth, withVersions } from "./helpers";
 
 describe("Revise", () => {

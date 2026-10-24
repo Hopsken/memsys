@@ -35,9 +35,10 @@ const layerRules = LAYERS.map((layer, index): OxlintOverride => {
 });
 
 // The memory core and the Worker built on it (RFC 0004). Apps reach the core
-// only through core/index.ts, and the Durable Object class through core/do.ts.
+// only through core/index.ts, and the Durable Object class through core/do.ts:
+// `@core` and `@core/do`. Each rule lists relative paths and their aliases.
 const coreInternals = {
-  group: ["**/core/*", "!**/core/do", "!**/core/index"],
+  group: ["**/core/*", "@core/*", "!**/core/do", "!**/core/index", "!@core/do"],
   message:
     "Import the core through core/index.ts (or core/do.ts for the Durable Object class).",
 };
@@ -92,7 +93,7 @@ const workerRules = [
     ["core/**"],
     [
       {
-        group: ["**/worker/**", "**/client/**"],
+        group: ["**/worker/**", "**/client/**", "@/**"],
         message: "core/ may import only contract/, lib/, and packages.",
       },
     ]
@@ -124,6 +125,9 @@ export default defineConfig({
                   "**/client/**",
                   "**/core/**",
                   "**/core",
+                  "@core",
+                  "@core/**",
+                  "@/**",
                   "cloudflare:*",
                 ],
                 message:

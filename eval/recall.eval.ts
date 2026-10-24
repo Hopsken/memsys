@@ -2,12 +2,13 @@ import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import path from "node:path";
 
+import { inMemory } from "@core";
 import { afterAll, it, vi } from "vitest";
 import { getPlatformProxy } from "wrangler";
 import { z } from "zod";
 
-import type { Fragment, JsonObject } from "../contract/memory";
-import { inMemory } from "../core";
+import type { Fragment, JsonObject } from "@contract/memory";
+
 import { jev } from "../worker/clients/jev";
 import type { Ai } from "../worker/clients/jev";
 import { recall as runRecall, recallInput } from "../worker/services/recall";

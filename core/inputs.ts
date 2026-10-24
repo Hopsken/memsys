@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-import type { Author, Fragment, Op } from "../contract/memory";
-import { extractAnchors, withinTag } from "../lib/anchor";
-import { FRAGMENT_MAX, fragmentLength } from "../lib/fragment";
+import type { Author, Fragment, Op } from "@contract/memory";
+import { extractAnchors, withinTag } from "@lib/anchor";
+import { FRAGMENT_MAX, fragmentLength } from "@lib/fragment";
 
 // Lowercase only; omit 0, 1, i, l, and o. 31^7 possible refs.
 export const REF_ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz";

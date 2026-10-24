@@ -7,7 +7,8 @@ import type {
   Fragment,
   History,
   Restored,
-} from "../contract/memory";
+} from "@contract/memory";
+
 import worker from "../worker/index";
 import { list, memoryOf, ORIGIN, post, useAuth, withVersions } from "./helpers";
 import type { User } from "./helpers";

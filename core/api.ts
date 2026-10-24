@@ -9,8 +9,8 @@ import type {
   ImportResult,
   JsonObject,
   Restored,
-} from "../contract/memory";
-import type { InvalidInput, NotFound, Result } from "../contract/result";
+} from "@contract/memory";
+import type { InvalidInput, NotFound, Result } from "@contract/result";
 
 export interface SearchHit {
   fragment: Fragment;

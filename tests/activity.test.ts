@@ -1,7 +1,8 @@
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
-import type { ActivityPage, Fragment } from "../contract/memory";
+import type { ActivityPage, Fragment } from "@contract/memory";
+
 import worker from "../worker/index";
 import { call, content, ORIGIN, post, useAuth } from "./helpers";
 import type { User } from "./helpers";
