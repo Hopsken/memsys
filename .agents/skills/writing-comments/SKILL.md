@@ -1,6 +1,6 @@
 ---
 name: writing-comments
-description: "Decides which code comments memsys keeps and which it deletes. Use when writing or reviewing code comments, when asked to remove unnecessary comments, or when a comment seems needed to explain our own code."
+description: "Decides which code comments to keep and which to delete. Use when writing or reviewing code comments, when asked to remove unnecessary comments, or when a comment seems needed to explain our own code."
 ---
 
 # Writing comments
@@ -9,18 +9,18 @@ A comment is deleted by default. The code says what it does; a comment that rest
 
 ## A comment stays only when it is
 
-- **Forced from outside.** Non-obvious behavior that a dependency, platform, vendor, or protocol imposes and we cannot change: Better Auth, Workers, Durable Object RPC, MCP, Wrangler, Workers AI, the browser, React. A surprise in our own code is not this.
-- **A public contract.** A note on a shared type or function (`contract/`, `lib/`, `core/api.ts`) that states a rule the types cannot show, such as ordering or what `null` means.
-- **A link.** An RFC (`docs/rfcs/`, or an external RFC such as 7396) or issue that explains a constraint the code cannot express.
+- **Forced from outside.** Non-obvious behavior that a dependency, platform, vendor, or protocol imposes and we cannot change. A surprise in our own code is not this.
+- **A public contract.** A note on a shared type or function that states a rule the types cannot show, such as ordering or what an empty value means.
+- **A link.** An RFC, spec, or issue that explains a constraint the code cannot express.
 - **A justified suppression.** A lint suppression whose rule is style-only or wrong for this line. If the rule protects correctness or safety, fix the code instead.
-- **A required `SAFETY:` comment.** The `anti-slop` lint rules require one on every type cast. Remove the cast if you can; otherwise keep the comment and state the checked invariant.
+- **Required by a lint rule.** For example, a justification the linter demands on an unsafe cast. Remove the construct if you can; otherwise keep the comment and state the checked invariant.
 - **A legal or license header.**
 
 When unsure, delete it.
 
 ## Our own surprises get reshaped, not explained
 
-If our code needs prose to be understood, change the code: rename the symbol, extract a named function or constant, tighten a type, or restructure. Then delete the comment. Examples from this repo: `heads` became `latestAtByRef`, `K1` became `BM25_K1`, an inline clock became `nextAt(ref)`, an inline retry rule became `isRetryable`.
+If our code needs prose to be understood, change the code: rename the symbol, extract a named function or constant, tighten a type, or restructure. Then delete the comment. For example, a vague `map` becomes `ordersByCustomer`, a bare constant `N` becomes `MAX_RETRIES`, and an inline condition becomes a named predicate such as `isRetryable`.
 
 Never shorten a bad comment into a smaller one. Shorten only by keeping the sentence that meets an exception above.
 
@@ -30,4 +30,4 @@ Never shorten a bad comment into a smaller one. Shorten only by keeping the sent
 
 ## Not comments
 
-Strings passed to APIs (MCP tool descriptions, error messages, Markdown in template strings) are code. Bundler annotations such as `/* @__PURE__ */` are instructions. Leave both alone. Skip generated files such as migrations.
+Strings passed to APIs (tool descriptions, error messages, text in template strings) are code. Compiler or bundler directives, such as pure annotations, are instructions. Leave both alone. Skip generated files.
