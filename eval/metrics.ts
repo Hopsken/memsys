@@ -2,15 +2,12 @@ import type { EvalCase, Kind } from "./dataset";
 
 export interface Outcome {
   case: EvalCase;
-  // Returned refs, in order, after truncation.
   refs: string[];
 }
 
 export interface Score {
   found: number;
-  // Returned items that are neither hits nor ok.
   noise: number;
-  // null when the case has no hits (abstain).
   ndcg: number | null;
   recall: number | null;
   rr: number | null;
@@ -51,7 +48,6 @@ const fixed = (value: number | null, digits = 2) =>
 export interface Run {
   name: string;
   outcomes: Outcome[];
-  // Cases where the relevance filter still failed after retries.
   failures: number;
 }
 

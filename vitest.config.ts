@@ -31,11 +31,9 @@ export default defineConfig(async (): Promise<ViteUserConfig> => {
   const unitTests = "tests/unit/**/*.test.ts";
 
   return {
-    // Client modules under test import through the tsconfig aliases.
     resolve: { tsconfigPaths: true },
     test: {
       projects: [
-        // Plain functions run in Node: loading the Worker for each file costs seconds.
         {
           extends: true,
           test: { include: [unitTests], name: "unit" },
@@ -44,7 +42,6 @@ export default defineConfig(async (): Promise<ViteUserConfig> => {
           extends: true,
           plugins: [
             cloudflareTest({
-              // Keep auth tests independent of local .dev.vars overrides.
               miniflare: {
                 bindings: {
                   AUTH_ALLOWED_EMAILS: "@memsys.test",

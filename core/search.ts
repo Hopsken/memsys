@@ -7,25 +7,16 @@ import type { AnchorCount, Association, MemoryCore, SearchHit } from "./api";
 const K1 = 1.2;
 const B = 0.75;
 
-// Newest first, then by ref: the order every query returns ties in.
 const newestFirst = (a: Fragment, b: Fragment) =>
   b.at.localeCompare(a.at) || a.ref.localeCompare(b.ref);
 
-// The current fragments and the indexes derived from them, kept up to date
-// on every write. Plain code: the Durable Object fills it from its log, tests
-// and the eval from a list of fragments.
 export class FragmentIndex {
   private readonly fragments = new Map<string, Fragment>();
-  // term → ref → how often the term occurs in that fragment.
   private readonly postings = new Map<string, Map<string, number>>();
-  // ref → the fragment's length in terms.
   private readonly lengths = new Map<string, number>();
   private totalLength = 0;
-  // ref → the fragment's anchors.
   private readonly anchorsOf = new Map<string, string[]>();
-  // association key → refs of fragments with an anchor that has the key.
   private readonly byKey = new Map<string, Set<string>>();
-  // anchor → fragments carrying it.
   private readonly anchorCounts = new Map<string, number>();
 
   constructor(fragments: Iterable<Fragment> = []) {
@@ -126,8 +117,6 @@ export class FragmentIndex {
     });
   }
 
-  // Okapi BM25 over the whole corpus, for every fragment containing at least
-  // one of the terms; best first, ties newest first.
   search(query: readonly string[]): SearchHit[] {
     const unique = [...new Set(query)];
     const n = this.fragments.size;
@@ -161,8 +150,6 @@ export class FragmentIndex {
       );
   }
 
-  // Every fragment with an anchor whose association key is one of `keys`,
-  // newest first; `via` lists those anchors.
   associated(keys: readonly string[]): Association[] {
     const wanted = new Set(keys);
     const refs = new Set(
@@ -178,7 +165,6 @@ export class FragmentIndex {
       }));
   }
 
-  // Every anchor in use, sorted, with the number of fragments carrying it.
   anchors(): AnchorCount[] {
     return [...this.anchorCounts.keys()].toSorted().map((anchor) => ({
       anchor,
@@ -187,7 +173,6 @@ export class FragmentIndex {
   }
 }
 
-// The core's reads over a fixed list of fragments, for tests and the eval.
 export const inMemory = (
   fragments: Iterable<Fragment>,
   metadata: Record<string, JsonObject> = {}

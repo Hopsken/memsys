@@ -3,8 +3,6 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
-/* The app has no dark theme yet, so `dark:` styles apply only under a
-   `.dark` class, never from the system setting alone. */
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -54,7 +52,6 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
-  /* The sticky header; a page's own sticky bar sits right below it. */
   --header-height: 4.25rem;
 }
 

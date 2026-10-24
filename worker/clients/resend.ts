@@ -1,6 +1,5 @@
 import { env } from "cloudflare:workers";
 
-// Sends the sign-in code through Resend. Dev builds without a key print it.
 export const sendSignInCode = async (email: string, code: string) => {
   if (!env.RESEND_API_KEY || !env.EMAIL_FROM) {
     if (import.meta.env.DEV) {

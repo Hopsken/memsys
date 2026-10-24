@@ -10,7 +10,6 @@ import { defaultSpace } from "../worker/lib/memory";
 
 export const ORIGIN = "https://memsys.test";
 
-// A signed-in user: a browser session for /api, an API key for /mcp.
 export interface User {
   cookie: string;
   email: string;
@@ -52,10 +51,8 @@ export const randomIp = () =>
 
 const resendEmail = z.object({ text: z.string(), to: z.array(z.string()) });
 
-// Codes the worker sent through Resend, by recipient.
 const codes = new Map<string, string>();
 
-// Exercise real email sign-in; only the Resend request is mocked.
 export const useAuth = () => {
   beforeAll(() => {
     vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
@@ -72,11 +69,9 @@ export const useAuth = () => {
   });
   afterAll(() => vi.restoreAllMocks());
 
-  // Fresh users isolate memory; an explicit email signs the same user in again.
   return async (
     email = `${crypto.randomUUID()}@memsys.test`
   ): Promise<User> => {
-    // Auth routes are rate limited per client address.
     const client = { "cf-connecting-ip": randomIp() };
     await post(
       "/api/auth/email-otp/send-verification-otp",
@@ -113,7 +108,6 @@ export const useAuth = () => {
 
 export const sentCode = (email: string) => codes.get(email);
 
-// The user's memory object, for tests that reach behind the Worker.
 export const memoryOf = (user: User) =>
   env.MEMORY.getByName(defaultSpace(user.id));
 
@@ -125,7 +119,6 @@ export const getList = (user: User | null, query = "") =>
     env
   );
 
-// A fragment as the list shows it, with the records in its history.
 export const withVersions = (item: Fragment, versions = 1): ListedFragment => ({
   ...item,
   versions,
@@ -159,7 +152,6 @@ export const call = async (user: User, name: string, args: JSONValue) => {
 export const content = <T>(result: ToolResult): T =>
   JSON.parse(result.content[0]?.text ?? "");
 
-// Changes the owner's settings the way the Features page does.
 export const patchSettings = (user: User, patch: JSONValue) =>
   worker.fetch(
     new Request(`${ORIGIN}/api/settings`, {

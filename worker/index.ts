@@ -16,8 +16,6 @@ import type { AppEnv } from "./types";
 
 const app = new Hono<AppEnv>();
 
-// OAuth endpoints MCP apps call directly, from any origin and with their own
-// credentials rather than a cookie, in the form encoding OAuth uses.
 const OAUTH_APP_PATHS = new Set([
   "/api/auth/jwks",
   "/api/auth/oauth2/introspect",
@@ -44,12 +42,10 @@ app.use("*", (c, next) => {
   return next();
 });
 const requestBody = bodyLimit({ maxSize: 32 * 1024 });
-// A whole memory with its history: tens of thousands of short records.
 const importBody = bodyLimit({ maxSize: 10 * 1024 * 1024 });
 app.use("*", (c, next) =>
   (c.req.path === "/api/import" ? importBody : requestBody)(c, next)
 );
-// Import takes the file as is and checks its own media type.
 app.use("/api/*", (c, next) => {
   const mediaType = c.req
     .header("Content-Type")
@@ -69,8 +65,6 @@ app.use("/api/*", (c, next) => {
   return next();
 });
 
-// Better Auth answers sign-in, session, and token management itself, and
-// the OAuth discovery documents MCP apps look for at the root.
 app.on(["GET", "POST"], ["/api/auth/*", "/.well-known/*"], (c) =>
   getAuth(c.env).handler(c.req.raw)
 );
@@ -78,7 +72,6 @@ app.on(["GET", "POST"], ["/api/auth/*", "/.well-known/*"], (c) =>
 if (import.meta.env.DEV && process.env.NODE_ENV !== "production") {
   app.route("/", dev);
 }
-// Agents hold API keys or OAuth tokens; only a signed-in user reaches the rest of /api.
 app.use("/mcp", requireToken);
 app.use("/api/*", requireSession);
 

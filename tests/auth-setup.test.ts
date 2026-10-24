@@ -9,11 +9,8 @@ import worker from "../worker/index";
 import { getAuth } from "../worker/lib/better-auth";
 import { ORIGIN, randomIp, useAuth } from "./helpers";
 
-// Each test gets its own env object, so its own Better Auth instance.
 const freshEnv = (): Env => ({ ...env });
 
-// A database where queries naming `table` never settle, like a query
-// canceled along with the request that started it.
 const stallingOn = (table: string): D1Database =>
   new Proxy(env.DB, {
     get: (target, key) => {

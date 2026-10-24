@@ -64,7 +64,6 @@ const invalid = (error: z.ZodError): InvalidInput => ({
   message: z.prettifyError(error),
 });
 
-// Import problems name the file's line first.
 const invalidFile = (issues: Issue[]): InvalidInput => ({
   issues,
   kind: "invalid-input",
@@ -86,17 +85,12 @@ const toVersion = ({ at, by, fragment, op, ref }: Row): Version => ({
   ref,
 });
 
-// One memory space: the fragment log in its own SQLite, the current
-// fragments and their indexes in memory, and the metadata kept beside it.
-// The core reads no bindings.
 export type CoreEnv = Record<never, never>;
 
 export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   private readonly db;
   private readonly index = new FragmentIndex();
-  // Every ref in the log, forgotten ones included, with its latest `at`.
   private heads = new Map<string, number>();
-  // How many records each ref in the log has.
   private readonly versions = new Map<string, number>();
   private readonly metadata = new Map<string, JsonObject>();
 
@@ -134,8 +128,6 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     }
   }
 
-  // Appends one record. `at` is a per-ref hybrid logical clock: the current
-  // time, or one past the ref's previous record when the clock has not moved.
   private append(ref: string, fragment: string | null, op: Op, by: Author) {
     const at = Math.max(Date.now(), (this.heads.get(ref) ?? 0) + 1);
     this.db.insert(records).values({ at, by, fragment, op, ref }).run();
@@ -151,15 +143,12 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     return item;
   }
 
-  // The text stays in the log; only purge removes it.
   private remove(ref: string, by: Author) {
     const at = this.append(ref, null, "forget", by);
     this.index.delete(ref);
     return at;
   }
 
-  // Development only: replaces every fragment and all metadata with the
-  // given corpus. Production bundles keep only the throw.
   seed(items: SeedFragment[]) {
     if (!import.meta.env.DEV) {
       throw new Error("Seeding is available only in development builds");
@@ -191,7 +180,6 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     if (!parsed.success) {
       return err(invalid(parsed.error));
     }
-    // A ref ever used, even if forgotten, is never handed out again.
     return ok(
       this.write(freshRef(this.heads), parsed.data.fragment, "remember", by)
     );
@@ -224,10 +212,6 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     return ok({ ref });
   }
 
-  // The user's own action, never an agent's: appends a copy of one record,
-  // stamped now. Core validation only, since the text was accepted once; a
-  // revision it lands on stays in the history. On a live fragment the copy
-  // is a revise; only a forgotten one is restored.
   restore({
     at,
     ref,
@@ -258,8 +242,6 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     });
   }
 
-  // The user's own action, never an agent's: deletes every record of a ref,
-  // forgotten or not, as if it never existed.
   purge(input: { ref: string }): Result<{ ref: string }, NotFound> {
     const { ref } = input;
     if (!this.heads.has(ref)) {
@@ -272,9 +254,6 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     return ok({ ref });
   }
 
-  // A user migrating memory: core validation only, so fragments the old
-  // instance accepted are not judged again. Merge only; existing fragments
-  // are never changed. All or nothing.
   importLog(raw: {
     content: string;
     format: ImportFormat;
@@ -314,7 +293,6 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
       const history = Map.groupBy(parsed.rows, ({ ref }) => ref);
       for (const ref of heads.keys()) {
         const current = corpus.get(ref)?.fragment ?? null;
-        // A ref known here, forgotten or not, is never changed by a file.
         if (this.heads.has(ref)) {
           if ((this.index.get(ref)?.fragment ?? null) === current) {
             skipped += 1;
@@ -350,8 +328,6 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     return ok({ conflicts, imported, skipped });
   }
 
-  // NDJSON: the latest record of each current fragment, or the whole log.
-  // Current fragments alone have no history, so they carry no op or author.
   exportLog({ history }: { history: boolean }): string {
     return serializeLog(
       history
@@ -384,7 +360,6 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     );
   }
 
-  // Every record of one ref, newest first.
   history({ ref }: { ref: string }): Result<History, NotFound> {
     if (!this.heads.has(ref)) {
       return notFound(ref);
@@ -398,9 +373,6 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     return ok({ versions: rows.map(toVersion) });
   }
 
-  // Every record across refs, newest first, paged like the fragment list.
-  // Each revise or forget carries the text before it: one indexed lookup
-  // per entry, cheaper than a cache for a page at a time.
   activity(input: { cursor?: string | undefined }): ActivityPage {
     const { cursor: after } = activityInput.parse(input);
     const rows = this.db
@@ -437,8 +409,6 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     };
   }
 
-  // Forgotten refs with their last text, newest forgotten first. Low
-  // traffic, so each ref's text is one indexed lookup rather than a cache.
   forgotten(): ForgottenList {
     const fragments = [];
     for (const [ref, forgottenAt] of this.heads) {
@@ -452,7 +422,6 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
         .orderBy(desc(records.at))
         .limit(1)
         .get();
-      // A ref imported as only a forget has no text to bring back.
       if (last?.fragment) {
         fragments.push({
           at: new Date(last.at).toISOString(),

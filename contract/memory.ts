@@ -1,14 +1,9 @@
-// Shapes shared by the worker and client. Types only; no local imports.
-
-// Values that cross the Durable Object RPC and HTTP boundaries.
-// Interfaces keep the recursion lazy for RPC type mapping.
 export type Json = string | number | boolean | null | JsonArray | JsonObject;
 export interface JsonObject {
   [key: string]: Json;
 }
 export type JsonArray = Json[];
 
-// A fragment is its latest record; `at` is when its current text was written.
 export interface Fragment {
   ref: string;
   fragment: string;
@@ -18,7 +13,6 @@ export interface Fragment {
 // Items without `via` matched the cue; `via` lists the anchors that associated the rest.
 export type RecallItem = Fragment & { via?: string[] };
 
-// What the agent sends, and what every recall stage receives.
 export interface RecallInput {
   context?: string | undefined;
   cue: string;
@@ -38,8 +32,6 @@ export interface RecallFailure {
   retry: boolean;
 }
 
-// A listed fragment also counts the records in its history, so a list can
-// tell edited fragments apart without loading each history.
 export type ListedFragment = Fragment & { versions: number };
 
 export interface FragmentPage {
@@ -51,8 +43,6 @@ export interface FragmentPage {
 // fragment is a `revise`; `restore` brings back a forgotten one.
 export type Op = "remember" | "revise" | "forget" | "restore";
 
-// Who wrote a record: the signed-in user, or an AI tool under the name it
-// had at the time.
 export type Author = "user" | `agent:${string}`;
 
 // One record of a fragment's history. A null `fragment` means it was

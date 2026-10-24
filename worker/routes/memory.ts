@@ -9,14 +9,11 @@ import { recall, recallInput } from "../services/recall";
 import type { AppEnv } from "../types";
 import { errorResponse } from "./problem";
 
-// The file's media type picks how it is read; the content is never sniffed.
 const IMPORT_FORMATS = new Map<string, ImportFormat>([
   ["application/x-ndjson", "ndjson"],
   ["text/plain", "text"],
 ]);
 
-// The four memory operations plus paging, activity, migration, history, and
-// purge, mounted at /api.
 export const memory = new Hono<AppEnv>()
   .get("/activity", async (c) => {
     c.header("Cache-Control", "no-store");
@@ -30,7 +27,6 @@ export const memory = new Hono<AppEnv>()
   .get("/fragments", async (c) => {
     c.header("Cache-Control", "no-store");
     // Hono's query object has a null prototype; RPC requires a plain object.
-    // `tag` may repeat, so it is read as a list.
     const query = { ...c.req.query(), tag: c.req.queries("tag") };
     if (!listInput.safeParse(query).success) {
       return c.json({ error: "Invalid list query" }, 400);
@@ -80,7 +76,6 @@ export const memory = new Hono<AppEnv>()
     return result.ok ? c.json(result.value) : errorResponse(c, result.error);
   })
   .get("/export", async (c) => {
-    // Current fragments by default; `history=true` exports the whole log.
     const history = c.req.query("history") === "true";
     const file = await c.get("memory").exportLog({ history });
     const date = new Date().toISOString().slice(0, 10);

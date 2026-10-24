@@ -42,7 +42,6 @@ describe("Revise", () => {
     { fragment: "" },
     { fragment: " \n" },
     { fragment: "x".repeat(501) },
-    // Clients still sending the retired text-edit shape must fail loudly.
     { new_string: "new", old_string: "keep" },
   ])(
     "leaves content and timestamps unchanged for invalid MCP input (%#)",

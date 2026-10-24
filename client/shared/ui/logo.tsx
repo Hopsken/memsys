@@ -1,7 +1,5 @@
 import { cn } from "cn";
 
-// The elephant mark from public/brand/. It always sits beside the name, so
-// screen readers skip it.
 export const Logo = ({ className }: { className?: string }) => (
   <img
     alt=""

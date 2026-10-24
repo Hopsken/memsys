@@ -10,5 +10,4 @@ export type {
   SeedFragment,
 } from "./api";
 export { inputs, listInput, activityInput, restoreInput } from "./inputs";
-// For tests and the eval: the core's index over a list of fragments.
 export { FragmentIndex, inMemory } from "./search";

@@ -27,7 +27,6 @@ const register = async () => {
       redirect_uris: [REDIRECT_URI],
       token_endpoint_auth_method: "none",
     }),
-    // Registration is rate limited per client address.
     headers: {
       "Content-Type": "application/json",
       "cf-connecting-ip": randomIp(),
@@ -41,7 +40,6 @@ const register = async () => {
 
 const redirect = z.object({ url: z.string() });
 
-// How an app asks for access and proves who it is at the token endpoint.
 interface App {
   credentials: () => Promise<Record<string, string>>;
   redirectUri: string;
@@ -54,8 +52,6 @@ const desktopApp = (clientId: string): App => ({
   scope: "memory:read memory:write offline_access",
 });
 
-// The authorization code flow an MCP app runs, with the user allowing
-// `granted` on the consent page, which always keeps the app signed in.
 const authorize = async (
   user: User,
   clientId: string,
@@ -201,7 +197,6 @@ describe("OAuth for MCP", () => {
     await expect(list.json()).resolves.toMatchObject({
       fragments: [{ fragment: "Signed in with OAuth #oauth" }],
     });
-    // Recorded under the name the app registered.
     const activity = await request("/api/activity", {
       headers: { Cookie: user.cookie },
     });
@@ -259,8 +254,6 @@ describe("OAuth for MCP", () => {
   });
 
   it("connects an app through its client metadata document", async () => {
-    // Like ChatGPT: a hosted client_id URL, a web redirect, a signed client
-    // assertion at the token endpoint, and no offline_access in the request.
     const clientId = "https://chat.example/oauth/client.json";
     const jwksUri = "https://chat.example/oauth/jwks.json";
     const redirectUri = "https://chat.example/oauth/callback";
@@ -356,7 +349,6 @@ describe("OAuth for MCP", () => {
       await expect(toolNames(tokens.access_token)).resolves.toContain(
         "remember"
       );
-      // Redirects are handed back, never followed.
       expect(redirects.length).toBeGreaterThan(0);
       expect(new Set(redirects)).toStrictEqual(new Set(["manual"]));
     } finally {

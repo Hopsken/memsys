@@ -5,8 +5,6 @@ import { updateSettings, viewSettings } from "../services/settings";
 import type { AppEnv } from "../types";
 import { errorResponse } from "./problem";
 
-// The owner's settings for the web UI, mounted at /api/settings. PATCH takes
-// a JSON Merge Patch.
 export const settings = new Hono<AppEnv>()
   .get("/", async (c) => {
     c.header("Cache-Control", "no-store");

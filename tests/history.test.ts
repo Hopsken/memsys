@@ -161,7 +161,6 @@ describe("History and restore", () => {
     );
     await post("/api/purge", { ref: purged.ref }, user);
     const { body } = await get<ForgottenList>(user, "/api/fragments/forgotten");
-    // Forgets in the same millisecond fall back to ref order.
     expect(body.fragments.map(({ ref }) => ref)).toStrictEqual(
       [older.ref, newer.ref].toSorted((a, b) => {
         const at = (ref: string) =>

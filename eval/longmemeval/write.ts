@@ -1,16 +1,3 @@
-// Write phase (RFC 0003): builds a corpus, one memsys memory per question,
-// by having Pi read each session of a set and store what it judges worth
-// keeping. The expensive step; its output is kept and reused by every
-// recall run.
-//
-//   node eval/longmemeval/write.ts --set dev [--subset smoke] [--model ...]
-//
-// Output goes to hub/<name>/<question>/, where <name> comes from the
-// writer version: write model, server instructions, the write tools'
-// descriptions, the harness version below, and the set. Any of these
-// changing makes a new corpus. Every question is skipped when its output
-// exists, so an interrupted write continues where it stopped.
-
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
@@ -43,11 +30,7 @@ import {
 } from "./server.ts";
 
 const WRITE_TOOLS = ["remember", "revise", "forget"] as const;
-// Bump when a harness change alters what gets written (the prompt, the
-// replay order, the redating). Edits that do not, such as a fix to the
-// recall side of pi.ts, keep existing corpora valid.
 const WRITER = 1;
-// Recorded with each corpus so that a reader can tell what wrote it.
 const WRITE_SOURCES = ["write.ts", "pi.ts", "dataset.ts"];
 
 const sessionLog = piRun.extend({
@@ -62,8 +45,6 @@ type SessionLog = z.infer<typeof sessionLog>;
 const sha = (text: string) =>
   createHash("sha256").update(text).digest("hex").slice(0, 12);
 
-// Step 1. Pi reads each session in the dataset's array order, each in its
-// own conversation, into the question's write space.
 const writeSessions = async (
   q: Question,
   options: { instructions: string; model: string; thinking: string },
@@ -79,7 +60,6 @@ const writeSessions = async (
     }
     const date = q.haystack_dates[index] ?? "";
     const start = Date.now();
-    // Sessions are read in order: each may recall or revise earlier memories.
     // oxlint-disable-next-line no-await-in-loop
     const run = await runPi({
       dir: path.join(dir, ".pi"),
@@ -105,10 +85,6 @@ const writeSessions = async (
 
 const DAY = 86_400_000;
 
-// Step 2. The write space holds real timestamps. Each record moves to the day
-// of its session, keeping the array order: a day's sessions share it in
-// equal slots, and a record sits in its session's slot at the offset it was
-// written. memory.ndjson keeps each record's session index for the labels.
 const redate = async (q: Question, dir: string, space: string) => {
   const file = path.join(dir, "memory.ndjson");
   if (existsSync(file)) {
@@ -165,8 +141,6 @@ const { values: args } = parseArgs({
     model: { default: "opencode-go/deepseek-v4.1-flash", type: "string" },
     only: { type: "string" },
     set: { default: "dev", type: "string" },
-    // Write only this smaller set's questions into the corpus for now; a
-    // later run without it continues with the rest.
     subset: { type: "string" },
     thinking: { default: "high", type: "string" },
   },
@@ -255,7 +229,6 @@ await pool(questions, Number(args.concurrency), async (q) => {
   }
 });
 
-// The manifest entry counts what is on disk, so a partial write is visible.
 const written = questionsOf(all, set).filter((q) =>
   existsSync(path.join(DIR, q.question_id, "memory.ndjson"))
 );

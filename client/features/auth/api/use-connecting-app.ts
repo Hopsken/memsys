@@ -3,8 +3,6 @@ import { useSearchParams } from "react-router";
 
 import { api } from "@/shared/api";
 
-// The app an OAuth sign-in is for, while Better Auth's signed query is in
-// the URL. It works before the user has a session.
 export const useConnectingApp = () => {
   const [params] = useSearchParams();
   const clientId = params.get("client_id");

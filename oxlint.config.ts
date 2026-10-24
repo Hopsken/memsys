@@ -4,9 +4,6 @@ import antiSlop from "ultracite/oxlint/anti-slop";
 import core from "ultracite/oxlint/core";
 import vitest from "ultracite/oxlint/vitest";
 
-// Feature-Sliced Design, top to bottom. A layer imports only the layers below
-// it; a slice imports another slice only through its index.ts, and never one on
-// its own layer. Shared and App have no slices.
 const LAYERS = ["app", "pages", "widgets", "features", "entities", "shared"];
 const SLICED = new Set(["pages", "widgets", "features", "entities"]);
 
@@ -58,9 +55,8 @@ const restrict = (
   rules: { "no-restricted-imports": ["error", { patterns }] },
 });
 
-// Worker: routes → services → clients and lib. Services hold the rules and
-// stay free of HTTP and platform APIs, so tests run them in Node. A later
-// override replaces an earlier one's patterns, so each repeats coreInternals.
+// A later override replaces an earlier one's patterns, so each repeats
+// coreInternals.
 const workerRules = [
   restrict(["worker/**"], [coreInternals]),
   restrict(
@@ -78,7 +74,6 @@ const workerRules = [
           "**/routes/**",
           "**/middlewares/**",
           "**/clients/**",
-          // The Worker's own lib/, not the shared root lib/.
           "../lib/*",
         ],
         message:
@@ -120,7 +115,6 @@ export default defineConfig({
   ],
   overrides: [
     {
-      // Shared code meets the worker and client only through contract/ and lib/.
       files: ["contract/**", "lib/**"],
       rules: {
         "no-restricted-imports": [

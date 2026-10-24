@@ -16,10 +16,6 @@ import { associationKeys, extractAnchors } from "@lib/anchor";
 import type { RelevanceUnavailable } from "../errors";
 import { readSettings } from "./settings";
 
-// Recall policy over the core: which search hits match the cue, which
-// associations to keep and in what order, the relevance filter, and the cut.
-
-// What the agent sends to recall. The descriptions are what it reads.
 export const recallInput = z
   .object({
     context: z
@@ -41,15 +37,10 @@ export const recallInput = z
   .strict();
 
 const RESULT_SIZE = 10;
-// Cue matches whose anchors seed association.
 const SEEDS = 10;
-// A hub anchor can link most of the corpus; later steps need far fewer.
 const ASSOCIATED = 100;
-// The relevance filter judges at most this many candidates per recall.
 export const JUDGE_BUDGET = 40;
 
-// Named levels instead of a raw probability: 0.45 vs 0.48 means nothing to a
-// user. Measured on real recalls, misses score ≲0.15 and hits ≳0.9.
 const STRICTNESS = {
   high: 0.5,
   low: 0.1,
@@ -60,12 +51,8 @@ const STRICTNESS = {
 const normalize = (text: string): string =>
   text.toLowerCase().replaceAll(/\s+/gu, " ").trim();
 
-// The distinct search terms of a cue.
 const cueTerms = (cue: string) => [...new Set(terms(cue))];
 
-// Hits that match the cue: every term, or all but one for a cue of three or
-// more. Fragments containing the whole cue come first, then by terms matched
-// and score; ties keep the search's order.
 const selectMatches = (
   cue: string,
   query: readonly string[],
@@ -88,7 +75,6 @@ const selectMatches = (
     .map((hit) => hit.fragment);
 };
 
-// The association keys of the first matches' anchors.
 const seedKeys = (matches: readonly Fragment[]) => [
   ...new Set(
     matches
@@ -123,8 +109,6 @@ const rankAssociations = (
     .map(({ item }) => item);
 };
 
-// Only a dropped cue match counts as truncated: a dropped association comes
-// back through its own cue or anchor, not through a better cue.
 const droppedMatch = (items: readonly RecallItem[]) =>
   items.some((item) => !item.via);
 
@@ -136,8 +120,6 @@ const cut = (
   truncated: truncated || droppedMatch(items.slice(RESULT_SIZE)),
 });
 
-// How likely each candidate is to help with the cue and context, 0 to 1, for
-// every candidate, or why not. Jev on Workers AI in production.
 export type Judge = (
   candidates: readonly Fragment[],
   input: RecallInput
@@ -173,9 +155,6 @@ export const filterRelevant = async (
   });
 };
 
-// Cue matches, best first, then the memories that share a #tag with them,
-// most specific link first; the relevance filter, when the owner turned it
-// on, hides the ones that do not help.
 export const recall = async (
   {
     judge,

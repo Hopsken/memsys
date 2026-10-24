@@ -13,8 +13,6 @@ import "./styles.css";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // 4xx answers, expired sessions included, will not change on retry,
-      // and neither will an answer that says so.
       retry: (count, error) => {
         const { problem, status } = failure(error);
         return (

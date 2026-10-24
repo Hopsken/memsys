@@ -25,7 +25,6 @@ const item = (ref: string, fragment: string, via?: string[]): RecallItem => ({
   ...(via && { via }),
 });
 
-// The seed corpus's ambiguity case: "migration" means databases or birds.
 const items = [
   item("f7", "Run database migrations with wrangler d1 migrations apply"),
   item("f2", "D1's primary region is in US West", ["d1"]),
@@ -50,14 +49,12 @@ const noul = (scores: Record<string, number>) => ({
 
 type Run = Ai["run"];
 
-// The refs a request asks about.
 const asked = (request: Json | undefined) =>
   Object.keys(
     z.object({ questions: z.record(z.string(), z.json()) }).parse(request)
       .questions
   );
 
-// Answers every question it is asked with the same score.
 const approveAll: Run = (_model, request) =>
   Promise.resolve(
     noul(Object.fromEntries(asked(request).map((ref) => [ref, 0.9])))
@@ -72,7 +69,6 @@ const stage = (
   strictness: Strictness = "medium"
 ) => filterRelevant(jev({ run }), rows, input, strictness);
 
-// The kept refs, or the failure as it is.
 const refs = (result: Awaited<ReturnType<typeof stage>>) =>
   result.ok ? result.value.items.map((row) => row.ref) : result.error;
 
@@ -197,14 +193,11 @@ describe("Relevance filter", () => {
       "a code property",
       Object.assign(new Error("No such model"), { code: 5007 }),
     ],
-    // An error with no Workers AI code, such as a missing binding, does not
-    // clear on its own.
     ["no code at all", new Error("Binding AI needs to be run remotely")],
   ])(
     "fails at once on a persistent error named in %s",
     async (_name, error) => {
       const run = vi.fn<Run>(() => Promise.reject(error));
-      // The cause reaches only the log; nobody who reads the error can fix it.
       await expect(stage(run)).resolves.toStrictEqual(failed(false));
       expect(run).toHaveBeenCalledOnce();
       expect(console.error).toHaveBeenCalledWith({
@@ -220,7 +213,6 @@ describe("Relevance filter", () => {
       expect(
         stage(() => Promise.withResolvers<Json>().promise)
       ).resolves.toStrictEqual(failed(true)),
-      // Each attempt times out, plus the waits between attempts.
       vi.advanceTimersByTimeAsync(JEV_TIMEOUT_MS * JEV_ATTEMPTS + 1000),
     ]);
   });
@@ -266,7 +258,6 @@ describe("Relevance filter", () => {
       },
       input
     );
-    // A response that never parses means the model changed: the owner acts.
     expect(result).toStrictEqual(failed(false));
   });
 });

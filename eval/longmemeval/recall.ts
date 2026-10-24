@@ -1,15 +1,3 @@
-// Recall phase (RFC 0003): Pi gets each question of a corpus in a fresh
-// conversation with only list_tags and recall, and a budget of recall
-// rounds. Every recall call is recorded and scored against the corpus's
-// evidence labels; the answer is graded as a secondary metric.
-//
-//   node eval/longmemeval/recall.ts --corpus <name> --run <name> [--set smoke]
-//
-// Every conversation is appended to hub/runs/<run>/recalls.jsonl as it ends;
-// results.json and results.md are written at the end. A conversation already
-// in recalls.jsonl is not run again, so an interrupted run continues; delete
-// results.json to score again.
-
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { appendFile, mkdir, writeFile } from "node:fs/promises";
@@ -52,9 +40,7 @@ const { values: args } = parseArgs({
     repeats: { default: "3", type: "string" },
     rounds: { default: "5", type: "string" },
     run: { type: "string" },
-    // Run only this set's questions of the corpus.
     set: { type: "string" },
-    // JSON over the default settings, e.g. '{"relevanceFilter":"low"}'.
     settings: { default: "{}", type: "string" },
     thinking: { default: "low", type: "string" },
   },
@@ -68,8 +54,6 @@ const REPEATS = Number(args.repeats);
 const SETTINGS: SettingsPatch = z
   .record(z.string(), z.json())
   .parse(JSON.parse(args.settings));
-// Settings live in the memory space, so each setting gets its own spaces:
-// runs with different settings can run side by side.
 const settingsKey =
   Object.keys(SETTINGS).length === 0
     ? ""
@@ -106,9 +90,6 @@ await writeFile(
   )
 );
 
-// One memory space per corpus and question, filled from memory.ndjson the
-// first time any run needs it. The import keeps the redated timestamps, and
-// a space that has the records already skips them.
 const corpusSize: Record<string, number> = {};
 const prepare = async (id: string) => {
   const records = await readLines(
@@ -131,7 +112,6 @@ const prepare = async (id: string) => {
   return space;
 };
 
-// One line per conversation, in the order they finished.
 const RECALLS = path.join(RUN_DIR, "recalls.jsonl");
 const conversation = piRun.extend({ id: z.string(), repeat: z.number() });
 const conversations = await readLines(RECALLS, conversation);
@@ -144,7 +124,6 @@ await pool(questions, Number(args.concurrency), async (q) => {
       if (ran.has(`${q.id}/${k}`)) {
         continue;
       }
-      // Repeats of one question run one after another on purpose.
       // oxlint-disable-next-line no-await-in-loop
       const run = await runPi({
         dir: path.join(RUN_DIR, ".pi", q.id),
@@ -167,8 +146,6 @@ await pool(questions, Number(args.concurrency), async (q) => {
   }
 });
 
-// Score every conversation of the chosen questions. Conversations already in
-// results.json keep their score; Jev grades the new answers in one pass.
 const RESULTS = path.join(RUN_DIR, "results.json");
 const scores: Score[] = existsSync(RESULTS)
   ? await readJson(RESULTS, z.array(score))
@@ -196,7 +173,6 @@ try {
 }
 scores.sort((a, b) => a.id.localeCompare(b.id) || a.repeat - b.repeat);
 await writeFile(RESULTS, JSON.stringify(scores, null, 2));
-// Over every question with scores, so that --only does not shrink the report.
 const markdown = report(all, scores, {
   corpus: CORPUS,
   corpusSize,

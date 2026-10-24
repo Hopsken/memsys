@@ -9,7 +9,6 @@ import { recall as runRecall, recallInput } from "../../worker/services/recall";
 
 const noJudge = () => Promise.reject(new Error("The relevance filter is off"));
 
-// Recall at the default settings, which never call the model.
 const recall = async (corpus: Iterable<Fragment>, raw: { cue: string }) => {
   const result = await runRecall(
     { judge: noJudge, memory: inMemory(corpus) },
@@ -146,7 +145,6 @@ describe("Recall", () => {
         "vite dev server"
       )
     ).resolves.toStrictEqual(["phrase", "words", "partial"]);
-    // gamma is rarer than beta, so it weighs more.
     await expect(
       matched(
         [
@@ -232,8 +230,6 @@ describe("Recall", () => {
     });
   });
 
-  // A dropped association comes back through its own cue or anchor, not a
-  // more specific cue, so only a dropped cue match sets `truncated`.
   it.each([
     [10, 0, false],
     [11, 0, true],

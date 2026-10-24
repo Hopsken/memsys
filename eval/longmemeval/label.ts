@@ -1,15 +1,3 @@
-// Evidence labels for a corpus (RFC 0003): for every evidence session of
-// every question, which of the fragments written from that session carry
-// what the session's answer turns say. Jev reads each session's few
-// candidates next to those turns; the whole memory is never shown to it.
-//
-//   node eval/longmemeval/label.ts --corpus <name>
-//
-// Writes hub/<name>/labels.json, the refs per question and session,
-// and labels-review.md, every candidate with its score, for a person to
-// check and correct labels.json by hand. Rerunning keeps hand edits: a
-// session already in labels.json is not asked again.
-
 import { existsSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -54,12 +42,9 @@ try {
     const current = currentMemories(records);
     const labeled = (known[q.id] ??= {});
     for (const session of q.evidence) {
-      // Sessions without answer turns cannot be labeled; score.ts leaves
-      // them out of what a question requires.
       if (session.turns.length === 0 || labeled[session.index]) {
         continue;
       }
-      // A fragment written or revised in this session, as it reads now.
       const refs = [
         ...new Set(
           records

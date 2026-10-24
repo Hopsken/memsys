@@ -8,7 +8,6 @@ import { corpus } from "../worker/lib/dev-corpus";
 import { list, ORIGIN, post, useAuth } from "./helpers";
 import type { User } from "./helpers";
 
-// RFC corpus labels: f1 is the first seeded fragment.
 const label = (text: string) =>
   `f${corpus.findIndex((item) => item.fragment === text) + 1}`;
 
@@ -24,7 +23,6 @@ describe("Development seed", () => {
       fragments: (Fragment & { via?: string[] })[];
     }>();
     await expect(seeded.json()).resolves.toStrictEqual({ fragments: 8 });
-    // IDF ranking lifts f7's rare #d1 above the #memsys hub; ties keep recency.
     expect(
       fragments.map(({ fragment, via }) => [label(fragment), via])
     ).toStrictEqual([
@@ -43,7 +41,6 @@ describe("Development seed", () => {
   });
 });
 
-// Opens the sign-in link as a browser would, keeping the session cookie.
 const logMeIn = async (email: string, returnTo?: string) => {
   const query =
     returnTo === undefined ? "" : `?returnTo=${encodeURIComponent(returnTo)}`;

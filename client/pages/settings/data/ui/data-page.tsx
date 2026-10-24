@@ -24,7 +24,6 @@ interface Picked {
   type: string;
 }
 
-// The file type picks the format; the worker validates every line.
 const mediaType = ({ name, type }: File) => {
   const lower = name.toLowerCase();
   if (lower.endsWith(".ndjson") || type === "application/x-ndjson") {
@@ -54,7 +53,6 @@ const summary = ({ conflicts, imported, skipped }: ImportResult) =>
     .filter(Boolean)
     .join(" ");
 
-// Imports are all or nothing, so every failure left memory unchanged.
 const problem = (error: Error) => {
   const { problem: body, status } = failure(error);
   if (status === 413) {
@@ -65,7 +63,6 @@ const problem = (error: Error) => {
     : "Import failed. Your memories are unchanged.";
 };
 
-// Export downloads the whole memory; import merges a file into it.
 export const DataView = () => {
   const queryClient = useQueryClient();
   const input = useRef<HTMLInputElement>(null);

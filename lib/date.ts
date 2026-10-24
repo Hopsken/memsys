@@ -1,7 +1,5 @@
 import { format, isSameDay, isSameYear, subDays } from "date-fns";
 
-// Shared by client and worker. "Today", "Yesterday", "May 5", or "Apr 1, 2025" outside the current year.
-// `now` is injectable so callers and tests control what "today" means.
 export const formatRelativeDate = (
   value: Date | string,
   now: Date = new Date()
@@ -16,7 +14,6 @@ export const formatRelativeDate = (
   return format(date, isSameYear(date, now) ? "MMM d" : "MMM d, yyyy");
 };
 
-// The same date inside a sentence: "Connected today", "Connected on May 5".
 export const formatRelativeDateInline = (
   value: Date | string,
   now: Date = new Date()

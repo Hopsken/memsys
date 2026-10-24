@@ -17,7 +17,6 @@ import type { EvalCase } from "./dataset";
 import { report } from "./metrics";
 import type { Outcome, Run } from "./metrics";
 
-// JEV=1 adds setups that call Workers AI and bill the account.
 const withJev = process.env["JEV"] === "1";
 const strictness = process.env["JEV_STRICTNESS"] ?? "medium";
 const CONCURRENCY = 4;
@@ -28,13 +27,11 @@ const corpus: Fragment[] = fragments.map(({ date, fragment, id }) => ({
   ref: id,
 }));
 
-// The settings each setup changes from the defaults.
 const setups: { name: string; settings: JsonObject; jev?: boolean }[] = [
   { name: "idf", settings: {} },
   {
     jev: true,
     name: "idf+jev",
-    // Fails the run on an unknown level.
     settings: {
       relevanceFilter: z
         .enum(["low", "medium", "high", "max"])
@@ -65,10 +62,8 @@ const ai: Ai = {
   },
 };
 
-// Jev retries and logs each failed attempt itself.
 vi.spyOn(console, "error").mockReturnValue();
 
-// A failed recall scores as returning nothing.
 const recall = async (settings: JsonObject, item: EvalCase) => {
   const input = recallInput.parse({
     cue: item.cue,
@@ -91,14 +86,11 @@ const recall = async (settings: JsonObject, item: EvalCase) => {
 
 const pool = async <T, R>(items: T[], task: (item: T) => Promise<R>) => {
   const results: R[] = Array.from({ length: items.length });
-  let next = 0;
+  const queue = items.entries();
   const worker = async () => {
-    while (next < items.length) {
-      const index = next;
-      next += 1;
-      // SAFETY: index < items.length, checked by the loop condition.
+    for (const [index, item] of queue) {
       // oxlint-disable-next-line no-await-in-loop
-      results[index] = await task(items[index] as T);
+      results[index] = await task(item);
     }
   };
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));

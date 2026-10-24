@@ -9,10 +9,6 @@ const LABELS = {
   revise: "Edited",
 } satisfies Record<Op, string>;
 
-// Every label is a chip, so a list of them scans as one column. New and
-// Edited make up most of a log, so they take soft cool tints and the rare
-// ones worth noticing keep stronger color. Red and green belong to the diff,
-// blue to tags. Translucent, so a chip still shows on a hovered row.
 const BADGES = {
   forget: "bg-amber-500/15 text-amber-800 dark:text-amber-300",
   remember: "bg-teal-500/10 text-teal-800 dark:text-teal-300",

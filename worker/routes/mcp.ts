@@ -23,7 +23,6 @@ import type { AppEnv } from "../types";
 import { problem } from "./problem";
 import type { AppError } from "./problem";
 
-// An error reads the same as over HTTP.
 const result = <T>(value: Result<T, AppError>): CallToolResult =>
   value.ok
     ? { content: [{ text: JSON.stringify(value.value), type: "text" }] }
@@ -32,9 +31,6 @@ const result = <T>(value: Result<T, AppError>): CallToolResult =>
         isError: true,
       };
 
-// Tools follow the caller's scopes: read-only tools need memory:read, the
-// rest memory:write. A caller never sees a tool it cannot use. Writes are
-// recorded as the caller's.
 const createMcpServer = (
   memory: Memory,
   scopes: ReadonlySet<Scope>,
@@ -111,8 +107,6 @@ Recall with short textual cues such as distinctive phrases, names, projects, con
   return server;
 };
 
-// Stateless MCP over Streamable HTTP, mounted at /mcp. Each request gets its
-// own server bound to the caller's memory and scopes.
 export const mcp = new Hono<AppEnv>().all("/", async (c) => {
   if (c.req.method !== "POST") {
     c.header("Allow", "POST");

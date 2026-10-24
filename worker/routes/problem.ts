@@ -12,8 +12,6 @@ export type AppError =
   | RelevanceUnavailable
   | TooLong;
 
-// What the agent and the owner read when the relevance filter fails. The
-// cause never reaches them: neither can fix Workers AI.
 export const RELEVANCE_UNAVAILABLE =
   "The relevance filter is unavailable, and retrying will not help. Recall works again once the owner turns the filter off under Settings → Features in memsys.";
 export const RELEVANCE_RETRY =
@@ -25,7 +23,6 @@ interface Problem {
   status: ContentfulStatusCode;
 }
 
-// The one place an error value becomes what a client sees.
 export const problem = (error: AppError): Problem => {
   switch (error.kind) {
     case "not-found": {
@@ -58,7 +55,6 @@ export const problem = (error: AppError): Problem => {
       };
     }
     case "relevance-unavailable": {
-      // An outage is worth retrying; a filter the owner must turn off is not.
       return error.retry
         ? {
             body: { error: RELEVANCE_RETRY, retry: true },

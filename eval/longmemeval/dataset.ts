@@ -56,8 +56,6 @@ export const loadQuestions = async (): Promise<Question[]> => {
 
 const hash = (text: string) => createHash("sha256").update(text).digest("hex");
 
-// The same questions on every machine: per type, the ids with the smallest
-// hashes under the seed. Abstention questions are sampled with their type.
 export const sample = (questions: Question[], perType: number, seed = "") =>
   Object.values(Object.groupBy(questions, (q) => q.question_type))
     .flatMap((group = []) =>
@@ -121,9 +119,6 @@ export const transcript = (turns: Turn[]) =>
     )
     .join("\n\n");
 
-// What the recall phase needs of a question, without the 277 MB haystack:
-// the question, its answer, and the evidence sessions with the turns the
-// dataset marks as stating the answer (none for some sessions).
 export const evidenceSession = z.object({
   date: z.string(),
   index: z.number(),

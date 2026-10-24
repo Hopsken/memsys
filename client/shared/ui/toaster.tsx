@@ -4,8 +4,6 @@ import type { ReactNode } from "react";
 
 import { buttonVariants } from "@/shared/ui/button";
 
-// One manager for the whole app, so a toast can outlive the view that raised
-// it, such as a dialog that closes as it confirms.
 export const toasts = Toast.createToastManager();
 
 const ToastList = () => {

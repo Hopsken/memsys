@@ -4,7 +4,6 @@ import type { Author, Fragment, Op } from "@contract/memory";
 import { extractAnchors, withinTag } from "@lib/anchor";
 import { FRAGMENT_MAX, fragmentLength } from "@lib/fragment";
 
-// Lowercase only; omit 0, 1, i, l, and o. 31^7 possible refs.
 export const REF_ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz";
 export const REF_LENGTH = 7;
 export const PAGE_SIZE = 50;
@@ -30,7 +29,6 @@ const cursor = z
   .transform((value) => value.split(","))
   .pipe(z.tuple([z.iso.datetime({ precision: 3 }), ref]));
 
-// An anchor name without its `#`; the list keeps fragments carrying every tag.
 const tag = z
   .string()
   .max(256)
@@ -41,7 +39,6 @@ export const listInput = z
   .object({ cursor: cursor.optional(), tag: z.array(tag).max(10).optional() })
   .strict();
 
-// Activity pages like the list but has no filter.
 export const activityInput = z.object({ cursor: cursor.optional() }).strict();
 
 export const inputs = {
@@ -62,9 +59,6 @@ const author = z.union([
   z.templateLiteral(["agent:", z.string().max(256)]),
 ]) satisfies z.ZodType<Author>;
 
-// One log line. Readers drop unknown keys and reject an unknown `v`; `at`
-// becomes epoch milliseconds, the storage format. Only a forget clears the
-// text.
 export const logRecord = z
   .object({
     at: z.iso
@@ -87,8 +81,6 @@ export const importInput = z
   .object({ content: z.string(), format: z.enum(["ndjson", "text"]) })
   .strict();
 
-// A user action on one record of the log; not exposed over MCP. The ref
-// comes from the path.
 export const restoreInput = z
   .object({
     at: z.iso

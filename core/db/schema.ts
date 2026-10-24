@@ -8,10 +8,6 @@ import {
 
 import type { Author, JsonObject, Op } from "@contract/memory";
 
-// The fragment log: one row per record, never updated. `at` is epoch
-// milliseconds and orders a ref's records; a null fragment is forgotten.
-// `op` is the action that wrote the record and `by` who took it; `by` is
-// null for records written before it was kept.
 export const records = sqliteTable(
   "records",
   {
@@ -23,13 +19,10 @@ export const records = sqliteTable(
   },
   (table) => [
     primaryKey({ columns: [table.ref, table.at] }),
-    // Activity reads the log across refs, newest first.
     index("records_at_ref_idx").on(table.at, table.ref),
   ]
 );
 
-// Untyped JSON documents by key, kept beside the memory. The core stores
-// them and merges patches into them; it never reads them.
 export const metadata = sqliteTable("metadata", {
   key: text().primaryKey(),
   value: text({ mode: "json" }).$type<JsonObject>().notNull(),

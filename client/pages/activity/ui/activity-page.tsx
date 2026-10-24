@@ -26,7 +26,6 @@ const linkClass =
 const time = (at: string) =>
   new Date(at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
-// Consecutive entries of one local day, newest day first.
 const byDay = (entries: ActivityEntry[]) => {
   const days: { day: string; entries: ActivityEntry[] }[] = [];
   for (const entry of entries) {
@@ -41,8 +40,6 @@ const byDay = (entries: ActivityEntry[]) => {
   return days;
 };
 
-// What the record did to the memory: the new text, the edit, or the text
-// that was forgotten, dimmed.
 const EntryText = ({ entry }: { entry: ActivityEntry }) => {
   if (entry.fragment === null) {
     return entry.previous === null ? null : (
@@ -52,8 +49,6 @@ const EntryText = ({ entry }: { entry: ActivityEntry }) => {
   return <MemoryText before={entry.previous} text={entry.fragment} />;
 };
 
-// A row opens the memory's history at this version, where it can be used
-// again or restored.
 const EntryRow = ({ entry }: { entry: ActivityEntry }) => {
   const open = useOpenHistory();
   const to = `${entry.ref}?${new URLSearchParams({ at: entry.at })}`;
@@ -90,8 +85,6 @@ const EntryRow = ({ entry }: { entry: ActivityEntry }) => {
   );
 };
 
-// Every change to every memory, newest first: what your AI, or you, saved,
-// edited, forgot, and restored.
 export const ActivityView = () => {
   const query = useInfiniteQuery<
     ActivityPage,

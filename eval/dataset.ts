@@ -1,24 +1,11 @@
-// Recall evaluation set: one user's memory and the cues an agent would send.
-// Case kinds borrow from LoCoMo (single-hop, multi-hop, adversarial) and
-// LongMemEval (knowledge update, abstention), reshaped for short agent cues
-// and #anchor association. English only.
-
 export type Kind =
-  // The cue appears verbatim in the fragment.
   | "exact"
-  // Every cue word appears, but not as one contiguous phrase.
   | "scattered"
-  // Cue words appear in another inflection (evicted / eviction).
   | "morphology"
-  // The cue carries a word the fragment lacks ("error", "bug").
   | "partial"
-  // The answer shares a specific anchor with a direct match.
   | "association"
-  // Several fragments answer together, including knowledge updates.
   | "multi"
-  // No words in common; out of reach for lexical recall. Measures the ceiling.
   | "semantic"
-  // Nothing in memory answers; anything returned is noise.
   | "abstain";
 
 export interface EvalFragment {
@@ -30,11 +17,9 @@ export interface EvalFragment {
 export interface EvalCase {
   context?: string;
   cue: string;
-  // Fragments that answer the cue; recall is measured against these.
   hits: string[];
   id: string;
   kind: Kind;
-  // Related enough that returning them is not noise.
   ok?: string[];
 }
 

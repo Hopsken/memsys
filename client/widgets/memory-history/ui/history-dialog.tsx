@@ -52,8 +52,6 @@ const stamp = (at: string) =>
     minute: "2-digit",
   })}`;
 
-// Forgetting closes the dialog and leaves a toast to undo it, which puts the
-// memory back where it was in the list.
 const useForget = (onForgotten: () => void) => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -87,9 +85,6 @@ const useForget = (onForgotten: () => void) => {
   });
 };
 
-// Delete is the user's purge: unlike forgetting, it removes the history too.
-// It is the next step for a forgotten memory, as Forget is for a live one,
-// and waits behind a confirmation.
 const DeleteMemory = ({
   onDeleted,
   target,
@@ -155,13 +150,11 @@ const DeleteMemory = ({
 
 const Timeline = ({ versions }: { versions: Version[] }) => {
   const restore = useRestore();
-  // A link can point at one version, as Activity does; show it first.
   const [searchParams] = useSearchParams();
   const [fresh, setFresh] = useState(searchParams.get("at"));
   const highlighted = useRef<HTMLLIElement>(null);
   const current = versions[0]?.fragment ?? null;
 
-  // A restore lands at the top, maybe out of view: show it and point it out.
   useEffect(() => {
     if (!fresh) {
       return;
@@ -265,7 +258,6 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
   );
 };
 
-// Every version of one memory, over whatever opened it.
 export const MemoryHistoryDialog = ({
   memoryRef: ref,
   onClose: close,
@@ -280,10 +272,7 @@ export const MemoryHistoryDialog = ({
   });
   const missing = query.error !== null && failure(query.error).status === 404;
   const forget = useForget(close);
-  // The header offers the next step down: Forget for a memory your AI can
-  // still recall, Delete for a forgotten one.
   const current = query.data?.versions[0];
-  // Focus starts on the history, not on an action one Enter away.
   const body = useRef<HTMLDivElement>(null);
 
   return (
@@ -379,13 +368,10 @@ export const MemoryHistoryDialog = ({
   );
 };
 
-// The history as a child route of the list that links to it.
 export const HistoryDialog = () => {
   const { ref = "" } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  // Back returns to the list as it was; a link opened directly has no list
-  // behind it in history, so it replaces itself with one.
   const close = () => {
     void (location.key === "default"
       ? navigate("..", { replace: true })

@@ -28,8 +28,6 @@ const Granted = ({ text }: { text: string }) => (
   </li>
 );
 
-// Better Auth sends the user here, signed in, when an app asks for access.
-// Reading comes with any connection; changing memories is the user's call.
 export const ConsentView = () => {
   const [params] = useSearchParams();
   const session = authClient.useSession();
@@ -40,10 +38,7 @@ export const ConsentView = () => {
   const [write, setWrite] = useState(true);
   const answer = useMutation({
     mutationFn: async (accept: boolean) => {
-      // offline_access keeps the app signed in; it is not a choice.
       const granted = [READ, "offline_access", ...(write ? [WRITE] : [])];
-      // Where the browser goes next: back to the app with a code, or with an
-      // error if the user said no.
       const { url } = await api
         .post("/api/auth/oauth2/consent", {
           json: {

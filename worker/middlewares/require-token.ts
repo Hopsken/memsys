@@ -22,13 +22,9 @@ const unauthorized = (c: Context<AppEnv>) => {
   return c.json({ error: "Authentication required" }, 401);
 };
 
-// An app names itself when it registers, so its name is only ever shown as
-// an agent's and cannot pass for the user.
 const agent = (name: string | null | undefined): Author =>
   `agent:${name ?? ""}`;
 
-// /mcp: an API key or an OAuth access token as a bearer token,
-// naming the user who created it.
 export const requireToken = createMiddleware<AppEnv>(async (c, next) => {
   const key = /^Bearer\s+(?<key>\S+)$/iu.exec(
     c.req.header("Authorization") ?? ""
