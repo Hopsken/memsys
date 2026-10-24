@@ -110,6 +110,13 @@ export class MemoryService {
     return await this.#settings.update(patch);
   }
 
+  async diagnostics() {
+    const memory = await this.#memory.diagnostics();
+    const started = Date.now();
+    await this.#memory.count();
+    return { ...memory, roundTripMs: Date.now() - started };
+  }
+
   async #write<E>(
     text: string,
     store: () => Promise<Result<Fragment, E>>
