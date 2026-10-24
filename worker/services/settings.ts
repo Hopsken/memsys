@@ -5,9 +5,9 @@ import type { Json, JsonObject } from "@contract/memory";
 import { err, ok } from "@contract/result";
 import type { Result } from "@contract/result";
 import type { Settings, SettingsView } from "@contract/settings";
-import { FRAGMENT_MAX, fragmentLength } from "@lib/fragment";
+import { FRAGMENT_MAX } from "@lib/fragment";
 
-import type { InvalidSettings, TooLong } from "../errors";
+import type { InvalidSettings } from "../errors";
 
 const KEY = "settings";
 
@@ -75,29 +75,15 @@ export const updateSettings = async (
   const parsed = settingsPatch.safeParse(patch);
   if (!parsed.success) {
     return err({
+      code: "invalid",
       issues: parsed.error.issues.map(({ message, path }) => ({
         message,
         path: path.map(String),
       })),
-      kind: "invalid-settings",
+      message: "Invalid settings",
+      reason: "invalid-settings",
     });
   }
   const stored = await memory.patchMetadata(KEY, patch);
   return ok({ defaults: DEFAULT_SETTINGS, settings: parseSettings(stored) });
-};
-
-export const checkLength = (
-  { refuse, warn }: Settings["length"],
-  text: string
-): Result<string | null, TooLong> => {
-  const length = fragmentLength(text);
-  if (length > refuse) {
-    return err({ kind: "too-long", length, limit: refuse });
-  }
-  if (length > warn) {
-    return ok(
-      `Fragment contains ${length} characters, above the recommended ${warn}. Consider splitting it into smaller fragments.`
-    );
-  }
-  return ok(null);
 };

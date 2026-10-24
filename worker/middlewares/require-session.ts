@@ -1,7 +1,7 @@
 import { createMiddleware } from "hono/factory";
 
 import { getAuth } from "../lib/better-auth";
-import { defaultSpace, memoryOf } from "../lib/memory";
+import { defaultSpace, openMemory } from "../lib/memory";
 import type { AppEnv } from "../types";
 
 export const requireSession = createMiddleware<AppEnv>(async (c, next) => {
@@ -11,8 +11,7 @@ export const requireSession = createMiddleware<AppEnv>(async (c, next) => {
   if (!result) {
     return c.json({ error: "Authentication required" }, 401);
   }
-  c.set("by", "user");
-  c.set("memory", memoryOf(defaultSpace(result.user.id)));
+  c.set("memory", openMemory(defaultSpace(result.user.id), "user"));
   c.set("userId", result.user.id);
   return next();
 });

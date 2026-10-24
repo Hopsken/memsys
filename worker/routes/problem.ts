@@ -1,75 +1,36 @@
-import type { Context } from "hono";
+import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
-import type { InvalidInput, Issue, NotFound } from "@contract/result";
+import type { Code, Failure, Result } from "@contract/result";
 
-import type { InvalidSettings, RelevanceUnavailable, TooLong } from "../errors";
+// The one place a failure's canonical code becomes an HTTP status. A new
+// failure picks a code where it is made; nothing here changes for it.
+const STATUS = {
+  invalid: 422,
+  "not-found": 404,
+  unavailable: 503,
+} satisfies Record<Code, ContentfulStatusCode>;
 
-export type AppError =
-  | InvalidInput
-  | InvalidSettings
-  | NotFound
-  | RelevanceUnavailable
-  | TooLong;
+// Only `unavailable` needs more: whether the caller should retry, and when.
+const statusOf = ({ code, retry }: Failure): ContentfulStatusCode =>
+  code === "unavailable" && retry === false ? 502 : STATUS[code];
 
-export const RELEVANCE_UNAVAILABLE =
-  "The relevance filter is unavailable, and retrying will not help. Recall works again once the owner turns the filter off under Settings → Features in memsys.";
-export const RELEVANCE_RETRY =
-  "The relevance filter could not check the memories. Retry this recall shortly.";
-
-interface Problem {
-  body: { error: string; issues?: Issue[]; retry?: boolean };
-  headers?: Record<string, string>;
-  status: ContentfulStatusCode;
-}
-
-export const problem = (error: AppError): Problem => {
-  switch (error.kind) {
-    case "not-found": {
-      return {
-        body: {
-          error:
-            error.at === undefined ? "Fragment not found" : "Version not found",
-        },
-        status: 404,
-      };
-    }
-    case "invalid-input": {
-      return {
-        body: { error: error.message, issues: error.issues },
-        status: 422,
-      };
-    }
-    case "invalid-settings": {
-      return {
-        body: { error: "Invalid settings", issues: error.issues },
-        status: 422,
-      };
-    }
-    case "too-long": {
-      return {
-        body: {
-          error: `Fragment contains ${error.length} characters, above the limit of ${error.limit}. Split it into smaller fragments.`,
-        },
-        status: 422,
-      };
-    }
-    case "relevance-unavailable": {
-      return error.retry
-        ? {
-            body: { error: RELEVANCE_RETRY, retry: true },
-            headers: { "Retry-After": "5" },
-            status: 503,
-          }
-        : { body: { error: RELEVANCE_UNAVAILABLE, retry: false }, status: 502 };
-    }
-    default: {
-      return error satisfies never;
-    }
+// A route's value, or the failure thrown for app.onError to send. Hono
+// sends the exception's status, so the response's status must match it.
+export const unwrap = <T>(result: Result<T, Failure>): T => {
+  if (result.ok) {
+    return result.value;
   }
-};
-
-export const errorResponse = (c: Context, error: AppError) => {
-  const { body, headers, status } = problem(error);
-  return c.json(body, status, headers);
+  const { issues, message, retry } = result.error;
+  const status = statusOf(result.error);
+  throw new HTTPException(status, {
+    res: Response.json(
+      {
+        error: message,
+        ...(issues && { issues }),
+        ...(retry !== undefined && { retry }),
+      },
+      { headers: retry === true ? { "Retry-After": "5" } : {}, status }
+    ),
+  });
 };

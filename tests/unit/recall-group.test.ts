@@ -14,7 +14,7 @@ const recall = async (corpus: Iterable<Fragment>, raw: { cue: string }) => {
     recallInput.parse(raw)
   );
   if (!result.ok) {
-    throw new Error(result.error.kind);
+    throw new Error(result.error.reason);
   }
   return result.value;
 };

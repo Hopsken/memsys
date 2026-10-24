@@ -10,7 +10,7 @@ import {
   resourceMetadataUrl,
   verifyAccessToken,
 } from "../lib/better-auth";
-import { defaultSpace, memoryOf } from "../lib/memory";
+import { defaultSpace, openMemory } from "../lib/memory";
 import type { AppEnv } from "../types";
 
 // Points apps without a token to OAuth sign-in (RFC 9728).
@@ -37,8 +37,13 @@ export const requireToken = createMiddleware<AppEnv>(async (c, next) => {
     if (!verified.valid || !verified.key) {
       return unauthorized(c);
     }
-    c.set("by", agent(verified.key.name));
-    c.set("memory", memoryOf(defaultSpace(verified.key.referenceId)));
+    c.set(
+      "memory",
+      openMemory(
+        defaultSpace(verified.key.referenceId),
+        agent(verified.key.name)
+      )
+    );
     c.set("scopes", ALL_SCOPES);
     c.set("userId", verified.key.referenceId);
     return next();
@@ -54,8 +59,10 @@ export const requireToken = createMiddleware<AppEnv>(async (c, next) => {
     );
     return c.json({ error: "Insufficient scope" }, 403);
   }
-  c.set("by", agent(verified.name));
-  c.set("memory", memoryOf(defaultSpace(verified.userId)));
+  c.set(
+    "memory",
+    openMemory(defaultSpace(verified.userId), agent(verified.name))
+  );
   c.set("scopes", verified.scopes);
   c.set("userId", verified.userId);
   return next();

@@ -3,11 +3,9 @@ import { Hono } from "hono";
 
 import type { ImportFormat } from "@contract/memory";
 
-import { relevanceJudge } from "../clients/workers-ai";
-import { remember, revise } from "../services/memory";
-import { recall, recallInput } from "../services/recall";
+import { recallInput } from "../services/recall";
 import type { AppEnv } from "../types";
-import { errorResponse } from "./problem";
+import { unwrap } from "./problem";
 
 const IMPORT_FORMATS = new Map<string, ImportFormat>([
   ["application/x-ndjson", "ndjson"],
@@ -38,7 +36,7 @@ export const memory = new Hono<AppEnv>()
     const result = await c
       .get("memory")
       .history(inputs.forget.parse({ ref: c.req.param("ref") }));
-    return result.ok ? c.json(result.value) : errorResponse(c, result.error);
+    return c.json(unwrap(result));
   })
   .get("/fragments/forgotten", async (c) => {
     c.header("Cache-Control", "no-store");
@@ -48,32 +46,25 @@ export const memory = new Hono<AppEnv>()
     const { ref } = inputs.forget.parse({ ref: c.req.param("ref") });
     const { at } = restoreInput.parse(await c.req.json());
     const result = await c.get("memory").restore({ at, ref });
-    return result.ok ? c.json(result.value) : errorResponse(c, result.error);
+    return c.json(unwrap(result));
   })
   .post("/remember", async (c) => {
-    const result = await remember(
-      c.get("memory"),
-      inputs.remember.parse(await c.req.json()),
-      c.get("by")
-    );
-    return result.ok
-      ? c.json(result.value, 201)
-      : errorResponse(c, result.error);
+    const result = await c
+      .get("memory")
+      .remember(inputs.remember.parse(await c.req.json()));
+    return c.json(unwrap(result), 201);
   })
   .post("/recall", async (c) => {
-    const result = await recall(
-      { judge: relevanceJudge, memory: c.get("memory") },
-      recallInput.parse(await c.req.json())
-    );
-    return result.ok ? c.json(result.value) : errorResponse(c, result.error);
+    const result = await c
+      .get("memory")
+      .recall(recallInput.parse(await c.req.json()));
+    return c.json(unwrap(result));
   })
   .post("/revise", async (c) => {
-    const result = await revise(
-      c.get("memory"),
-      inputs.revise.parse(await c.req.json()),
-      c.get("by")
-    );
-    return result.ok ? c.json(result.value) : errorResponse(c, result.error);
+    const result = await c
+      .get("memory")
+      .revise(inputs.revise.parse(await c.req.json()));
+    return c.json(unwrap(result));
   })
   .get("/export", async (c) => {
     const history = c.req.query("history") === "true";
@@ -102,17 +93,17 @@ export const memory = new Hono<AppEnv>()
     // Decoded directly: workerd warns when .text() reads a non-text type.
     const content = new TextDecoder().decode(await c.req.arrayBuffer());
     const result = await c.get("memory").importLog({ content, format });
-    return result.ok ? c.json(result.value) : errorResponse(c, result.error);
+    return c.json(unwrap(result));
   })
   .post("/purge", async (c) => {
     const result = await c
       .get("memory")
       .purge(inputs.forget.parse(await c.req.json()));
-    return result.ok ? c.json(result.value) : errorResponse(c, result.error);
+    return c.json(unwrap(result));
   })
   .post("/forget", async (c) => {
     const result = await c
       .get("memory")
-      .forget(inputs.forget.parse(await c.req.json()), c.get("by"));
-    return result.ok ? c.json(result.value) : errorResponse(c, result.error);
+      .forget(inputs.forget.parse(await c.req.json()));
+    return c.json(unwrap(result));
   });

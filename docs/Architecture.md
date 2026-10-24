@@ -106,17 +106,21 @@ worker ──▶ core ─────▶ contract, lib
 worker/
   index.ts      the app: security middleware, mounted routes, the error boundary
   routes/       one Hono app per resource, the MCP server and its tools, and
-                problem.ts, where error values become HTTP statuses and MCP errors
-  services/     the rules: recall policy, the owner's settings and length limits
+                problem.ts, where a failure's code becomes an HTTP status
+  services/     the rules: MemoryService (every call to a memory space, with
+                the length limits), recall policy, the owner's settings
   clients/      outside services: Jev on Workers AI, Resend
   middlewares/  sign-in: a browser session for /api, a bearer token for /mcp
-  lib/          Better Auth setup, the memory object for a space, the dev corpus
+  lib/          Better Auth setup, openMemory (the only use of the MEMORY
+                binding), the dev corpus
   db/           the D1 schema Better Auth uses
   errors.ts     the Worker's error values: too long, invalid settings, relevance unavailable
   types.ts      what the sign-in middlewares hand to routes in c.var
 ```
 
-Routes call services; services hold the rules and import no HTTP or platform API. Bindings come from the global `env` of `cloudflare:workers`; only per-request values (whose memory, who writes, their scopes) travel in `c.var`. Services return errors as values (`contract/result.ts`); `worker/routes/problem.ts` is the one place they become statuses: not found 404, invalid input or settings 422, relevance filter 503 with `Retry-After` or 502. Lint enforces all of these boundaries.
+Routes call services; services hold the rules and import no HTTP or platform API. Every call to a memory space goes through `MemoryService` (`c.var.memory`), so none skips the Worker's rules; only `worker/lib/memory.ts` touches the `MEMORY` binding. Bindings come from the global `env` of `cloudflare:workers`; only per-request values (the caller's MemoryService and scopes) travel in `c.var`.
+
+Failures are values (`contract/result.ts`) with a canonical `code`, a `reason`, and a `message` written where they are made ([RFC 0004](rfcs/0004-memory-core.md)). Routes `unwrap` results; `worker/routes/problem.ts` maps only codes to statuses: `invalid` 422, `not-found` 404, `unavailable` 503 with `Retry-After`, or 502 when retrying cannot help. Lint enforces all of these boundaries.
 
 Features do **not** extend core tool inputs. The same call must never fail on one instance and succeed on another because of a setting's shape; settings change result quality, not the calling convention.
 

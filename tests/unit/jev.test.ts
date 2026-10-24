@@ -73,7 +73,11 @@ const refs = (result: Awaited<ReturnType<typeof stage>>) =>
   result.ok ? result.value.items.map((row) => row.ref) : result.error;
 
 const failed = (retry: boolean) => ({
-  error: { kind: "relevance-unavailable", retry },
+  error: expect.objectContaining({
+    code: "unavailable",
+    reason: "relevance-unavailable",
+    retry,
+  }),
   ok: false,
 });
 

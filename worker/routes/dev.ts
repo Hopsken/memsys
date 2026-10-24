@@ -1,4 +1,3 @@
-import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setSignedCookie } from "hono/cookie";
 import { z } from "zod";
@@ -10,10 +9,10 @@ import {
   isAllowedEmail,
 } from "../lib/better-auth";
 import { corpus } from "../lib/dev-corpus";
-import { defaultSpace, memoryOf } from "../lib/memory";
+import { defaultSpace, openMemory, seedSpace } from "../lib/memory";
 import type { AppEnv } from "../types";
 import { mcp } from "./mcp";
-import { errorResponse } from "./problem";
+import { unwrap } from "./problem";
 import { settings } from "./settings";
 
 const seedInput = z.object({ email: z.email() });
@@ -43,9 +42,7 @@ export const dev =
           404
         );
       }
-      return c.json(
-        await env.MEMORY.getByName(defaultSpace(found.user.id)).seed(corpus)
-      );
+      return c.json(await seedSpace(defaultSpace(found.user.id), corpus));
     })
     .get("/__dev/log-me-in/:email", async (c) => {
       const email = z.email().safeParse(c.req.param("email"));
@@ -67,7 +64,7 @@ export const dev =
           { email: email.data, emailVerified: true, name: "" },
           { method: "email-otp" }
         );
-        await env.MEMORY.getByName(defaultSpace(user.id)).seed(corpus);
+        await seedSpace(defaultSpace(user.id), corpus);
       }
       const session = await internalAdapter.createSession(user.id);
       // The cookie Better Auth sets on sign-in, signed the same way.
@@ -83,9 +80,8 @@ export const dev =
       );
     })
     .use("/__dev/eval/:space/*", (c, next) => {
-      c.set("memory", memoryOf(`eval:${c.req.param("space")}`));
+      c.set("memory", openMemory(`eval:${c.req.param("space")}`, "agent:eval"));
       c.set("scopes", new Set([MEMORY_READ, MEMORY_WRITE]));
-      c.set("by", "agent:eval");
       return next();
     })
     .route("/__dev/eval/:space/mcp", mcp)
@@ -97,5 +93,5 @@ export const dev =
       const result = await c
         .get("memory")
         .importLog({ content: await c.req.text(), format: "ndjson" });
-      return result.ok ? c.json(result.value) : errorResponse(c, result.error);
+      return c.json(unwrap(result));
     });

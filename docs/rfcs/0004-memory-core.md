@@ -90,13 +90,20 @@ interface MemoryCore {
 ```ts
 // contract/result.ts
 export type Result<T, E> = { ok: true; value: T } | { ok: false; error: E };
-export type NotFound = { kind: "not-found"; ref: string };
-export type InvalidInput = { kind: "invalid-input"; issues: Issue[] };
+export type Code = "invalid" | "not-found" | "unavailable";
+export interface Failure<C extends Code = Code, R extends string = string> {
+  code: C; // canonical class; alone decides the HTTP status
+  reason: R; // the exact cause, for machines: "too-long", "version-not-found", ...
+  message: string; // written where the failure is made, for whoever reads it
+  issues?: Issue[];
+  retry?: boolean; // for "unavailable": whether retrying shortly can help
+}
 ```
 
-- A result and its error are plain objects, so they cross the Durable Object RPC unchanged. Errors are told apart by `kind`, so a `switch` over them is checked for completeness.
+- A result and its failure are plain objects, so they cross the Durable Object RPC unchanged.
+- Failures follow the canonical-code model of gRPC and Google's [AIP-193](https://google.aip.dev/193): a few fixed `code`s, each with one HTTP status, and a free `reason`. A new failure picks a code; nothing that maps codes changes for it.
 - An expected failure is an error value; only a bug throws. The core never returns `null`, an ad-hoc `{ error: string }`, or an HTTP response.
-- The Worker adds its own kinds (`too-long`, `invalid-settings`, `relevance-unavailable` with `retry`). Only `worker/routes/problem.ts` maps kinds to HTTP statuses and MCP errors; response bodies keep their current shape (`{ error, issues?, retry? }`).
+- The Worker adds its own reasons (`too-long`, `invalid-settings`, `relevance-unavailable`). Routes call `unwrap(result)`, which throws a failure for the app's error handler; `worker/routes/problem.ts` maps codes to statuses: `invalid` 422, `not-found` 404, `unavailable` 503 with `Retry-After`, or 502 when retrying cannot help. MCP tools send `message`. Response bodies keep their shape (`{ error, issues?, retry? }`).
 - There is no library and no combinators until use cases need them.
 
 ### 4. The analyzer is part of the index
@@ -126,20 +133,23 @@ The Worker follows the layout common to Hono and other Node backends:
 worker/
   index.ts      the app: security middleware, mounted routes, the error boundary
   routes/       one Hono app per resource, the MCP server and its tools, and
-                problem.ts, where error values become HTTP statuses and MCP errors
-  services/     the rules: recall policy, the owner's settings and length limits
+                problem.ts, where a failure's code becomes an HTTP status
+  services/     the rules: MemoryService (every call to a memory space, with
+                the length limits), recall policy, the owner's settings
   clients/      outside services: Jev on Workers AI, Resend
   middlewares/  sign-in: a browser session for /api, a bearer token for /mcp
-  lib/          Better Auth setup, the memory object for a space, the dev corpus
+  lib/          Better Auth setup, openMemory (the only use of the MEMORY
+                binding), the dev corpus
   db/           the D1 schema Better Auth uses
   errors.ts     the Worker's error values: too long, invalid settings, relevance unavailable
   types.ts      what the sign-in middlewares hand to routes in c.var
 ```
 
-- Dependencies point one way: routes call services; services call the core and use `contract/`, `lib/`, and `worker/errors.ts`; clients, middlewares, and `worker/lib/` never call routes or services. Services import no HTTP or platform API, so tests run them in Node against the in-memory core. Lint enforces it, as it does the client's layers.
+- Dependencies point one way: routes call services; services call the core and use `contract/`, `lib/`, and `worker/errors.ts`; clients, middlewares, and `worker/lib/` never call routes or services, except `lib/memory.ts`, which opens the MemoryService. Services import no HTTP or platform API, so tests run them in Node against the in-memory core. Lint enforces it, as it does the client's layers.
+- Every call to a memory space goes through `MemoryService`, one per request in `c.var.memory`. It applies the Worker's rules, such as the owner's length limits on agent writes, so no route or tool can skip them. Only `lib/memory.ts` touches the `MEMORY` binding; lint rejects any other use.
 - It follows Hono's guidance: no controller classes, handlers written on the route, input checked with zod schemas.
-- Bindings are read from the global `env` of `cloudflare:workers`, not passed through constructors or `c.var`. Only values that change per request travel in `c.var`: whose memory it is, who writes, and their scopes. Better Auth is the exception: it keeps one instance per env object, so it reads `c.env`, and its tests swap env objects to check setup and query isolation.
-- Services are functions that take what they need, not classes. Recall takes its relevance judge as an argument, so tests and the eval pass a fake or Jev with their own Workers AI.
+- Bindings are read from the global `env` of `cloudflare:workers`, not passed through constructors or `c.var`. Only values that change per request travel in `c.var`: the caller's MemoryService, which knows who writes, and their scopes. Better Auth is the exception: it keeps one instance per env object, so it reads `c.env`, and its tests swap env objects to check setup and query isolation.
+- `MemoryService` is a class over the core's interface, not a subclass of the Durable Object, so the Worker's rules stay out of the core. Recall and settings are functions it calls; recall takes its relevance judge as an argument, so tests and the eval pass a fake or Jev with their own Workers AI.
 - Jev splits along the same line: "judge what you keep, or fail the recall", the budget, and the thresholds are recall rules in `services/recall.ts`; calling Workers AI, retrying, and classifying its errors is `clients/jev.ts`.
 
 ### 8. The core is a module now and a package later

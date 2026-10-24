@@ -56,26 +56,40 @@ const freshRef = (taken: { has: (ref: string) => boolean }) => {
 };
 
 const invalid = (error: z.ZodError): InvalidInput => ({
+  code: "invalid",
   issues: error.issues.map(({ message, path }) => ({
     message,
     path: path.map(String),
   })),
-  kind: "invalid-input",
   message: z.prettifyError(error),
+  reason: "invalid-input",
 });
 
 const invalidFile = (issues: Issue[]): InvalidInput => ({
+  code: "invalid",
   issues,
-  kind: "invalid-input",
   message: issues
     .map(({ message, path: [line, ...field] }) =>
       [`Line ${line}`, ...field].join(", ").concat(`: ${message}`)
     )
     .join("\n"),
+  reason: "invalid-input",
 });
 
-const notFound = (ref: string, at?: number): { error: NotFound; ok: false } =>
-  err({ kind: "not-found", ref, ...(at !== undefined && { at }) });
+const notFound = (at?: number): { error: NotFound; ok: false } =>
+  err(
+    at === undefined
+      ? {
+          code: "not-found",
+          message: "Fragment not found",
+          reason: "fragment-not-found",
+        }
+      : {
+          code: "not-found",
+          message: "Version not found",
+          reason: "version-not-found",
+        }
+  );
 
 const toVersion = ({ at, by, fragment, op, ref }: Row): Version => ({
   at: new Date(at).toISOString(),
@@ -204,7 +218,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     }
     const { fragment, ref } = parsed.data;
     if (!this.index.has(ref)) {
-      return notFound(ref);
+      return notFound();
     }
     return ok(this.write(ref, fragment, "revise", by));
   }
@@ -215,7 +229,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   ): Result<{ ref: string }, NotFound> {
     const { ref } = input;
     if (!this.index.has(ref)) {
-      return notFound(ref);
+      return notFound();
     }
     this.remove(ref, by);
     return ok({ ref });
@@ -234,7 +248,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
       .where(and(eq(records.ref, ref), eq(records.at, at)))
       .get();
     if (!row) {
-      return notFound(ref, at);
+      return notFound(at);
     }
     const op = this.index.has(ref) ? "revise" : "restore";
     const restored =
@@ -254,7 +268,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   purge(input: { ref: string }): Result<{ ref: string }, NotFound> {
     const { ref } = input;
     if (!this.latestAtByRef.has(ref)) {
-      return notFound(ref);
+      return notFound();
     }
     this.db.delete(records).where(eq(records.ref, ref)).run();
     this.latestAtByRef.delete(ref);
@@ -371,7 +385,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
 
   history({ ref }: { ref: string }): Result<History, NotFound> {
     if (!this.latestAtByRef.has(ref)) {
-      return notFound(ref);
+      return notFound();
     }
     const rows = this.db
       .select()

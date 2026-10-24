@@ -8,13 +8,25 @@ export interface Issue {
   path: string[];
 }
 
-export interface NotFound {
-  kind: "not-found";
-  ref: string;
-  at?: number;
-}
-export interface InvalidInput {
-  kind: "invalid-input";
+// An expected failure, after Google's AIP-193: `code` is one of a few
+// canonical classes and alone decides the HTTP status; `reason` names the
+// exact cause for machines; `message` is written for whoever reads it.
+// Plain data, so it crosses Durable Object RPC.
+export type Code = "invalid" | "not-found" | "unavailable";
+
+export interface Failure<C extends Code = Code, R extends string = string> {
+  code: C;
+  reason: R;
   message: string;
-  issues: Issue[];
+  issues?: Issue[];
+  // For `unavailable`: whether retrying shortly can help.
+  retry?: boolean;
 }
+
+export type NotFound = Failure<
+  "not-found",
+  "fragment-not-found" | "version-not-found"
+>;
+export type InvalidInput = Failure<"invalid", "invalid-input"> & {
+  issues: Issue[];
+};

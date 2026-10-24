@@ -4,24 +4,20 @@ import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "@contract/memory";
 
-import { memoryOf } from "../worker/lib/memory";
-import { recall as runRecall } from "../worker/services/recall";
+import { openMemory } from "../worker/lib/memory";
 
-const noJudge = () => Promise.reject(new Error("The relevance filter is off"));
+// Recall through the Worker's service, as routes and MCP do.
+const recall = async (cue: string) => {
+  const result = await openMemory("persistence", "user").recall({ cue });
+  if (!result.ok) {
+    throw new Error(result.error.reason);
+  }
+  return result.value;
+};
 
 describe("Memory persistence", () => {
   it("preserves writes, edits, and deletion after eviction without changing memory on recall", async () => {
     const memory = env.MEMORY.getByName("persistence");
-    const recall = async (cue: string) => {
-      const result = await runRecall(
-        { judge: noJudge, memory: memoryOf("persistence") },
-        { cue }
-      );
-      if (!result.ok) {
-        throw new Error(result.error.kind);
-      }
-      return result.value;
-    };
     const remember = async (fragment: string): Promise<Fragment> => {
       const result = await memory.remember({ fragment }, "user");
       if (!result.ok) {
@@ -41,7 +37,7 @@ describe("Memory persistence", () => {
       "user"
     );
     if (!revised.ok) {
-      throw new Error(revised.error.kind);
+      throw new Error(revised.error.reason);
     }
     await evictDurableObject(memory);
     await expect(recall("Durable objects")).resolves.toStrictEqual({
@@ -133,7 +129,7 @@ describe("Memory persistence", () => {
     await evictDurableObject(memory);
     const history = await memory.history({ ref: "abcdefg" });
     if (!history.ok) {
-      throw new Error(history.error.kind);
+      throw new Error(history.error.reason);
     }
     expect(history.value.versions.map(({ by, op }) => [op, by])).toStrictEqual([
       ["revise", null],

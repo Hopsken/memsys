@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 
 import type { Fragment } from "@contract/memory";
 
+import { RELEVANCE_UNAVAILABLE } from "../worker/errors";
 import worker from "../worker/index";
-import { RELEVANCE_UNAVAILABLE } from "../worker/routes/problem";
 import {
   call,
   content,

@@ -57,7 +57,7 @@ const restrict = (
 
 // A later override replaces an earlier one's patterns, so each repeats
 // coreInternals.
-const workerRules = [
+const workerRules: OxlintOverride[] = [
   restrict(["worker/**"], [coreInternals]),
   restrict(
     ["worker/services/**"],
@@ -92,6 +92,27 @@ const workerRules = [
       },
     ]
   ),
+  // Every call to a memory space goes through MemoryService, so none skips
+  // the Worker's rules: only lib/memory.ts touches the MEMORY binding.
+  {
+    files: ["worker/**"],
+    rules: {
+      "no-restricted-properties": [
+        "error",
+        {
+          message: "Use openMemory() from worker/lib/memory.ts.",
+          property: "MEMORY",
+        },
+      ],
+    },
+  },
+  // Composition: the one file that holds the binding and opens the
+  // MemoryService routes receive. Later overrides win.
+  restrict(["worker/lib/memory.ts"], [coreInternals]),
+  {
+    files: ["worker/lib/memory.ts"],
+    rules: { "no-restricted-properties": "off" },
+  },
   restrict(
     ["core/**"],
     [

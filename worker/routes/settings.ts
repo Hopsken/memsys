@@ -1,19 +1,17 @@
 import { Hono } from "hono";
 import { z } from "zod";
 
-import { updateSettings, viewSettings } from "../services/settings";
 import type { AppEnv } from "../types";
-import { errorResponse } from "./problem";
+import { unwrap } from "./problem";
 
 export const settings = new Hono<AppEnv>()
   .get("/", async (c) => {
     c.header("Cache-Control", "no-store");
-    return c.json(await viewSettings(c.get("memory")));
+    return c.json(await c.get("memory").settings());
   })
   .patch("/", async (c) => {
-    const result = await updateSettings(
-      c.get("memory"),
-      z.record(z.string(), z.json()).parse(await c.req.json())
-    );
-    return result.ok ? c.json(result.value) : errorResponse(c, result.error);
+    const result = await c
+      .get("memory")
+      .updateSettings(z.record(z.string(), z.json()).parse(await c.req.json()));
+    return c.json(unwrap(result));
   });

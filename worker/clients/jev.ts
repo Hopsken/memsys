@@ -4,6 +4,7 @@ import type { Fragment, Json, JsonObject, RecallInput } from "@contract/memory";
 import { err, ok } from "@contract/result";
 import type { Result } from "@contract/result";
 
+import { relevanceUnavailable } from "../errors";
 import type { RelevanceUnavailable } from "../errors";
 
 export const JEV_MODEL = "typesafe/jev";
@@ -129,7 +130,7 @@ const persistent = (
   cause: string
 ): { error: RelevanceUnavailable; ok: false } => {
   console.error({ error: cause, event: "jev.unavailable" });
-  return err({ kind: "relevance-unavailable", retry: false });
+  return err(relevanceUnavailable(false));
 };
 
 const score = async (
@@ -176,7 +177,7 @@ const score = async (
     if (allMalformed) {
       return persistent(failure);
     }
-    return err({ kind: "relevance-unavailable", retry: true });
+    return err(relevanceUnavailable(true));
   }
   return ok(scores);
 };

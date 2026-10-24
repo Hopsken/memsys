@@ -1,17 +1,26 @@
-import type { Issue } from "@contract/result";
+import type { Failure, Issue } from "@contract/result";
 
-export interface TooLong {
-  kind: "too-long";
-  length: number;
-  limit: number;
-}
+export type TooLong = Failure<"invalid", "too-long">;
 
-export interface InvalidSettings {
-  kind: "invalid-settings";
+export type InvalidSettings = Failure<"invalid", "invalid-settings"> & {
   issues: Issue[];
-}
+};
 
-export interface RelevanceUnavailable {
-  kind: "relevance-unavailable";
-  retry: boolean;
-}
+export type RelevanceUnavailable = Failure<
+  "unavailable",
+  "relevance-unavailable"
+> & { retry: boolean };
+
+// What the agent and the owner read when the relevance filter fails. The
+// cause never reaches them: neither can fix Workers AI.
+export const RELEVANCE_UNAVAILABLE =
+  "The relevance filter is unavailable, and retrying will not help. Recall works again once the owner turns the filter off under Settings → Features in memsys.";
+export const RELEVANCE_RETRY =
+  "The relevance filter could not check the memories. Retry this recall shortly.";
+
+export const relevanceUnavailable = (retry: boolean): RelevanceUnavailable => ({
+  code: "unavailable",
+  message: retry ? RELEVANCE_RETRY : RELEVANCE_UNAVAILABLE,
+  reason: "relevance-unavailable",
+  retry,
+});
