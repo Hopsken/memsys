@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { validator } from "hono/validator";
 import { z } from "zod";
 
 import type { AppEnv } from "../types";
@@ -9,9 +10,11 @@ export const settings = new Hono<AppEnv>()
     c.header("Cache-Control", "no-store");
     return c.json(await c.get("memory").settings());
   })
-  .patch("/", async (c) => {
-    const result = await c
-      .get("memory")
-      .updateSettings(z.record(z.string(), z.json()).parse(await c.req.json()));
-    return c.json(unwrap(result));
-  });
+  .patch(
+    "/",
+    validator("json", (value) => z.record(z.string(), z.json()).parse(value)),
+    async (c) => {
+      const result = await c.get("memory").updateSettings(c.req.valid("json"));
+      return c.json(unwrap(result));
+    }
+  );

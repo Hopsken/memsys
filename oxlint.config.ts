@@ -12,7 +12,7 @@ const layerRules = LAYERS.map((layer, index): OxlintOverride => {
     ...LAYERS.slice(0, index),
     ...(SLICED.has(layer) ? [layer] : []),
   ];
-  const patterns: ({ message: string } & (
+  const patterns: ({ allowTypeImports?: boolean; message: string } & (
     | { group: string[] }
     | { regex: string }
   ))[] = [
@@ -20,6 +20,11 @@ const layerRules = LAYERS.map((layer, index): OxlintOverride => {
     {
       group: ["@core", "@core/**", "**/core", "**/core/**"],
       message: "client/ may not import the core; call the Worker API.",
+    },
+    {
+      allowTypeImports: true,
+      group: ["@worker", "@worker/**", "**/worker", "**/worker/**"],
+      message: "client/ may import only types from the Worker.",
     },
     {
       message: "Import a slice through its index.ts.",
@@ -151,6 +156,7 @@ export default defineConfig({
                   "@core",
                   "@core/**",
                   "@/**",
+                  "@worker/**",
                   "cloudflare:*",
                 ],
                 message:

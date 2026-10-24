@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "cn";
+import { parseResponse } from "hono/client";
 import { Archive, Trash2, XIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -18,7 +19,8 @@ import {
   useRestore,
 } from "@/entities/memory";
 import { SessionExpired } from "@/features/auth";
-import { api, failure, isExpired } from "@/shared/api";
+import { failure, isExpired, rpc } from "@/shared/api";
+import type { ForgottenList, Version } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import {
   AlertDialog,
@@ -41,7 +43,6 @@ import {
 } from "@/shared/ui/dialog";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { toasts } from "@/shared/ui/toaster";
-import type { ForgottenList, History, Version } from "@contract/memory";
 import { formatRelativeDate } from "@lib/date";
 
 import { MemoryText } from "./memory-text";
@@ -59,7 +60,7 @@ const useForget = (onForgotten: () => void) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ ref }: Version) =>
-      api.post("/api/forget", { json: { ref } }),
+      parseResponse(rpc.forget.$post({ json: { ref } })),
     onSuccess: (_, current) => {
       const positions = removeFromList(queryClient, current.ref);
       void queryClient.invalidateQueries({ queryKey: ["forgotten"] });
@@ -97,7 +98,7 @@ const DeleteMemory = ({
 }) => {
   const queryClient = useQueryClient();
   const purge = useMutation({
-    mutationFn: () => api.post("/api/purge", { json: { ref: target } }),
+    mutationFn: () => parseResponse(rpc.purge.$post({ json: { ref: target } })),
     onSuccess: () => {
       queryClient.setQueryData<ForgottenList>(
         ["forgotten"],
@@ -273,7 +274,12 @@ export const MemoryHistoryDialog = ({
 }) => {
   const query = useQuery({
     queryFn: ({ signal }) =>
-      api.get(`/api/fragments/${ref}/history`, { signal }).json<History>(),
+      parseResponse(
+        rpc.fragments[":ref"].history.$get(
+          { param: { ref } },
+          { init: { signal } }
+        )
+      ),
     queryKey: ["history", ref],
   });
   const missing = query.error !== null && failure(query.error).status === 404;

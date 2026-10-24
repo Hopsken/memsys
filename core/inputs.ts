@@ -82,11 +82,7 @@ export const importInput = z
   .strict();
 
 export const restoreInput = z
-  .object({
-    at: z.iso
-      .datetime({ precision: 3 })
-      .transform((value) => Date.parse(value)),
-  })
+  .object({ at: z.iso.datetime({ precision: 3 }) })
   .strict();
 
 export const listFragments = <T extends Fragment>(

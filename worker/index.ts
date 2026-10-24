@@ -4,14 +4,12 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 
+import { api } from "./api";
 import { getAuth } from "./lib/better-auth";
 import { requireSession } from "./middlewares/require-session";
 import { requireToken } from "./middlewares/require-token";
-import { connections } from "./routes/connections";
 import { dev } from "./routes/dev";
 import { mcp } from "./routes/mcp";
-import { memory } from "./routes/memory";
-import { settings } from "./routes/settings";
 import type { AppEnv } from "./types";
 
 const app = new Hono<AppEnv>();
@@ -75,9 +73,7 @@ app.use("/mcp", requireToken);
 app.use("/api/*", requireSession);
 
 app.route("/mcp", mcp);
-app.route("/api", memory);
-app.route("/api/connections", connections);
-app.route("/api/settings", settings);
+app.route("/api", api);
 
 app.onError((cause, c) => {
   if (cause instanceof z.ZodError || cause instanceof SyntaxError) {

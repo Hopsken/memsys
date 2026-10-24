@@ -1,12 +1,14 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
 import { cn } from "cn";
+import { parseResponse } from "hono/client";
 import { Activity, ArrowDown } from "lucide-react";
 import { Link, Outlet } from "react-router";
 
 import { byline, MemoryLength, OpBadge } from "@/entities/memory";
 import { SessionExpired } from "@/features/auth";
-import { api, isExpired } from "@/shared/api";
+import { isExpired, rpc } from "@/shared/api";
+import type { ActivityEntry, ActivityPage } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
 import { listCard, listCardLink } from "@/shared/ui/list-card";
@@ -17,7 +19,6 @@ import {
   useOpenHistory,
   useReturnFocus,
 } from "@/widgets/memory-history";
-import type { ActivityEntry, ActivityPage } from "@contract/memory";
 import { formatRelativeDate } from "@lib/date";
 
 const linkClass =
@@ -96,12 +97,12 @@ export const ActivityView = () => {
     getNextPageParam: (page) => page.nextCursor,
     initialPageParam: null,
     queryFn: ({ pageParam, signal }) =>
-      api
-        .get("/api/activity", {
-          searchParams: pageParam ? { cursor: pageParam } : {},
-          signal,
-        })
-        .json<ActivityPage>(),
+      parseResponse(
+        rpc.activity.$get(
+          { query: { cursor: pageParam ?? undefined } },
+          { init: { signal } }
+        )
+      ),
     queryKey: ["activity"],
   });
   const days = byDay(query.data?.pages.flatMap((page) => page.entries) ?? []);

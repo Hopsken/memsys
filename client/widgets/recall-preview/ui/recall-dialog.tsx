@@ -1,12 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { skipToken, useQuery } from "@tanstack/react-query";
 import { cn } from "cn";
+import { parseResponse } from "hono/client";
 import { Search, SearchX, XIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import type { FormEvent, ReactNode, RefObject } from "react";
 
 import { MemoryLength, useSettings } from "@/entities/memory";
 import { SessionExpired } from "@/features/auth";
-import { api, failure, isExpired } from "@/shared/api";
+import { failure, isExpired, rpc } from "@/shared/api";
+import type { RecallItem, RecallResult } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
 import {
@@ -19,7 +21,6 @@ import {
 } from "@/shared/ui/dialog";
 import { Input } from "@/shared/ui/input";
 import { Skeleton } from "@/shared/ui/skeleton";
-import type { RecallItem, RecallResult } from "@contract/memory";
 import { findAnchors } from "@lib/anchor";
 import { formatRelativeDate } from "@lib/date";
 
@@ -164,17 +165,21 @@ const RecallPanel = ({
   const usesContext =
     (useSettings().data?.settings.relevanceFilter ?? "off") !== "off";
   const query = useQuery({
-    enabled: request !== null,
-    queryFn: ({ signal }) =>
-      api
-        .post("/api/recall", {
-          json: {
-            cue: request?.cue,
-            ...(request?.context && { context: request.context }),
-          },
-          signal,
-        })
-        .json<RecallResult>(),
+    queryFn:
+      request === null
+        ? skipToken
+        : ({ signal }) =>
+            parseResponse(
+              rpc.recall.$post(
+                {
+                  json: {
+                    cue: request.cue,
+                    ...(request.context && { context: request.context }),
+                  },
+                },
+                { init: { signal } }
+              )
+            ),
     queryKey: ["recall", request],
   });
 

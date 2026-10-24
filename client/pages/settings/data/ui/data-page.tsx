@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 
 import { SessionExpired } from "@/features/auth";
 import { api, failure, isExpired } from "@/shared/api";
+import type { ImportResult } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button, buttonVariants } from "@/shared/ui/button";
 import {
@@ -17,7 +18,6 @@ import {
 } from "@/shared/ui/card";
 import { Label } from "@/shared/ui/label";
 import { Switch } from "@/shared/ui/switch";
-import type { ImportResult } from "@contract/memory";
 
 interface Picked {
   file: File;

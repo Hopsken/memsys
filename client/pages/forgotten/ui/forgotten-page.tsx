@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "cn";
+import { parseResponse } from "hono/client";
 import { Link, Outlet } from "react-router";
 
 import { MemoryLength, useRestore } from "@/entities/memory";
 import { SessionExpired } from "@/features/auth";
-import { api, isExpired } from "@/shared/api";
+import { isExpired, rpc } from "@/shared/api";
+import type { ForgottenFragment } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
 import { listCard, listCardLink } from "@/shared/ui/list-card";
@@ -16,7 +18,6 @@ import {
   useOpenHistory,
   useReturnFocus,
 } from "@/widgets/memory-history";
-import type { ForgottenFragment, ForgottenList } from "@contract/memory";
 import { formatRelativeDateInline } from "@lib/date";
 
 const ForgottenRow = ({ item }: { item: ForgottenFragment }) => {
@@ -71,7 +72,9 @@ const ForgottenRow = ({ item }: { item: ForgottenFragment }) => {
 export const ForgottenView = () => {
   const query = useQuery({
     queryFn: ({ signal }) =>
-      api.get("/api/fragments/forgotten", { signal }).json<ForgottenList>(),
+      parseResponse(
+        rpc.fragments.forgotten.$get(undefined, { init: { signal } })
+      ),
     queryKey: ["forgotten"],
   });
   useReturnFocus();

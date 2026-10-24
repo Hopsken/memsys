@@ -10,7 +10,8 @@
       "@contract/*": ["./contract/*"],
       "@core": ["./core/index.ts"],
       "@core/*": ["./core/*"],
-      "@lib/*": ["./lib/*"]
+      "@lib/*": ["./lib/*"],
+      "@worker/*": ["./worker/*"]
     },
     "module": "Preserve",
     "moduleDetection": "force",

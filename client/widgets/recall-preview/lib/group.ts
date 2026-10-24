@@ -1,4 +1,4 @@
-import type { RecallItem } from "@contract/memory";
+import type { RecallItem } from "@/shared/api";
 import { associationKeys, extractAnchors } from "@lib/anchor";
 
 export interface RecallGroup {
