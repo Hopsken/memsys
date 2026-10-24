@@ -18,7 +18,7 @@ The app uses Vite, React, Tailwind CSS 4, and shadcn/ui in `client/`. Hono, auth
 
 ## How it works
 
-Agents connect over MCP at `/mcp` (stateless Streamable HTTP) with an OAuth access token or an API key. The core tools are `remember`, `recall`, `revise`, and `forget`; plugins may add more, such as the default `list_tags`. The web UI uses the same operations through a JSON API under `/api/`. Input schemas live in `worker/memory.ts`.
+Agents connect over MCP at `/mcp` (stateless Streamable HTTP) with an OAuth access token or an API key. The core tools are `remember`, `recall`, `revise`, and `forget`; plugins may add more, such as the default `list_tags`. The web UI uses the same operations through a JSON API under `/api/`. Input schemas live in `core/inputs.ts`.
 
 - **Recall** matches fragments that contain every word of the cue, in any order; English words are stemmed, and a cue of three or more words may miss one. Fragments containing the whole cue as a phrase come first, the rest rank by words matched and BM25. Recall then follows one hop through shared `#anchors`. Associated results list those anchors in `via`. Association splits anchors on `-` and stems English words; `/` namespaces match exactly.
 - **Recall size** is 10 fragments; the first 10 cue matches seed association. `truncated` is set when a cue match was left out. No result exceeds 40 fragments, whatever a plugin returns.
@@ -30,7 +30,7 @@ Agents connect over MCP at `/mcp` (stateless Streamable HTTP) with an OAuth acce
 Two stores, each with its own Drizzle schema and migrations:
 
 - **D1** (`DB`) is the Worker's database: users, sessions, sign-in codes, rate-limit counters, API keys, and OAuth clients, consents, and signing keys. Schema in `worker/db/schema/`, one file per area (Better Auth's tables in `auth.ts`), migrations in `migrations/`, applied by `wrangler d1 migrations`.
-- **One SQLite Durable Object per user** holds that user's memory. Schema in `worker/memory-do/db/schema.ts`, migrations in `worker/memory-do/migrations/`, bundled into the object.
+- **One SQLite Durable Object per user** holds that user's memory. Schema in `core/db/schema.ts`, migrations in `core/migrations/`, bundled into the object.
 
 A memory space id names each memory object. For now every user has one default space whose id is their Better Auth user id (`defaultSpace` in `worker/auth.ts`). A session, an OAuth access token, and an API key all resolve to it, so REST and MCP reach the same object. Clients cannot select another user's memory space.
 
@@ -40,7 +40,7 @@ For future schema changes:
 
 ```sh
 pnpm db:generate descriptive-migration-name          # D1
-pnpm db:generate:memory descriptive-migration-name   # memory object
+pnpm db:generate:core descriptive-migration-name     # memory core
 ```
 
 Commit the generated SQL and snapshot, plus the memory object's migration bundle. `pnpm dev` applies D1 migrations locally; `pnpm deploy` applies them remotely before deploying. Memory object migrations run when each object starts. Wrangler's `v1` migration registers the SQLite object class; it is separate from SQL schema migrations.

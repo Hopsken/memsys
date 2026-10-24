@@ -1,10 +1,10 @@
 import type { z } from "zod";
 
 import type { Fragment, RecallResult } from "../../contract/memory";
+import { inputs } from "../../core/inputs";
 import { plugins } from "../../plugins";
 import { idf } from "../../plugins/idf";
 import { jev } from "../../plugins/jev";
-import { inputs } from "../memory";
 import { resolvePlugins } from "../plugin-host";
 import { runRecall } from "./host";
 import type { Pipeline } from "./host";

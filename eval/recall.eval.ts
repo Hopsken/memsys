@@ -8,8 +8,8 @@ import { z } from "zod";
 
 import type { Fragment } from "../contract/memory";
 import type { Json } from "../contract/plugin";
+import { inputs } from "../core/inputs";
 import { plugins } from "../plugins";
-import { inputs } from "../worker/memory";
 import { resolvePlugins } from "../worker/plugin-host";
 import type { PluginEnv, StoredConfig } from "../worker/plugin-host";
 import { runRecall } from "../worker/recall/host";

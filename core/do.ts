@@ -18,22 +18,10 @@ import type {
   RecallResult,
   Restored,
   Version,
-} from "../../contract/memory";
-import type { PluginView, Verdict } from "../../contract/plugin";
-import { plugins } from "../../plugins";
-import type { SeedFragment } from "../dev/corpus";
-import { parseLog, parseText, replay, serializeLog } from "../log";
-import type { Issue, Row } from "../log";
-import {
-  activityInput,
-  importInput,
-  inputs,
-  listFragments,
-  PAGE_SIZE,
-  REF_ALPHABET,
-  REF_LENGTH,
-} from "../memory";
-import type { listInput } from "../memory";
+} from "../contract/memory";
+import type { PluginView, Verdict } from "../contract/plugin";
+import { plugins } from "../plugins";
+import type { SeedFragment } from "../worker/dev/corpus";
 import {
   assertRegistry,
   createCtx,
@@ -42,11 +30,27 @@ import {
   resolvePlugins,
   runVerdicts,
   viewPlugin,
-} from "../plugin-host";
-import type { PluginEnv, PluginState, PluginUpdate } from "../plugin-host";
-import { assertPipeline, runRecall } from "../recall/host";
-import { pipeline } from "../recall/pipeline";
+} from "../worker/plugin-host";
+import type {
+  PluginEnv,
+  PluginState,
+  PluginUpdate,
+} from "../worker/plugin-host";
+import { assertPipeline, runRecall } from "../worker/recall/host";
+import { pipeline } from "../worker/recall/pipeline";
 import { pluginConfig, records } from "./db/schema";
+import {
+  activityInput,
+  importInput,
+  inputs,
+  listFragments,
+  PAGE_SIZE,
+  REF_ALPHABET,
+  REF_LENGTH,
+} from "./inputs";
+import type { listInput } from "./inputs";
+import { parseLog, parseText, replay, serializeLog } from "./log";
+import type { Issue, Row } from "./log";
 import migrations from "./migrations/migrations.js";
 
 assertRegistry(plugins);

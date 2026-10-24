@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { parseLog, parseText, replay, serializeLog } from "../../core/log";
+import type { Row } from "../../core/log";
 import { FRAGMENT_MAX } from "../../lib/fragment";
-import { parseLog, parseText, replay, serializeLog } from "../../worker/log";
-import type { Row } from "../../worker/log";
 
 const at = (day: number) => Date.parse(`2026-09-${day}T08:00:00.000Z`);
 

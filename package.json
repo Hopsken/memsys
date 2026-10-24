@@ -7,7 +7,7 @@
     "build": "vite build",
     "check": "pnpm typecheck && pnpm test && pnpm build && pnpm lint && pnpm format:check",
     "db:generate": "drizzle-kit generate --name",
-    "db:generate:memory": "drizzle-kit generate --config worker/memory-do/drizzle.config.ts --name",
+    "db:generate:core": "drizzle-kit generate --config core/drizzle.config.ts --name",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
     "db:seed": "curl -fsS -X POST -H 'Content-Type: application/json' -d \"{\\\"email\\\":\\\"${SEED_EMAIL:-dev@memsys.test}\\\"}\" \"${SEED_URL:-http://localhost:5173}/api/dev/seed\" && echo",

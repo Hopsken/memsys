@@ -108,4 +108,4 @@ export default {
   },
 };
 
-export { MemoryDO } from "./memory-do";
+export { MemoryDO } from "../core/do";

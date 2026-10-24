@@ -4,7 +4,7 @@
 import { z } from "zod";
 
 import type { Author, Fragment, LogRecord, Op } from "../contract/memory";
-import { fragment, logRecord } from "./memory";
+import { fragment, logRecord } from "./inputs";
 
 // A record as stored: `at` in epoch milliseconds; a null fragment is forgotten.
 export interface Row {

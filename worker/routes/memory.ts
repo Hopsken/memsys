@@ -1,8 +1,13 @@
 import { Hono } from "hono";
 
 import type { ImportFormat } from "../../contract/memory";
+import {
+  activityInput,
+  inputs,
+  listInput,
+  restoreInput,
+} from "../../core/inputs";
 import type { AppEnv } from "../auth";
-import { activityInput, inputs, listInput, restoreInput } from "../memory";
 
 // The file's media type picks how it is read; the content is never sniffed.
 const IMPORT_FORMATS = new Map<string, ImportFormat>([

@@ -12,8 +12,8 @@ import { createMiddleware } from "hono/factory";
 import { z } from "zod";
 
 import type { Author } from "../contract/memory";
+import type { MemoryDO } from "../core/do";
 import { sendSignInCode } from "./email";
-import type { MemoryDO } from "./memory-do";
 
 // What an MCP caller may do. API keys may do both.
 export const MEMORY_READ = "memory:read";
