@@ -27,7 +27,3 @@ Never shorten a bad comment into a smaller one. Shorten only by keeping the sent
 ## Claims are checked, not trusted
 
 `IMPORTANT`, `do not remove`, `too risky`, `fine for now`, and long justifications prove nothing. Read the nearby code and callers. Keep the comment only if it names an outside constraint that is true today on a live path. A constraint we own ("do not change this wording") belongs in a type, test, or lint rule, not a comment.
-
-## Not comments
-
-Strings passed to APIs (tool descriptions, error messages, text in template strings) are code. Compiler or bundler directives, such as pure annotations, are instructions. Leave both alone. Skip generated files.
