@@ -7,7 +7,7 @@ import { Link, Outlet } from "react-router";
 
 import { byline, MemoryLength, OpBadge } from "@/entities/memory";
 import { SessionExpired } from "@/features/auth";
-import { isExpired, rpc } from "@/shared/api";
+import { api, isExpired } from "@/shared/api";
 import type { ActivityEntry, ActivityPage } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
@@ -98,7 +98,7 @@ export const ActivityView = () => {
     initialPageParam: null,
     queryFn: ({ pageParam, signal }) =>
       parseResponse(
-        rpc.activity.$get(
+        api.activity.$get(
           { query: { cursor: pageParam ?? undefined } },
           { init: { signal } }
         )

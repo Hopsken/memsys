@@ -8,7 +8,7 @@ import { Check, Copy, Plus } from "lucide-react";
 import { useState } from "react";
 
 import { SessionExpired } from "@/features/auth";
-import { api, failure, isExpired } from "@/shared/api";
+import { failure, http, isExpired } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
 import {
@@ -132,7 +132,7 @@ const ApiKeyRow = ({ apiKey }: { apiKey: ApiKey }) => {
   const queryClient = useQueryClient();
   const revoke = useMutation({
     mutationFn: () =>
-      api.post("/api/auth/api-key/delete", { json: { keyId: apiKey.id } }),
+      http.post("/api/auth/api-key/delete", { json: { keyId: apiKey.id } }),
     mutationKey: [...API_KEYS, apiKey.id],
     onSuccess: () => queryClient.invalidateQueries({ queryKey: API_KEYS }),
   });
@@ -168,7 +168,7 @@ export const ApiKeysView = () => {
   const [secret, setSecret] = useState<string | null>(null);
   const query = useQuery({
     queryFn: async ({ signal }) => {
-      const { apiKeys } = await api
+      const { apiKeys } = await http
         .get("/api/auth/api-key/list", {
           searchParams: { sortBy: "createdAt", sortDirection: "desc" },
           signal,
@@ -180,7 +180,7 @@ export const ApiKeysView = () => {
   });
   const create = useMutation({
     mutationFn: (keyName: string) =>
-      api
+      http
         .post("/api/auth/api-key/create", { json: { name: keyName } })
         .json<{ key: string }>(),
     mutationKey: [...API_KEYS, "create"],

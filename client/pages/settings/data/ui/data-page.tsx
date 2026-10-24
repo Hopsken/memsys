@@ -4,7 +4,7 @@ import { Download, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { SessionExpired } from "@/features/auth";
-import { api, failure, isExpired } from "@/shared/api";
+import { failure, http, isExpired } from "@/shared/api";
 import type { ImportResult } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button, buttonVariants } from "@/shared/ui/button";
@@ -77,7 +77,7 @@ export const DataView = () => {
   const [unreadable, setUnreadable] = useState<string | null>(null);
   const mutation = useMutation({
     mutationFn: ({ file, type }: Picked) =>
-      api
+      http
         .post("/api/import", {
           body: file,
           headers: { "Content-Type": type },

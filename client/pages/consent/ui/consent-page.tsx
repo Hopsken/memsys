@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useSearchParams } from "react-router";
 
 import { useConnectingApp } from "@/features/auth";
-import { api, authClient } from "@/shared/api";
+import { authClient, http } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
 import {
@@ -39,7 +39,7 @@ export const ConsentView = () => {
   const answer = useMutation({
     mutationFn: async (accept: boolean) => {
       const granted = [READ, "offline_access", ...(write ? [WRITE] : [])];
-      const { url } = await api
+      const { url } = await http
         .post("/api/auth/oauth2/consent", {
           json: {
             accept,

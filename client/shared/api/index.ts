@@ -1,6 +1,5 @@
 export { authClient } from "./auth";
-export { api, failure, isExpired, isRetryable } from "./client";
-export { rpc } from "./rpc";
+export { api, failure, http, isExpired, isRetryable } from "./client";
 export type {
   ActivityEntry,
   ActivityPage,
@@ -21,4 +20,4 @@ export type {
   SettingsView,
   Strictness,
   Version,
-} from "./rpc";
+} from "./client";

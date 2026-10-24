@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 
 import { SETTINGS, useSettings } from "@/entities/memory";
 import { SessionExpired } from "@/features/auth";
-import { failure, isExpired, rpc } from "@/shared/api";
+import { api, failure, isExpired } from "@/shared/api";
 import type { Settings, SettingsMergePatch, SettingsView } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
@@ -108,7 +108,7 @@ const FeaturesForm = ({ view }: { view: SettingsView }) => {
   const [draft, setDraft] = useState(view.settings);
   const mutation = useMutation({
     mutationFn: (patch: SettingsMergePatch) =>
-      parseResponse(rpc.settings.$patch({ json: patch })),
+      parseResponse(api.settings.$patch({ json: patch })),
     onSuccess: (next) => queryClient.setQueryData(SETTINGS, next),
   });
   const { reset } = mutation;

@@ -19,7 +19,7 @@ import {
   useRestore,
 } from "@/entities/memory";
 import { SessionExpired } from "@/features/auth";
-import { failure, isExpired, rpc } from "@/shared/api";
+import { api, failure, isExpired } from "@/shared/api";
 import type { ForgottenList, Version } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import {
@@ -60,7 +60,7 @@ const useForget = (onForgotten: () => void) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ ref }: Version) =>
-      parseResponse(rpc.forget.$post({ json: { ref } })),
+      parseResponse(api.forget.$post({ json: { ref } })),
     onSuccess: (_, current) => {
       const positions = removeFromList(queryClient, current.ref);
       void queryClient.invalidateQueries({ queryKey: ["forgotten"] });
@@ -98,7 +98,7 @@ const DeleteMemory = ({
 }) => {
   const queryClient = useQueryClient();
   const purge = useMutation({
-    mutationFn: () => parseResponse(rpc.purge.$post({ json: { ref: target } })),
+    mutationFn: () => parseResponse(api.purge.$post({ json: { ref: target } })),
     onSuccess: () => {
       queryClient.setQueryData<ForgottenList>(
         ["forgotten"],
@@ -275,7 +275,7 @@ export const MemoryHistoryDialog = ({
   const query = useQuery({
     queryFn: ({ signal }) =>
       parseResponse(
-        rpc.fragments[":ref"].history.$get(
+        api.fragments[":ref"].history.$get(
           { param: { ref } },
           { init: { signal } }
         )

@@ -7,7 +7,7 @@ import type { FormEvent, ReactNode, RefObject } from "react";
 
 import { MemoryLength, useSettings } from "@/entities/memory";
 import { SessionExpired } from "@/features/auth";
-import { failure, isExpired, rpc } from "@/shared/api";
+import { api, failure, isExpired } from "@/shared/api";
 import type { RecallItem, RecallResult } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
@@ -170,7 +170,7 @@ const RecallPanel = ({
         ? skipToken
         : ({ signal }) =>
             parseResponse(
-              rpc.recall.$post(
+              api.recall.$post(
                 {
                   json: {
                     cue: request.cue,

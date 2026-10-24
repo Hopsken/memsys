@@ -2,7 +2,7 @@ import { hashKey, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { InfiniteData, QueryClient } from "@tanstack/react-query";
 import { parseResponse } from "hono/client";
 
-import { rpc } from "@/shared/api";
+import { api } from "@/shared/api";
 import type { FragmentPage, History, Restored } from "@/shared/api";
 
 type ListData = InfiniteData<FragmentPage>;
@@ -93,7 +93,7 @@ export const restoreVersion = async (
   positions: Positions = new Map()
 ) => {
   const restored = await parseResponse(
-    rpc.fragments[":ref"].restore.$post({ json: { at }, param: { ref } })
+    api.fragments[":ref"].restore.$post({ json: { at }, param: { ref } })
   );
   const { versions: _, ...version } = restored;
   queryClient.setQueryData<History>(

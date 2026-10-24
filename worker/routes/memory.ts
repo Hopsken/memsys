@@ -4,6 +4,7 @@ import { validator } from "hono/validator";
 
 import type { ImportFormat } from "@contract/memory";
 
+import { validate } from "../lib/validate";
 import { recallInput } from "../services/recall";
 import type { AppEnv } from "../types";
 import { unwrap } from "./problem";
@@ -17,7 +18,7 @@ const toRpcObject = <T extends object>(nullPrototype: T): T => ({
   ...nullPrototype,
 });
 
-const ref = validator("param", (value) => inputs.forget.parse(value));
+const ref = validate("param", inputs.forget);
 
 const textOfAnyMediaType = async (request: Request) =>
   new TextDecoder().decode(await request.arrayBuffer());
@@ -64,7 +65,7 @@ export const memory = new Hono<AppEnv>()
   .post(
     "/fragments/:ref/restore",
     ref,
-    validator("json", (value) => restoreInput.parse(value)),
+    validate("json", restoreInput),
     async (c) => {
       const result = await c.get("memory").restore({
         at: Date.parse(c.req.valid("json").at),
@@ -73,30 +74,18 @@ export const memory = new Hono<AppEnv>()
       return c.json(unwrap(result));
     }
   )
-  .post(
-    "/remember",
-    validator("json", (value) => inputs.remember.parse(value)),
-    async (c) => {
-      const result = await c.get("memory").remember(c.req.valid("json"));
-      return c.json(unwrap(result), 201);
-    }
-  )
-  .post(
-    "/recall",
-    validator("json", (value) => recallInput.parse(value)),
-    async (c) => {
-      const result = await c.get("memory").recall(c.req.valid("json"));
-      return c.json(unwrap(result));
-    }
-  )
-  .post(
-    "/revise",
-    validator("json", (value) => inputs.revise.parse(value)),
-    async (c) => {
-      const result = await c.get("memory").revise(c.req.valid("json"));
-      return c.json(unwrap(result));
-    }
-  )
+  .post("/remember", validate("json", inputs.remember), async (c) => {
+    const result = await c.get("memory").remember(c.req.valid("json"));
+    return c.json(unwrap(result), 201);
+  })
+  .post("/recall", validate("json", recallInput), async (c) => {
+    const result = await c.get("memory").recall(c.req.valid("json"));
+    return c.json(unwrap(result));
+  })
+  .post("/revise", validate("json", inputs.revise), async (c) => {
+    const result = await c.get("memory").revise(c.req.valid("json"));
+    return c.json(unwrap(result));
+  })
   .get("/export", async (c) => {
     const history = c.req.query("history") === "true";
     const file = await c.get("memory").exportLog({ history });
@@ -125,19 +114,11 @@ export const memory = new Hono<AppEnv>()
     const result = await c.get("memory").importLog({ content, format });
     return c.json(unwrap(result));
   })
-  .post(
-    "/purge",
-    validator("json", (value) => inputs.forget.parse(value)),
-    async (c) => {
-      const result = await c.get("memory").purge(c.req.valid("json"));
-      return c.json(unwrap(result));
-    }
-  )
-  .post(
-    "/forget",
-    validator("json", (value) => inputs.forget.parse(value)),
-    async (c) => {
-      const result = await c.get("memory").forget(c.req.valid("json"));
-      return c.json(unwrap(result));
-    }
-  );
+  .post("/purge", validate("json", inputs.forget), async (c) => {
+    const result = await c.get("memory").purge(c.req.valid("json"));
+    return c.json(unwrap(result));
+  })
+  .post("/forget", validate("json", inputs.forget), async (c) => {
+    const result = await c.get("memory").forget(c.req.valid("json"));
+    return c.json(unwrap(result));
+  });

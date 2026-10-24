@@ -9,7 +9,7 @@ import { Link, Outlet, useLocation } from "react-router";
 import { MemoryLength } from "@/entities/memory";
 import { SessionExpired } from "@/features/auth";
 import { TaggedText, useTags } from "@/features/tag-filter";
-import { isExpired, rpc } from "@/shared/api";
+import { api, isExpired } from "@/shared/api";
 import type { FragmentPage, ListedFragment } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
@@ -81,7 +81,7 @@ export const FragmentsView = () => {
     placeholderData: keepPreviousData,
     queryFn: ({ pageParam, signal }) =>
       parseResponse(
-        rpc.fragments.$get(
+        api.fragments.$get(
           { query: { cursor: pageParam ?? undefined, tag: tags } },
           { init: { signal } }
         )

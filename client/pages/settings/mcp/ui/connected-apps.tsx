@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { parseResponse } from "hono/client";
 
-import { rpc } from "@/shared/api";
+import { api } from "@/shared/api";
 import type { Connection } from "@/shared/api";
 import { formatRelativeDateInline } from "@lib/date";
 
@@ -22,7 +22,7 @@ const ConnectionRow = ({ connection }: { connection: Connection }) => {
   const queryClient = useQueryClient();
   const disconnect = useMutation({
     mutationFn: () =>
-      rpc.connections[":id"].$delete({ param: { id: connection.id } }),
+      api.connections[":id"].$delete({ param: { id: connection.id } }),
     mutationKey: [...CONNECTIONS, connection.id],
     onSuccess: () => queryClient.invalidateQueries({ queryKey: CONNECTIONS }),
   });
@@ -53,7 +53,7 @@ const ConnectionRow = ({ connection }: { connection: Connection }) => {
 export const ConnectedApps = () => {
   const query = useQuery({
     queryFn: ({ signal }) =>
-      parseResponse(rpc.connections.$get(undefined, { init: { signal } })),
+      parseResponse(api.connections.$get(undefined, { init: { signal } })),
     queryKey: CONNECTIONS,
   });
   if (!query.data?.length) {
