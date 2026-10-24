@@ -10,9 +10,9 @@ import {
 } from "../lib/better-auth";
 import { corpusLog } from "../lib/dev-corpus";
 import { defaultSpace, openMemory } from "../lib/memory";
+import { unwrap } from "../lib/problem";
 import type { AppEnv } from "../types";
 import { mcp } from "./mcp";
-import { unwrap } from "./problem";
 import { settings } from "./settings";
 
 const seedInputSchema = z.object({ email: z.email() });

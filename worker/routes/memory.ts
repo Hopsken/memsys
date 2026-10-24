@@ -8,10 +8,10 @@ import type { ImportFormat } from "@core";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
 
+import { unwrap } from "../lib/problem";
 import { validate } from "../lib/validate";
 import { recallInputSchema } from "../services/recall";
 import type { AppEnv } from "../types";
-import { unwrap } from "./problem";
 
 const IMPORT_FORMATS = new Map<string, ImportFormat>([
   ["application/x-ndjson", "ndjson"],

@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import { z } from "zod";
 
+import { unwrap } from "../lib/problem";
 import { validate } from "../lib/validate";
 import type { AppEnv } from "../types";
-import { unwrap } from "./problem";
 
 export const settings = new Hono<AppEnv>()
   .get("/", async (c) => {
