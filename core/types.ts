@@ -63,6 +63,13 @@ export interface AnchorCount {
   fragmentCount: number;
 }
 
+export interface Diagnostics {
+  colo: string | null;
+  fragments: number;
+  id: string;
+  storageBytes: number;
+}
+
 export interface MemoryCore {
   remember: (
     input: { fragment: string },
@@ -101,10 +108,12 @@ export interface MemoryCore {
 
   readMetadata: (key: string) => Metadata | null;
   patchMetadata: (key: string, patch: Metadata) => Metadata;
+
+  diagnostics: () => Promise<Diagnostics>;
 }
 
 export type Memory = {
   [K in keyof MemoryCore]: (
     ...args: Parameters<MemoryCore[K]>
-  ) => Promise<ReturnType<MemoryCore[K]>>;
+  ) => Promise<Awaited<ReturnType<MemoryCore[K]>>>;
 };

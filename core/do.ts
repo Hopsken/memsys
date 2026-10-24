@@ -27,6 +27,7 @@ import type {
   ActivityPage,
   AnchorCount,
   Association,
+  Diagnostics,
   ForgottenList,
   FragmentPage,
   History,
@@ -93,6 +94,20 @@ const toVersion = ({ at, by, fragment, op, ref }: Row): Version => ({
   op,
   ref,
 });
+
+// Cloudflare offers no API for where a Durable Object lives; a request from
+// inside it reports the data center it runs in.
+const currentColo = async () => {
+  try {
+    const response = await fetch("https://www.cloudflare.com/cdn-cgi/trace", {
+      signal: AbortSignal.timeout(3000),
+    });
+    const trace = await response.text();
+    return /^colo=(?<colo>[A-Z]{3})$/mu.exec(trace)?.groups?.["colo"] ?? null;
+  } catch {
+    return null;
+  }
+};
 
 export type CoreEnv = Record<never, never>;
 
@@ -466,5 +481,14 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
       .run();
     this.metadata.set(key, value);
     return value;
+  }
+
+  async diagnostics(): Promise<Diagnostics> {
+    return {
+      colo: await currentColo(),
+      fragments: this.index.size,
+      id: this.ctx.id.toString(),
+      storageBytes: this.ctx.storage.sql.databaseSize,
+    };
   }
 }

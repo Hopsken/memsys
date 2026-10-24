@@ -3,6 +3,7 @@ export type {
   ActivityPage,
   AnchorCount,
   Association,
+  Diagnostics,
   ForgottenFragment,
   ForgottenList,
   FragmentPage,
