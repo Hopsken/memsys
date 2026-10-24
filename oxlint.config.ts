@@ -12,14 +12,18 @@ const layerRules = LAYERS.map((layer, index): OxlintOverride => {
     ...LAYERS.slice(0, index),
     ...(SLICED.has(layer) ? [layer] : []),
   ];
-  const patterns: ({ message: string } & (
+  const patterns: ({ allowTypeImports?: boolean; message: string } & (
     | { group: string[] }
     | { regex: string }
   ))[] = [
-    // RFC 0004: the web UI reaches the core only through the Worker.
     {
       group: ["@core", "@core/**", "**/core", "**/core/**"],
       message: "client/ may not import the core; call the Worker API.",
+    },
+    {
+      allowTypeImports: true,
+      group: ["@worker", "@worker/**", "**/worker", "**/worker/**"],
+      message: "client/ may import only types from the Worker.",
     },
     {
       message: "Import a slice through its index.ts.",
@@ -39,9 +43,6 @@ const layerRules = LAYERS.map((layer, index): OxlintOverride => {
   };
 });
 
-// The memory core and the Worker built on it (RFC 0004). Apps reach the core
-// only through core/index.ts, and the Durable Object class through core/do.ts:
-// `@core` and `@core/do`. Each rule lists relative paths and their aliases.
 const coreInternals = {
   group: ["**/core/*", "@core/*", "!**/core/do", "!**/core/index", "!@core/do"],
   message:
@@ -75,42 +76,52 @@ const workerRules: OxlintOverride[] = [
           "**/middlewares/**",
           "**/clients/**",
           "../lib/*",
+          "../../lib/*",
+          "../memory",
+          "../../memory",
         ],
         message:
-          "worker/services may import only the core, contract/, lib/, and worker/errors.",
+          "worker/services may import only the core, lib/, and worker/errors.",
       },
     ]
   ),
   restrict(
-    ["worker/clients/**", "worker/lib/**", "worker/middlewares/**"],
+    ["worker/clients/**", "worker/lib/**"],
+    [
+      coreInternals,
+      {
+        group: ["**/routes/**", "**/services/**", "../memory"],
+        message:
+          "Routes call services and worker/memory.ts builds them; clients and lib sit below both.",
+      },
+    ]
+  ),
+  restrict(
+    ["worker/middlewares/**"],
     [
       coreInternals,
       {
         group: ["**/routes/**", "**/services/**"],
         message:
-          "Only routes call services; clients, lib, and middlewares sit below them.",
+          "Middlewares open a MemoryService with openMemory() from worker/memory.ts.",
       },
     ]
   ),
-  // Every call to a memory space goes through MemoryService, so none skips
-  // the Worker's rules: only lib/memory.ts touches the MEMORY binding.
   {
     files: ["worker/**"],
     rules: {
       "no-restricted-properties": [
         "error",
         {
-          message: "Use openMemory() from worker/lib/memory.ts.",
+          message: "Use openMemory() from worker/memory.ts.",
           property: "MEMORY",
         },
       ],
     },
   },
-  // Composition: the one file that holds the binding and opens the
-  // MemoryService routes receive. Later overrides win.
-  restrict(["worker/lib/memory.ts"], [coreInternals]),
+  // Later overrides win.
   {
-    files: ["worker/lib/memory.ts"],
+    files: ["worker/memory.ts"],
     rules: { "no-restricted-properties": "off" },
   },
   restrict(
@@ -118,7 +129,7 @@ const workerRules: OxlintOverride[] = [
     [
       {
         group: ["**/worker/**", "**/client/**", "@/**"],
-        message: "core/ may import only contract/, lib/, and packages.",
+        message: "core/ may import only lib/ and packages.",
       },
     ]
   ),
@@ -136,7 +147,7 @@ export default defineConfig({
   ],
   overrides: [
     {
-      files: ["contract/**", "lib/**"],
+      files: ["lib/**"],
       rules: {
         "no-restricted-imports": [
           "error",
@@ -151,10 +162,10 @@ export default defineConfig({
                   "@core",
                   "@core/**",
                   "@/**",
+                  "@worker/**",
                   "cloudflare:*",
                 ],
-                message:
-                  "contract/ and lib/ may import only contract/, lib/, and packages.",
+                message: "lib/ may import only lib/ and packages.",
               },
             ],
           },

@@ -1,6 +1,7 @@
 import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
 import { cn } from "cn";
+import { parseResponse } from "hono/client";
 import { ArrowDown, Hash, Layers } from "lucide-react";
 import { useEffect } from "react";
 import { Link, Outlet, useLocation } from "react-router";
@@ -9,6 +10,7 @@ import { MemoryLength } from "@/entities/memory";
 import { SessionExpired } from "@/features/auth";
 import { TaggedText, useTags } from "@/features/tag-filter";
 import { api, isExpired } from "@/shared/api";
+import type { FragmentPage, ListedFragment } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
 import { listCard, listCardLink } from "@/shared/ui/list-card";
@@ -18,7 +20,6 @@ import {
   useOpenHistory,
   useReturnFocus,
 } from "@/widgets/memory-history";
-import type { FragmentPage, ListedFragment } from "@contract/memory";
 import { formatRelativeDate, formatRelativeDateInline } from "@lib/date";
 
 import { TagFilterBar } from "./tag-filter-bar";
@@ -79,15 +80,12 @@ export const FragmentsView = () => {
     initialPageParam: null,
     placeholderData: keepPreviousData,
     queryFn: ({ pageParam, signal }) =>
-      api
-        .get("/api/fragments", {
-          searchParams: [
-            ...(pageParam ? [["cursor", pageParam]] : []),
-            ...tags.map((tag) => ["tag", tag]),
-          ],
-          signal,
-        })
-        .json<FragmentPage>(),
+      parseResponse(
+        api.fragments.$get(
+          { query: { cursor: pageParam ?? undefined, tag: tags } },
+          { init: { signal } }
+        )
+      ),
     queryKey: ["fragments", { tag: tags }],
   });
   const items = latestPerRef(query.data?.pages ?? []);

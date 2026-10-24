@@ -1,11 +1,17 @@
-import { activityInput, inputs, listInput, restoreInput } from "@core";
+import {
+  activityInputSchema,
+  inputSchemas,
+  listInputSchema,
+  restoreInputSchema,
+} from "@core";
+import type { ImportFormat } from "@core";
 import { Hono } from "hono";
+import { validator } from "hono/validator";
 
-import type { ImportFormat } from "@contract/memory";
-
-import { recallInput } from "../services/recall";
+import { unwrap } from "../lib/problem";
+import { validate } from "../lib/validate";
+import { recallInputSchema } from "../services/memory";
 import type { AppEnv } from "../types";
-import { unwrap } from "./problem";
 
 const IMPORT_FORMATS = new Map<string, ImportFormat>([
   ["application/x-ndjson", "ndjson"],
@@ -16,62 +22,76 @@ const toRpcObject = <T extends object>(nullPrototype: T): T => ({
   ...nullPrototype,
 });
 
+const ref = validate("param", inputSchemas.forget);
+
 const textOfAnyMediaType = async (request: Request) =>
   new TextDecoder().decode(await request.arrayBuffer());
 
 export const memory = new Hono<AppEnv>()
-  .get("/activity", async (c) => {
-    c.header("Cache-Control", "no-store");
-    const query = c.req.query();
-    if (!activityInput.safeParse(query).success) {
-      return c.json({ error: "Invalid activity query" }, 400);
+  .get(
+    "/activity",
+    validator("query", (value, c) => {
+      const query: { cursor?: string | undefined } = toRpcObject(value);
+      if (!activityInputSchema.safeParse(query).success) {
+        return c.json({ error: "Invalid activity query" }, 400);
+      }
+      return query;
+    }),
+    async (c) => {
+      c.header("Cache-Control", "no-store");
+      return c.json(await c.get("memory").activity(c.req.valid("query")));
     }
-    return c.json(await c.get("memory").activity(toRpcObject(query)));
-  })
-  .get("/fragments", async (c) => {
-    c.header("Cache-Control", "no-store");
-    const query = toRpcObject({
-      ...c.req.query(),
-      tag: c.req.queries("tag"),
-    });
-    if (!listInput.safeParse(query).success) {
-      return c.json({ error: "Invalid list query" }, 400);
+  )
+  .get(
+    "/fragments",
+    validator("query", (value, c) => {
+      const query: { cursor?: string | undefined; tag?: string[] | undefined } =
+        toRpcObject({ ...value, tag: c.req.queries("tag") });
+      if (!listInputSchema.safeParse(query).success) {
+        return c.json({ error: "Invalid list query" }, 400);
+      }
+      return query;
+    }),
+    async (c) => {
+      c.header("Cache-Control", "no-store");
+      return c.json(await c.get("memory").list(c.req.valid("query")));
     }
-    return c.json(await c.get("memory").list(query));
-  })
-  .get("/fragments/:ref/history", async (c) => {
+  )
+  .get("/fragments/:ref/history", ref, async (c) => {
     c.header("Cache-Control", "no-store");
-    const result = await c
-      .get("memory")
-      .history(inputs.forget.parse({ ref: c.req.param("ref") }));
+    const result = await c.get("memory").history(c.req.valid("param"));
     return c.json(unwrap(result));
   })
   .get("/fragments/forgotten", async (c) => {
     c.header("Cache-Control", "no-store");
     return c.json(await c.get("memory").forgotten());
   })
-  .post("/fragments/:ref/restore", async (c) => {
-    const { ref } = inputs.forget.parse({ ref: c.req.param("ref") });
-    const { at } = restoreInput.parse(await c.req.json());
-    const result = await c.get("memory").restore({ at, ref });
-    return c.json(unwrap(result));
-  })
-  .post("/remember", async (c) => {
+  .post(
+    "/fragments/:ref/restore",
+    ref,
+    validate("json", restoreInputSchema),
+    async (c) => {
+      const result = await c.get("memory").restore({
+        at: Date.parse(c.req.valid("json").at),
+        ref: c.req.valid("param").ref,
+      });
+      return c.json(unwrap(result));
+    }
+  )
+  .post("/remember", validate("json", inputSchemas.remember), async (c) => {
     const result = await c
       .get("memory")
-      .remember(inputs.remember.parse(await c.req.json()));
+      .remember(c.req.valid("json"), c.get("author"));
     return c.json(unwrap(result), 201);
   })
-  .post("/recall", async (c) => {
-    const result = await c
-      .get("memory")
-      .recall(recallInput.parse(await c.req.json()));
+  .post("/recall", validate("json", recallInputSchema), async (c) => {
+    const result = await c.get("memory").recall(c.req.valid("json"));
     return c.json(unwrap(result));
   })
-  .post("/revise", async (c) => {
+  .post("/revise", validate("json", inputSchemas.revise), async (c) => {
     const result = await c
       .get("memory")
-      .revise(inputs.revise.parse(await c.req.json()));
+      .revise(c.req.valid("json"), c.get("author"));
     return c.json(unwrap(result));
   })
   .get("/export", async (c) => {
@@ -102,15 +122,13 @@ export const memory = new Hono<AppEnv>()
     const result = await c.get("memory").importLog({ content, format });
     return c.json(unwrap(result));
   })
-  .post("/purge", async (c) => {
-    const result = await c
-      .get("memory")
-      .purge(inputs.forget.parse(await c.req.json()));
+  .post("/purge", validate("json", inputSchemas.forget), async (c) => {
+    const result = await c.get("memory").purge(c.req.valid("json"));
     return c.json(unwrap(result));
   })
-  .post("/forget", async (c) => {
+  .post("/forget", validate("json", inputSchemas.forget), async (c) => {
     const result = await c
       .get("memory")
-      .forget(inputs.forget.parse(await c.req.json()));
+      .forget(c.req.valid("json"), c.get("author"));
     return c.json(unwrap(result));
   });

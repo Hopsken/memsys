@@ -1,6 +1,6 @@
 import { cn } from "cn";
 
-import type { Op } from "@contract/memory";
+import type { Op } from "@/shared/api";
 
 const LABELS = {
   forget: "Forgotten",

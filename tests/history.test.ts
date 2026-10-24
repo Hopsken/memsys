@@ -1,13 +1,7 @@
+import type { ForgottenList, Fragment, History, Restored } from "@core";
 import { evictDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
-
-import type {
-  ForgottenList,
-  Fragment,
-  History,
-  Restored,
-} from "@contract/memory";
 
 import worker from "../worker/index";
 import { list, memoryOf, ORIGIN, post, useAuth, withVersions } from "./helpers";

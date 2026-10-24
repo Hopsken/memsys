@@ -1,4 +1,4 @@
-import type { Author } from "@contract/memory";
+import type { Author } from "@/shared/api";
 
 export const byline = (by: Author | null) => {
   if (by === null) {

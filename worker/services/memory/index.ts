@@ -1,21 +1,16 @@
-import type { Memory } from "@core";
+import type { Author, Fragment, ImportFormat, Memory, Metadata } from "@core";
 
-import type {
-  Author,
-  Fragment,
-  ImportFormat,
-  JsonObject,
-  RecallInput,
-} from "@contract/memory";
-import { err, ok } from "@contract/result";
-import type { Result } from "@contract/result";
-import type { Settings } from "@contract/settings";
 import { fragmentLength } from "@lib/fragment";
+import { err, ok } from "@lib/result";
+import type { Result } from "@lib/result";
 
-import type { TooLong } from "../errors";
-import { RecallService } from "./recall";
-import type { Judge } from "./recall";
-import { SettingsService } from "./settings";
+import type { TooLong } from "../../errors";
+import { SettingsService } from "../settings";
+import type { Settings } from "../settings";
+import { recall } from "./recall";
+import type { Judge, RecallInput } from "./recall";
+
+export { recallInputSchema } from "./recall";
 
 export type Written = Fragment & { warnings?: string[] };
 
@@ -41,31 +36,29 @@ const checkOwnerLengthLimits = (
 
 export class MemoryService {
   readonly #memory: Memory;
-  readonly #by: Author;
   readonly #settings: SettingsService;
-  readonly #recall: RecallService;
+  readonly #judge: Judge;
 
-  constructor(memory: Memory, { by, judge }: { by: Author; judge: Judge }) {
+  constructor(memory: Memory, judge: Judge) {
     this.#memory = memory;
-    this.#by = by;
+    this.#judge = judge;
     this.#settings = new SettingsService(memory);
-    this.#recall = new RecallService(memory, judge);
   }
 
-  async remember(input: { fragment: string }) {
+  async remember(input: { fragment: string }, by: Author) {
     return await this.#write(input.fragment, () =>
-      this.#memory.remember(input, this.#by)
+      this.#memory.remember(input, by)
     );
   }
 
-  async revise(input: { fragment: string; ref: string }) {
+  async revise(input: { fragment: string; ref: string }, by: Author) {
     return await this.#write(input.fragment, () =>
-      this.#memory.revise(input, this.#by)
+      this.#memory.revise(input, by)
     );
   }
 
-  async forget(input: { ref: string }) {
-    return await this.#memory.forget(input, this.#by);
+  async forget(input: { ref: string }, by: Author) {
+    return await this.#memory.forget(input, by);
   }
 
   async restore(input: { at: number; ref: string }) {
@@ -101,7 +94,7 @@ export class MemoryService {
   }
 
   async recall(input: RecallInput) {
-    return await this.#recall.recall(input);
+    return await recall(this.#memory, input, this.#judge);
   }
 
   async listTags() {
@@ -113,13 +106,13 @@ export class MemoryService {
     return await this.#settings.view();
   }
 
-  async updateSettings(patch: JsonObject) {
+  async updateSettings(patch: Metadata) {
     return await this.#settings.update(patch);
   }
 
   async #write<E>(
     text: string,
-    store: () => Promise<Result<Fragment, E>> | Result<Fragment, E>
+    store: () => Promise<Result<Fragment, E>>
   ): Promise<Result<Written, E | TooLong>> {
     const { length } = await this.#settings.read();
     const checked = checkOwnerLengthLimits(length, text);

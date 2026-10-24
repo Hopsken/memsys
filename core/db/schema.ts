@@ -6,7 +6,8 @@ import {
   text,
 } from "drizzle-orm/sqlite-core";
 
-import type { Author, JsonObject, Op } from "@contract/memory";
+import type { Author, Op } from "../model";
+import type { Metadata } from "../types";
 
 export const records = sqliteTable(
   "records",
@@ -25,5 +26,5 @@ export const records = sqliteTable(
 
 export const metadata = sqliteTable("metadata", {
   key: text().primaryKey(),
-  value: text({ mode: "json" }).$type<JsonObject>().notNull(),
+  value: text({ mode: "json" }).$type<Metadata>().notNull(),
 });

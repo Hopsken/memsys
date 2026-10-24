@@ -1,8 +1,7 @@
+import type { Fragment, ImportResult, LogRecord } from "@core";
 import { evictDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
-
-import type { Fragment, ImportResult, LogRecord } from "@contract/memory";
 
 import worker from "../worker/index";
 import { list, memoryOf, ORIGIN, post, useAuth } from "./helpers";

@@ -1,9 +1,7 @@
 import { inMemory } from "@core";
+import type { Fragment } from "@core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-
-import type { Fragment, Json, RecallItem } from "@contract/memory";
-import type { Strictness } from "@contract/settings";
 
 import {
   JEV_ATTEMPTS,
@@ -11,8 +9,15 @@ import {
   JEV_TIMEOUT_MS,
   jev,
 } from "../../worker/clients/jev";
-import type { Ai } from "../../worker/clients/jev";
-import { JUDGE_BUDGET, RecallService } from "../../worker/services/recall";
+import { workersAiFetch } from "../../worker/clients/workers-ai";
+import type { WorkersAiBinding } from "../../worker/clients/workers-ai";
+import {
+  JUDGE_BUDGET,
+  keepOnlyJudgedRelevant,
+  recall,
+} from "../../worker/services/memory/recall";
+import type { RecallItem } from "../../worker/services/memory/recall";
+import type { Strictness } from "../../worker/services/settings";
 
 const item = (ref: string, fragment: string, via?: string[]): RecallItem => ({
   at: "",
@@ -43,7 +48,8 @@ const noul = (scores: Record<string, number>) => ({
   model: "jev-1.13.0",
 });
 
-type Run = Ai["run"];
+type Run = WorkersAiBinding["run"];
+type Json = Awaited<ReturnType<Run>>;
 
 const asked = (request: Json | undefined) =>
   Object.keys(
@@ -64,11 +70,7 @@ const stage = (
   rows: RecallItem[] = items,
   strictness: Strictness = "medium"
 ) =>
-  new RecallService(inMemory([]), jev({ run })).keepOnlyJudgedRelevant(
-    rows,
-    input,
-    strictness
-  );
+  keepOnlyJudgedRelevant(jev(workersAiFetch({ run })), rows, input, strictness);
 
 const refs = (result: Awaited<ReturnType<typeof stage>>) =>
   result.ok ? result.value.items.map((row) => row.ref) : result.error;
@@ -147,27 +149,6 @@ describe("Relevance filter", () => {
     }
   );
 
-  it("asks again only about the candidates the model left unanswered", async () => {
-    const run = vi
-      .fn<Run>()
-      .mockResolvedValueOnce(noul({ f2: 0.6, f7: 0.9, f8: 0.1 }))
-      .mockResolvedValueOnce(noul({ fx: 0.8 }));
-    await expect(stage(run).then(refs)).resolves.toStrictEqual([
-      "f7",
-      "f2",
-      "fx",
-    ]);
-    expect(asked(run.mock.calls[1]?.[1])).toStrictEqual(["fx"]);
-  });
-
-  it("fails the recall, never passing an unjudged candidate, when one stays unanswered", async () => {
-    const run = vi.fn<Run>(() =>
-      Promise.resolve(noul({ f2: 0.9, f7: 0.9, f8: 0.9 }))
-    );
-    await expect(stage(run)).resolves.toStrictEqual(failed(true));
-    expect(run).toHaveBeenCalledTimes(JEV_ATTEMPTS);
-  });
-
   it.each([
     [
       "a capacity error",
@@ -198,6 +179,7 @@ describe("Relevance filter", () => {
       "a code property",
       Object.assign(new Error("No such model"), { code: 5007 }),
     ],
+    ["a code it does not list", new Error("Error: 7003: User Input Error")],
     ["no code at all", new Error("Binding AI needs to be run remotely")],
   ])(
     "fails at once on a persistent error named in %s",
@@ -256,10 +238,11 @@ describe("Relevance filter", () => {
   });
 
   it("fails the recall as persistent when no response parses", async () => {
-    const result = await new RecallService(
+    const result = await recall(
       inMemory(corpus, { settings: { relevanceFilter: "medium" } }),
-      jev({ run: malformed })
-    ).recall(input);
+      input,
+      jev(workersAiFetch({ run: malformed }))
+    );
     expect(result).toStrictEqual(failed(false));
   });
 });

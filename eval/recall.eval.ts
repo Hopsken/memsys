@@ -3,15 +3,17 @@ import { writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { inMemory } from "@core";
+import type { Fragment, Metadata } from "@core";
 import { afterAll, it, vi } from "vitest";
 import { getPlatformProxy } from "wrangler";
 import { z } from "zod";
 
-import type { Fragment, JsonObject } from "@contract/memory";
-
 import { jev } from "../worker/clients/jev";
-import type { Ai } from "../worker/clients/jev";
-import { RecallService, recallInput } from "../worker/services/recall";
+import { workersAiFetch } from "../worker/clients/workers-ai";
+import {
+  recall as recallWith,
+  recallInputSchema,
+} from "../worker/services/memory/recall";
 import { cases, fragments } from "./dataset";
 import type { EvalCase } from "./dataset";
 import { report } from "./metrics";
@@ -27,7 +29,11 @@ const corpus: Fragment[] = fragments.map(({ date, fragment, id }) => ({
   ref: id,
 }));
 
-const setups: { name: string; settings: JsonObject; jev?: boolean }[] = [
+const setups: {
+  name: string;
+  settings: Metadata;
+  jev?: boolean;
+}[] = [
   { name: "idf", settings: {} },
   {
     jev: true,
@@ -51,7 +57,7 @@ afterAll(async () => {
   await proxy?.dispose();
 });
 
-const ai: Ai = {
+const ai = workersAiFetch({
   run: async (model, input) => {
     if (!proxy) {
       throw new Error("Workers AI is off; set JEV=1");
@@ -60,19 +66,20 @@ const ai: Ai = {
     // parsed as JSON before Jev sees it, as in MemoryDO.
     return z.json().parse(await proxy.env.AI.run(model as never, input));
   },
-};
+});
 
 vi.spyOn(console, "error").mockReturnValue();
 
-const recall = async (settings: JsonObject, item: EvalCase) => {
-  const input = recallInput.parse({
+const recall = async (settings: Metadata, item: EvalCase) => {
+  const input = recallInputSchema.parse({
     cue: item.cue,
     ...(item.context && { context: item.context }),
   });
-  const result = await new RecallService(
+  const result = await recallWith(
     inMemory(corpus, { settings }),
+    input,
     jev(ai)
-  ).recall(input);
+  );
   return result.ok
     ? {
         failed: false,

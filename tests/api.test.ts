@@ -1,8 +1,7 @@
+import type { Fragment, FragmentPage } from "@core";
 import { env } from "cloudflare:workers";
 import type { JSONValue } from "hono/utils/types";
 import { describe, expect, it } from "vitest";
-
-import type { Fragment, FragmentPage } from "@contract/memory";
 
 import worker from "../worker/index";
 import { getList, list, post, useAuth, withVersions } from "./helpers";

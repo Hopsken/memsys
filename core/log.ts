@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-import type { Author, Fragment, LogRecord, Op } from "@contract/memory";
-import type { Issue } from "@contract/result";
+import type { Issue } from "@lib/result";
 
-import { fragment, logRecord } from "./inputs";
+import { fragmentTextSchema, logRecordSchema } from "./model";
+import type { Author, Fragment, LogRecord, Op } from "./model";
 
 export interface Row {
   at: number;
@@ -35,7 +35,7 @@ const lines = (content: string) => {
   return all;
 };
 
-const logLine = z
+const logLineSchema = z
   .string()
   .transform((line, ctx) => {
     try {
@@ -45,12 +45,12 @@ const logLine = z
       return z.NEVER;
     }
   })
-  .pipe(logRecord);
+  .pipe(logRecordSchema);
 
 export const parseLog = (
   content: string
 ): { rows: Row[] } | { issues: Issue[] } => {
-  const parsed: z.output<typeof logRecord>[] = [];
+  const parsed: z.output<typeof logRecordSchema>[] = [];
   const issues: Issue[] = [];
   const seen = new Set<string>();
   for (const [index, line] of lines(content).entries()) {
@@ -58,7 +58,7 @@ export const parseLog = (
       break;
     }
     const number = String(index + 1);
-    const result = logLine.safeParse(line);
+    const result = logLineSchema.safeParse(line);
     if (!result.success) {
       issues.push(
         ...result.error.issues.map(({ message, path }) => ({
@@ -112,7 +112,7 @@ export const parseText = (
     if (line.trim() === "") {
       continue;
     }
-    const parsed = fragment.safeParse(line);
+    const parsed = fragmentTextSchema.safeParse(line);
     if (parsed.success) {
       texts.push(parsed.data);
     } else {

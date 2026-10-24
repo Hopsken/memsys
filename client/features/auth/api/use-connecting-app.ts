@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 
-import { api } from "@/shared/api";
+import { http } from "@/shared/api";
 
 export const useConnectingApp = () => {
   const [params] = useSearchParams();
@@ -10,7 +10,7 @@ export const useConnectingApp = () => {
   const app = useQuery({
     enabled: forApp,
     queryFn: ({ signal }) =>
-      api
+      http
         .post("/api/auth/oauth2/public-client-prelogin", {
           json: {
             client_id: clientId,

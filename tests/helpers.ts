@@ -1,12 +1,11 @@
+import type { Fragment, FragmentPage, ListedFragment } from "@core";
 import { env } from "cloudflare:workers";
 import type { JSONValue } from "hono/utils/types";
 import { afterAll, beforeAll, vi } from "vitest";
 import { z } from "zod";
 
-import type { Fragment, FragmentPage, ListedFragment } from "@contract/memory";
-
 import worker from "../worker/index";
-import { defaultSpace } from "../worker/lib/memory";
+import { defaultSpace } from "../worker/memory";
 
 export const ORIGIN = "https://memsys.test";
 
@@ -49,22 +48,26 @@ export const post = (
 export const randomIp = () =>
   [10, ...crypto.getRandomValues(new Uint8Array(3))].join(".");
 
-const resendEmail = z.object({ text: z.string(), to: z.array(z.string()) });
+const resendEmailSchema = z.object({
+  text: z.string(),
+  to: z.array(z.string()),
+});
 
 const codes = new Map<string, string>();
 
 export const useAuth = () => {
   beforeAll(() => {
-    vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
-      if (String(input) !== "https://api.resend.com/emails") {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const request = new Request(input, init);
+      if (request.url !== "https://api.resend.com/emails") {
         throw new Error("Unexpected network request");
       }
-      const { text, to } = resendEmail.parse(JSON.parse(String(init?.body)));
+      const { text, to } = resendEmailSchema.parse(await request.json());
       const code = /\b(?<code>\d{6})\b/u.exec(text)?.groups?.["code"];
       if (code && to[0]) {
         codes.set(to[0], code);
       }
-      return Promise.resolve(Response.json({ id: crypto.randomUUID() }));
+      return Response.json({ id: crypto.randomUUID() });
     });
   });
   afterAll(() => vi.restoreAllMocks());

@@ -1,13 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
+import { parseResponse } from "hono/client";
 
 import { api } from "@/shared/api";
-import type { SettingsView } from "@contract/settings";
 
 export const SETTINGS = ["settings"];
 
 export const useSettings = () =>
   useQuery({
     queryFn: ({ signal }) =>
-      api.get("/api/settings", { signal }).json<SettingsView>(),
+      parseResponse(api.settings.$get(undefined, { init: { signal } })),
     queryKey: SETTINGS,
   });

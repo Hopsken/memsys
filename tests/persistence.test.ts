@@ -1,13 +1,12 @@
+import type { Fragment } from "@core";
 import { evictDurableObject, runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
-import type { Fragment } from "@contract/memory";
-
-import { openMemory } from "../worker/lib/memory";
+import { openMemory } from "../worker/memory";
 
 const recall = async (cue: string) => {
-  const result = await openMemory("persistence", "user").recall({ cue });
+  const result = await openMemory("persistence").recall({ cue });
   if (!result.ok) {
     throw new Error(result.error.reason);
   }

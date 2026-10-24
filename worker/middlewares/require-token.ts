@@ -1,7 +1,6 @@
+import type { Author } from "@core";
 import type { Context } from "hono";
 import { createMiddleware } from "hono/factory";
-
-import type { Author } from "@contract/memory";
 
 import {
   ALL_SCOPES,
@@ -10,7 +9,6 @@ import {
   resourceMetadataUrl,
   verifyAccessToken,
 } from "../lib/better-auth";
-import { defaultSpace, openMemory } from "../lib/memory";
 import type { AppEnv } from "../types";
 
 const pointToOAuthSignIn = (c: Context<AppEnv>) => {
@@ -36,13 +34,7 @@ export const requireToken = createMiddleware<AppEnv>(async (c, next) => {
     if (!verified.valid || !verified.key) {
       return pointToOAuthSignIn(c);
     }
-    c.set(
-      "memory",
-      openMemory(
-        defaultSpace(verified.key.referenceId),
-        agent(verified.key.name)
-      )
-    );
+    c.set("author", agent(verified.key.name));
     c.set("scopes", ALL_SCOPES);
     c.set("userId", verified.key.referenceId);
     return next();
@@ -58,10 +50,7 @@ export const requireToken = createMiddleware<AppEnv>(async (c, next) => {
     );
     return c.json({ error: "Insufficient scope" }, 403);
   }
-  c.set(
-    "memory",
-    openMemory(defaultSpace(verified.userId), agent(verified.name))
-  );
+  c.set("author", agent(verified.name));
   c.set("scopes", verified.scopes);
   c.set("userId", verified.userId);
   return next();

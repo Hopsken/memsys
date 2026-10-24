@@ -1,4 +1,5 @@
-import { inputs } from "@core";
+import { inputSchemas } from "@core";
+import type { Author } from "@core";
 import {
   McpServer,
   WebStandardStreamableHTTPServerTransport,
@@ -9,13 +10,13 @@ import type { CallToolResult } from "@modelcontextprotocol/server";
 import { Hono } from "hono";
 import { z } from "zod";
 
-import { ok } from "@contract/result";
-import type { Failure, Result } from "@contract/result";
+import { ok } from "@lib/result";
+import type { Failure, Result } from "@lib/result";
 
 import { MEMORY_READ, MEMORY_WRITE } from "../lib/better-auth";
 import type { Scope } from "../lib/better-auth";
 import type { MemoryService } from "../services/memory";
-import { recallInput } from "../services/recall";
+import { recallInputSchema } from "../services/memory";
 import type { AppEnv } from "../types";
 
 const toolResult = <T>(value: Result<T, Failure>): CallToolResult =>
@@ -23,7 +24,11 @@ const toolResult = <T>(value: Result<T, Failure>): CallToolResult =>
     ? { content: [{ text: JSON.stringify(value.value), type: "text" }] }
     : { content: [{ text: value.error.message, type: "text" }], isError: true };
 
-const createMcpServer = (memory: MemoryService, scopes: ReadonlySet<Scope>) => {
+const createMcpServer = (
+  memory: MemoryService,
+  author: Author,
+  scopes: ReadonlySet<Scope>
+) => {
   const canRead = scopes.has(MEMORY_READ);
   const canWrite = scopes.has(MEMORY_WRITE);
   const server = new McpServer(
@@ -44,9 +49,9 @@ Recall with short textual cues such as distinctive phrases, names, projects, con
       {
         description:
           "Store one durable, independently recallable memory fragment. Keep it atomic, self-contained, and concise. Split multiple ideas into separate fragments. Use #anchors to link related memories.",
-        inputSchema: inputs.remember,
+        inputSchema: inputSchemas.remember,
       },
-      async (input) => toolResult(await memory.remember(input))
+      async (input) => toolResult(await memory.remember(input, author))
     );
   }
   if (canRead) {
@@ -56,7 +61,7 @@ Recall with short textual cues such as distinctive phrases, names, projects, con
         annotations: { readOnlyHint: true },
         description:
           "Recall memories using a short textual cue. Prefer distinctive phrases, entities, concepts, or #anchors. Fragments matching the cue come first; fragments with `via` were associated through the listed shared #anchors. `truncated: true` means some matching memories were left out: recall again with a more specific cue, or with an #anchor from `via`.",
-        inputSchema: recallInput,
+        inputSchema: recallInputSchema,
       },
       async (input) => toolResult(await memory.recall(input))
     );
@@ -76,9 +81,9 @@ Recall with short textual cues such as distinctive phrases, names, projects, con
       {
         description:
           "Replace the full text of a known memory when its information has changed or needs correction. Keep the replacement atomic and self-contained.",
-        inputSchema: inputs.revise,
+        inputSchema: inputSchemas.revise,
       },
-      async (input) => toolResult(await memory.revise(input))
+      async (input) => toolResult(await memory.revise(input, author))
     );
     server.registerTool(
       "forget",
@@ -86,9 +91,9 @@ Recall with short textual cues such as distinctive phrases, names, projects, con
         annotations: { destructiveHint: true },
         description:
           "Delete a known memory that is obsolete, incorrect, duplicated, or explicitly requested to be forgotten.",
-        inputSchema: inputs.forget,
+        inputSchema: inputSchemas.forget,
       },
-      async (input) => toolResult(await memory.forget(input))
+      async (input) => toolResult(await memory.forget(input, author))
     );
   }
   return server;
@@ -115,8 +120,9 @@ export const mcp = new Hono<AppEnv>().all("/", async (c) => {
     return c.json({ error: "Stateless MCP supports POST only" }, 405);
   }
   const memory = c.get("memory");
+  const author = c.get("author");
   const scopes = c.get("scopes");
-  const factory = () => createMcpServer(memory, scopes);
+  const factory = () => createMcpServer(memory, author, scopes);
   if (await isLegacyRequest(c.req.raw)) {
     return await answerLegacyClientWithPlainJson(factory(), c.req.raw);
   }

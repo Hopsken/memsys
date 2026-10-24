@@ -4,14 +4,13 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 
+import { api } from "./api";
 import { getAuth } from "./lib/better-auth";
+import { openMemorySpace } from "./middlewares/open-memory";
 import { requireSession } from "./middlewares/require-session";
 import { requireToken } from "./middlewares/require-token";
-import { connections } from "./routes/connections";
 import { dev } from "./routes/dev";
 import { mcp } from "./routes/mcp";
-import { memory } from "./routes/memory";
-import { settings } from "./routes/settings";
 import type { AppEnv } from "./types";
 
 const app = new Hono<AppEnv>();
@@ -71,13 +70,11 @@ app.on(["GET", "POST"], ["/api/auth/*", "/.well-known/*"], (c) =>
 if (import.meta.env.DEV && process.env.NODE_ENV !== "production") {
   app.route("/", dev);
 }
-app.use("/mcp", requireToken);
-app.use("/api/*", requireSession);
+app.use("/mcp", requireToken, openMemorySpace());
+app.use("/api/*", requireSession, openMemorySpace());
 
 app.route("/mcp", mcp);
-app.route("/api", memory);
-app.route("/api/connections", connections);
-app.route("/api/settings", settings);
+app.route("/api", api);
 
 app.onError((cause, c) => {
   if (cause instanceof z.ZodError || cause instanceof SyntaxError) {
@@ -86,6 +83,12 @@ app.onError((cause, c) => {
   if (cause instanceof HTTPException) {
     return cause.getResponse();
   }
+  console.error({
+    error: cause.stack ?? String(cause),
+    event: "request.failed",
+    method: c.req.method,
+    path: c.req.path,
+  });
   return c.json({ error: "Internal server error" }, 500);
 });
 

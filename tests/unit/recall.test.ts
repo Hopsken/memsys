@@ -1,17 +1,22 @@
 import { inMemory } from "@core";
+import type { Fragment } from "@core";
 import { describe, expect, it } from "vitest";
 
-import type { Fragment } from "@contract/memory";
 import { terms } from "@lib/analyzer";
 import { extractAnchors } from "@lib/anchor";
 
-import { RecallService, recallInput } from "../../worker/services/recall";
+import {
+  recall as recallWith,
+  recallInputSchema,
+} from "../../worker/services/memory/recall";
 
 const noJudge = () => Promise.reject(new Error("The relevance filter is off"));
 
 const recall = async (corpus: Iterable<Fragment>, raw: { cue: string }) => {
-  const result = await new RecallService(inMemory(corpus), noJudge).recall(
-    recallInput.parse(raw)
+  const result = await recallWith(
+    inMemory(corpus),
+    recallInputSchema.parse(raw),
+    noJudge
   );
   if (!result.ok) {
     throw new Error(result.error.reason);

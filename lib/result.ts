@@ -17,11 +17,3 @@ export interface Failure<C extends Code = Code, R extends string = string> {
   issues?: Issue[];
   retry?: boolean;
 }
-
-export type NotFound = Failure<
-  "not-found",
-  "fragment-not-found" | "version-not-found"
->;
-export type InvalidInput = Failure<"invalid", "invalid-input"> & {
-  issues: Issue[];
-};

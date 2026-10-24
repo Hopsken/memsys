@@ -1,6 +1,6 @@
 ## Purpose
 
-This document answers one question: **where does a given piece of behavior live?** It describes the layers of memsys and the rules that keep them apart. It does not describe individual features, limits, or wire formats; those live in the code (`contract/` for types) and in [Features](features.md).
+This document answers one question: **where does a given piece of behavior live?** It describes the layers of memsys and the rules that keep them apart. It does not describe individual features, limits, or wire formats; those live in the code.
 
 A change that only moves a number or adds a setting should not need an edit here. If it does, this document has leaked detail.
 
@@ -63,7 +63,7 @@ Any future "let's add X" starts here. Features are code in this repo, not plugin
 Four tools, the minimal complete operation set of a memory: write, change, forget, bring back.
 
 - **The contract** — tool names, input schemas, output shape, field meanings — is meant to hold for years. New fields are additive, with defaults that reproduce prior behavior.
-- **`recall` is one method** (`RecallService` in `worker/services/recall.ts`): match the cue, spread to associations, rank them, filter if the owner turned the filter on, cut to the result size ([RFC 0002](rfcs/0002-recall-contract.md) fixes the contract). The agent sends only `cue` and `context`.
+- **`recall` is one function** called by the memory service: match the cue, spread to associations, rank them, filter if the owner turned the filter on, cut to the result size ([RFC 0002](rfcs/0002-recall-contract.md) fixes the contract). The agent sends only `cue` and `context`.
 - **`recall` returns one list**: cue matches first, then associations. An item's `via` (the shared anchors) is both its kind and the reason it was associated. `truncated` means a more specific cue would bring back memories that were left out.
 - **Core carries information only a feature uses.** `context` (what the agent is doing) is accepted on every recall; only the relevance filter reads it.
 - **Core keeps an absolute safety ceiling; the owner's limits sit under it.** No setting can let an unbounded fragment in. Tool descriptions carry no instance-specific numbers; warnings and rejections do.
@@ -71,10 +71,10 @@ Four tools, the minimal complete operation set of a memory: write, change, forge
 ## Recall
 
 ```
-match → spread → rank → relevance filter (if on) → cut to 10
+match → spread → rank → relevance filter (if on) → cut
 ```
 
-Each step is a typed function with its own bounds: spreading seeds from the first 10 matches and adds at most 100 associations; the filter judges at most 40. Only the cut knows the result size. `truncated` is set when a step drops a cue match; a dropped association is not reported, since a better cue does not bring it back. A new step is a new function call here, kept if the eval shows it helps.
+Each step is a typed function with its own bounds. Only the cut knows the result size. `truncated` is set when a step drops a cue match; a dropped association is not reported, since a better cue does not bring it back. A new step is a new function call here, kept if the eval shows it helps.
 
 ## Write path
 
@@ -87,40 +87,24 @@ Rejection reasons must be actionable enough for the agent to fix its input in on
 
 ## Failure
 
-A feature that judges candidates fails the call rather than passing on what it did not check: an unfiltered list would read as a checked one. It retries within its own deadline first, and its error says whether retrying the call can help (`retry`: HTTP 503 or 502).
+A feature that judges candidates fails the call rather than passing on what it did not check: an unfiltered list would read as a checked one. It retries within its own deadline first, and its error says whether retrying the call can help.
 
 ## Boundaries
 
 ```
-client ──────────────▶ contract, lib
-worker ──▶ core ─────▶ contract, lib
+client ──────────────▶ lib, worker (types only)
+worker ──▶ core ─────▶ lib
 ```
 
-`contract/` holds types both sides agree on; `lib/` holds rules both sides must compute the same way, including the analyzer the core indexes with. They never import `core/`, `worker/`, or `client/`.
+Each type belongs to the module that owns its meaning. `lib/` holds rules both sides must compute the same way, including the analyzer the core indexes with, and generic code such as results. It never imports the core, the Worker, or the client.
 
-`core/` is the memory core: the fragment log, its search and anchor indexes, and untyped metadata by key, in one Durable Object per memory space. It knows nothing of recall policy, settings, models, or HTTP, and apps reach it only through `core/index.ts` ([RFC 0004](rfcs/0004-memory-core.md)).
+The client infers the Worker API's types from the Worker and runs none of its code; it never imports the core.
 
-`worker/` is laid out as routes, services, and clients:
+`core/` is the memory core: the fragment log, its search and anchor indexes, and untyped metadata by key, in one Durable Object per memory space. It knows nothing of recall policy, settings, models, or HTTP, and apps reach it only through its entry point ([RFC 0004](rfcs/0004-memory-core.md)).
 
-```
-worker/
-  index.ts      the app: security middleware, mounted routes, the error boundary
-  routes/       one Hono app per resource, the MCP server and its tools, and
-                problem.ts, where a failure's code becomes an HTTP status
-  services/     the rules: MemoryService (every call to a memory space, with
-                the length limits), recall policy, the owner's settings
-  clients/      outside services: Jev on Workers AI, Resend
-  middlewares/  sign-in: a browser session for /api, a bearer token for /mcp
-  lib/          Better Auth setup, openMemory (the only use of the MEMORY
-                binding), the dev corpus
-  db/           the D1 schema Better Auth uses
-  errors.ts     the Worker's error values: too long, invalid settings, relevance unavailable
-  types.ts      what the sign-in middlewares hand to routes in c.var
-```
+`worker/` is laid out as routes, services, and clients. Routes speak HTTP and MCP; services hold the rules and import no HTTP or platform API; clients call outside services; middlewares sign the caller in, then open the caller's memory space. Every call to a memory space goes through one service per request, so none skips the Worker's rules, and only one module touches the memory binding and puts services together with their clients. Only per-request values, who is calling and what they may do, travel with the request; routes pass the caller to each write, so the memory service is about a memory space, not a caller.
 
-Routes call services; services hold the rules and import no HTTP or platform API. Every call to a memory space goes through `MemoryService` (`c.var.memory`), so none skips the Worker's rules; only `worker/lib/memory.ts` touches the `MEMORY` binding. Bindings come from the global `env` of `cloudflare:workers`; only per-request values (the caller's MemoryService and scopes) travel in `c.var`.
-
-Failures are values (`contract/result.ts`) with a canonical `code`, a `reason`, and a `message` written where they are made ([RFC 0004](rfcs/0004-memory-core.md)). Routes `unwrap` results; `worker/routes/problem.ts` maps only codes to statuses: `invalid` 422, `not-found` 404, `unavailable` 503 with `Retry-After`, or 502 when retrying cannot help. Lint enforces all of these boundaries.
+Failures are values with a canonical code, a reason, and a message written where they are made ([RFC 0004](rfcs/0004-memory-core.md)). Only the code decides the HTTP status, in one place. Lint enforces all of these boundaries.
 
 Features do **not** extend core tool inputs. The same call must never fail on one instance and succeed on another because of a setting's shape; settings change result quality, not the calling convention.
 
@@ -133,8 +117,8 @@ Features do **not** extend core tool inputs. The same call must never fail on on
 
 ## Per-instance settings
 
-- One typed object (`contract/settings.ts`), kept as the `settings` metadata document in the memory object, separate from fragments.
+- One typed object, kept as a metadata document in the memory object, separate from fragments.
 - A missing field means its default, so a document saved before a field existed still loads, and a field that no longer parses falls back to its default on its own; it never takes the instance down.
-- `PATCH /api/settings` takes a JSON Merge Patch: given fields replace stored ones, `null` returns a field to its default. The last save of a field wins.
+- A save takes a JSON Merge Patch: given fields replace stored ones, `null` returns a field to its default. The last save of a field wins.
 - Changes apply on the next request.
 - The defaults are the minimal instance for a good-enough model.

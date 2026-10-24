@@ -13,25 +13,25 @@ const FILE = path.join(
 const URL =
   "https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/resolve/main/longmemeval_s_cleaned.json";
 
-const turn = z.object({
+const turnSchema = z.object({
   content: z.string(),
   has_answer: z.boolean().optional(),
   role: z.enum(["assistant", "user"]),
 });
-export type Turn = z.infer<typeof turn>;
+export type Turn = z.infer<typeof turnSchema>;
 
-const question = z.object({
+const questionSchema = z.object({
   answer: z.union([z.string(), z.number()]).transform(String),
   answer_session_ids: z.array(z.string()),
   haystack_dates: z.array(z.string()),
   haystack_session_ids: z.array(z.string()),
-  haystack_sessions: z.array(z.array(turn)),
+  haystack_sessions: z.array(z.array(turnSchema)),
   question: z.string(),
   question_date: z.string(),
   question_id: z.string(),
   question_type: z.string(),
 });
-export type Question = z.infer<typeof question>;
+export type Question = z.infer<typeof questionSchema>;
 
 export const loadQuestions = async (): Promise<Question[]> => {
   if (!existsSync(FILE)) {
@@ -44,7 +44,7 @@ export const loadQuestions = async (): Promise<Question[]> => {
     await writeFile(FILE, Buffer.from(await response.arrayBuffer()));
   }
   const text = await readFile(FILE, "utf-8");
-  return z.array(question).parse(JSON.parse(text));
+  return z.array(questionSchema).parse(JSON.parse(text));
 };
 
 const hash = (text: string) => createHash("sha256").update(text).digest("hex");
@@ -108,22 +108,22 @@ export const transcript = (turns: Turn[]) =>
     )
     .join("\n\n");
 
-export const evidenceSession = z.object({
+export const evidenceSessionSchema = z.object({
   date: z.string(),
   index: z.number(),
   sessionId: z.string(),
   turns: z.array(z.object({ content: z.string(), role: z.string() })),
 });
-export const slimQuestion = z.object({
+export const slimQuestionSchema = z.object({
   abstain: z.boolean(),
   answer: z.string(),
   date: z.string(),
-  evidence: z.array(evidenceSession),
+  evidence: z.array(evidenceSessionSchema),
   id: z.string(),
   question: z.string(),
   type: z.string(),
 });
-export type SlimQuestion = z.infer<typeof slimQuestion>;
+export type SlimQuestion = z.infer<typeof slimQuestionSchema>;
 
 export const slim = (q: Question): SlimQuestion => ({
   abstain: q.question_id.endsWith("_abs"),

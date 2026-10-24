@@ -1,10 +1,34 @@
 export type {
+  ActivityEntry,
+  ActivityPage,
   AnchorCount,
   Association,
+  ForgottenFragment,
+  ForgottenList,
+  FragmentPage,
+  History,
+  ImportFormat,
+  ImportResult,
+  InvalidInput,
+  ListedFragment,
   Memory,
-  MemoryCore,
+  Metadata,
+  NotFound,
+  Restored,
   SearchHit,
-  SeedFragment,
-} from "./api";
-export { inputs, listInput, activityInput, restoreInput } from "./inputs";
+} from "./types";
+export {
+  activityInputSchema,
+  inputSchemas,
+  listInputSchema,
+  restoreInputSchema,
+} from "./inputs";
+export {
+  authorSchema,
+  fragmentSchema,
+  logRecordSchema,
+  opSchema,
+  versionSchema,
+} from "./model";
+export type { Author, Fragment, LogRecord, Op, Version } from "./model";
 export { FragmentIndex, inMemory } from "./search";

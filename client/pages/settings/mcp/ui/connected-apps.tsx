@@ -1,16 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { parseResponse } from "hono/client";
 
 import { api } from "@/shared/api";
+import type { Connection } from "@/shared/api";
 import { formatRelativeDateInline } from "@lib/date";
 
 import { RemoveMenu } from "./remove-menu";
-
-interface Connection {
-  createdAt: string;
-  id: string;
-  name: string | null;
-  scopes: string[];
-}
 
 export const CONNECTIONS = ["connections"];
 
@@ -26,7 +21,8 @@ const access = (scopes: string[]) => {
 const ConnectionRow = ({ connection }: { connection: Connection }) => {
   const queryClient = useQueryClient();
   const disconnect = useMutation({
-    mutationFn: () => api.delete(`/api/connections/${connection.id}`),
+    mutationFn: () =>
+      api.connections[":id"].$delete({ param: { id: connection.id } }),
     mutationKey: [...CONNECTIONS, connection.id],
     onSuccess: () => queryClient.invalidateQueries({ queryKey: CONNECTIONS }),
   });
@@ -57,7 +53,7 @@ const ConnectionRow = ({ connection }: { connection: Connection }) => {
 export const ConnectedApps = () => {
   const query = useQuery({
     queryFn: ({ signal }) =>
-      api.get("/api/connections", { signal }).json<Connection[]>(),
+      parseResponse(api.connections.$get(undefined, { init: { signal } })),
     queryKey: CONNECTIONS,
   });
   if (!query.data?.length) {

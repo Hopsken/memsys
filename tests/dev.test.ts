@@ -1,7 +1,6 @@
+import type { Fragment } from "@core";
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
-
-import type { Fragment } from "@contract/memory";
 
 import worker from "../worker/index";
 import { corpus } from "../worker/lib/dev-corpus";
@@ -14,15 +13,19 @@ const label = (text: string) =>
 describe("Development seed", () => {
   const signIn = useAuth();
 
-  it("seeds a signed-up user's memory with the test corpus, replacing what was there", async () => {
+  it("adds the test corpus to a signed-up user's memory", async () => {
     const user = await signIn();
-    await post("/api/remember", { fragment: "Replaced by the seed" }, user);
+    await post("/api/remember", { fragment: "Kept beside the seed" }, user);
     const seeded = await post("/api/dev/seed", { email: user.email }, null);
     const recalled = await post("/api/recall", { cue: "US West" }, user);
     const { fragments } = await recalled.json<{
       fragments: (Fragment & { via?: string[] })[];
     }>();
-    await expect(seeded.json()).resolves.toStrictEqual({ fragments: 8 });
+    await expect(seeded.json()).resolves.toStrictEqual({
+      conflicts: [],
+      imported: 8,
+      skipped: 0,
+    });
     expect(
       fragments.map(({ fragment, via }) => [label(fragment), via])
     ).toStrictEqual([

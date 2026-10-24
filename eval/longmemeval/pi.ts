@@ -5,33 +5,36 @@ import path from "node:path";
 
 import { z } from "zod";
 
-export const toolCall = z.object({
+export const toolCallSchema = z.object({
   args: z.json(),
   isError: z.boolean(),
   name: z.string(),
   result: z.string(),
 });
-export type ToolCall = z.infer<typeof toolCall>;
+export type ToolCall = z.infer<typeof toolCallSchema>;
 
-export const piRun = z.object({
+export const piRunSchema = z.object({
   answer: z.string(),
   attempts: z.number(),
   cost: z.number(),
   error: z.string().optional(),
-  tools: z.array(toolCall),
+  tools: z.array(toolCallSchema),
 });
-export type PiRun = z.infer<typeof piRun>;
+export type PiRun = z.infer<typeof piRunSchema>;
 
 const MCP_RESOURCE_TOOLS = "list_mcp_*,read_mcp_resource";
 
-const block = z.looseObject({ text: z.string().optional(), type: z.string() });
-const texts = (blocks: z.infer<typeof block>[]) =>
+const blockSchema = z.looseObject({
+  text: z.string().optional(),
+  type: z.string(),
+});
+const texts = (blocks: z.infer<typeof blockSchema>[]) =>
   blocks
     .filter((item) => item.type === "text")
     .map((item) => item.text ?? "")
     .join("");
 
-const event = z.discriminatedUnion("type", [
+const eventSchema = z.discriminatedUnion("type", [
   z.object({
     args: z.json(),
     toolCallId: z.string(),
@@ -40,7 +43,9 @@ const event = z.discriminatedUnion("type", [
   }),
   z.object({
     isError: z.boolean().default(false),
-    result: z.looseObject({ content: z.array(block).default([]) }).nullish(),
+    result: z
+      .looseObject({ content: z.array(blockSchema).default([]) })
+      .nullish(),
     toolCallId: z.string(),
     toolName: z.string(),
     type: z.literal("tool_execution_end"),
@@ -50,7 +55,7 @@ const event = z.discriminatedUnion("type", [
       content: z
         .union([
           z.string(),
-          z.array(block).transform((blocks) => texts(blocks)),
+          z.array(blockSchema).transform((blocks) => texts(blocks)),
         ])
         .default(""),
       errorMessage: z.string().optional(),
@@ -63,22 +68,22 @@ const event = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("agent_settled") }),
 ]);
-type PiEvent = z.infer<typeof event>;
+type PiEvent = z.infer<typeof eventSchema>;
 const KNOWN = new Set([
   "agent_settled",
   "message_end",
   "tool_execution_end",
   "tool_execution_start",
 ]);
-const eventType = z.looseObject({ type: z.string() });
+const eventTypeSchema = z.looseObject({ type: z.string() });
 
 const parseEvents = (stdout: string): PiEvent[] =>
   stdout
     .split("\n")
     .filter((line) => line.trim().startsWith("{"))
     .map((line) => z.json().parse(JSON.parse(line)))
-    .filter((json) => KNOWN.has(eventType.parse(json).type))
-    .map((json) => event.parse(json));
+    .filter((json) => KNOWN.has(eventTypeSchema.parse(json).type))
+    .map((json) => eventSchema.parse(json));
 
 const summarize = (events: PiEvent[]) => {
   const starts = new Map<string, PiEvent & { type: "tool_execution_start" }>();

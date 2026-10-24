@@ -7,16 +7,16 @@ import { parseArgs } from "node:util";
 import { z } from "zod";
 
 import {
-  corpusRecord,
+  corpusRecordSchema,
   HARNESS,
-  labels,
+  labelsSchema,
   loadCorpus,
   RUNS_DIR,
 } from "./corpus.ts";
 import { SETS } from "./dataset.ts";
 import { answerCriteria, jev } from "./jev.ts";
-import { piRun, runPi } from "./pi.ts";
-import { report, score, scoreRun } from "./score.ts";
+import { piRunSchema, runPi } from "./pi.ts";
+import { report, scoreSchema, scoreRun } from "./score.ts";
 import type { Score } from "./score.ts";
 import {
   currentMemories,
@@ -70,7 +70,7 @@ const LABELS = path.join(CORPUS_DIR, "labels.json");
 if (!existsSync(LABELS)) {
   throw new Error(`${CORPUS} has no labels.json; run label.ts first`);
 }
-const corpusLabels = await readJson(LABELS, labels);
+const corpusLabels = await readJson(LABELS, labelsSchema);
 const instructions = await serverInstructions();
 await mkdir(RUN_DIR, { recursive: true });
 await writeFile(
@@ -94,7 +94,7 @@ const corpusSize: Record<string, number> = {};
 const prepare = async (id: string) => {
   const records = await readLines(
     path.join(CORPUS_DIR, id, "memory.ndjson"),
-    corpusRecord
+    corpusRecordSchema
   );
   corpusSize[id] = currentMemories(records).size;
   const space = `c-${CORPUS}-${settingsKey}${id}`;
@@ -113,8 +113,11 @@ const prepare = async (id: string) => {
 };
 
 const RECALLS = path.join(RUN_DIR, "recalls.jsonl");
-const conversation = piRun.extend({ id: z.string(), repeat: z.number() });
-const conversations = await readLines(RECALLS, conversation);
+const conversationSchema = piRunSchema.extend({
+  id: z.string(),
+  repeat: z.number(),
+});
+const conversations = await readLines(RECALLS, conversationSchema);
 const ran = new Set(conversations.map((c) => `${c.id}/${c.repeat}`));
 
 await pool(questions, Number(args.concurrency), async (q) => {
@@ -148,7 +151,7 @@ await pool(questions, Number(args.concurrency), async (q) => {
 
 const RESULTS = path.join(RUN_DIR, "results.json");
 const scores: Score[] = existsSync(RESULTS)
-  ? await readJson(RESULTS, z.array(score))
+  ? await readJson(RESULTS, z.array(scoreSchema))
   : [];
 const scored = new Set(scores.map((s) => `${s.id}/${s.repeat}`));
 const unscored = questions.flatMap((q) =>

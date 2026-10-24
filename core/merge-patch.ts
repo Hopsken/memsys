@@ -1,18 +1,21 @@
 import { z } from "zod";
 
-import type { Json, JsonObject } from "@contract/memory";
+import type { Metadata } from "./types";
 
-const jsonObject = z.record(z.string(), z.json());
+const jsonObjectSchema = z.record(z.string(), z.json());
+
+type Json = z.output<ReturnType<typeof z.json>>;
 
 export const mergePatch = (
-  target: Json | undefined,
-  patch: JsonObject
-): JsonObject => {
-  const base: JsonObject = jsonObject.safeParse(target).data ?? {};
-  const keys = new Set([...Object.keys(base), ...Object.keys(patch)]);
+  target: Json | Metadata | undefined,
+  patch: Metadata
+): Record<string, Json> => {
+  const changes = jsonObjectSchema.parse(patch);
+  const base = jsonObjectSchema.safeParse(target).data ?? {};
+  const keys = new Set([...Object.keys(base), ...Object.keys(changes)]);
   return Object.fromEntries(
     [...keys].flatMap((key): [string, Json][] => {
-      const value = patch[key];
+      const value = changes[key];
       if (value === undefined) {
         const kept = base[key];
         return kept === undefined ? [] : [[key, kept]];
@@ -20,7 +23,7 @@ export const mergePatch = (
       if (value === null) {
         return [];
       }
-      const nested = jsonObject.safeParse(value);
+      const nested = jsonObjectSchema.safeParse(value);
       return [
         [key, nested.success ? mergePatch(base[key], nested.data) : value],
       ];

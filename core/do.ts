@@ -5,45 +5,40 @@ import { migrate } from "drizzle-orm/durable-sqlite/migrator";
 import { customAlphabet } from "nanoid";
 import { z } from "zod";
 
-import type {
-  ActivityPage,
-  Author,
-  ForgottenList,
-  Fragment,
-  FragmentPage,
-  History,
-  ImportFormat,
-  ImportResult,
-  JsonObject,
-  Op,
-  Restored,
-  Version,
-} from "@contract/memory";
-import { err, ok } from "@contract/result";
-import type { InvalidInput, Issue, NotFound, Result } from "@contract/result";
+import { err, ok } from "@lib/result";
+import type { Issue, Result } from "@lib/result";
 
-import type {
-  AnchorCount,
-  Association,
-  MemoryCore,
-  SearchHit,
-  SeedFragment,
-} from "./api";
 import { metadata, records } from "./db/schema";
 import {
-  activityInput,
-  importInput,
-  inputs,
+  activityInputSchema,
+  importInputSchema,
+  inputSchemas,
   listFragments,
   PAGE_SIZE,
-  REF_ALPHABET,
-  REF_LENGTH,
 } from "./inputs";
 import { parseLog, parseText, replay, serializeLog } from "./log";
 import type { Row } from "./log";
 import { mergePatch } from "./merge-patch";
 import migrations from "./migrations/migrations.js";
+import { REF_ALPHABET, REF_LENGTH } from "./model";
+import type { Author, Fragment, Op, Version } from "./model";
 import { FragmentIndex } from "./search";
+import type {
+  ActivityPage,
+  AnchorCount,
+  Association,
+  ForgottenList,
+  FragmentPage,
+  History,
+  ImportFormat,
+  ImportResult,
+  InvalidInput,
+  MemoryCore,
+  Metadata,
+  NotFound,
+  Restored,
+  SearchHit,
+} from "./types";
 
 const newRef = customAlphabet(REF_ALPHABET, REF_LENGTH);
 
@@ -106,7 +101,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   private readonly index = new FragmentIndex();
   private latestAtByRef = new Map<string, number>();
   private readonly versions = new Map<string, number>();
-  private readonly metadata = new Map<string, JsonObject>();
+  private readonly metadata = new Map<string, Metadata>();
 
   constructor(ctx: DurableObjectState, env: CoreEnv) {
     super(ctx, env);
@@ -167,34 +162,11 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     return at;
   }
 
-  seed(items: SeedFragment[]) {
-    if (!import.meta.env.DEV) {
-      throw new Error("Seeding is available only in development builds");
-    }
-    this.ctx.storage.transactionSync(() => {
-      this.db.delete(records).run();
-      this.db.delete(metadata).run();
-      for (const { date, fragment } of items) {
-        this.db
-          .insert(records)
-          .values({
-            at: Date.parse(`${date}T12:00:00Z`),
-            fragment,
-            op: "remember",
-            ref: newRef(),
-          })
-          .run();
-      }
-    });
-    this.load();
-    return { fragments: items.length };
-  }
-
   remember(
     input: { fragment: string },
     by: Author
   ): Result<Fragment, InvalidInput> {
-    const parsed = inputs.remember.safeParse(input);
+    const parsed = inputSchemas.remember.safeParse(input);
     if (!parsed.success) {
       return err(invalid(parsed.error));
     }
@@ -212,7 +184,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     input: { fragment: string; ref: string },
     by: Author
   ): Result<Fragment, InvalidInput | NotFound> {
-    const parsed = inputs.revise.safeParse(input);
+    const parsed = inputSchemas.revise.safeParse(input);
     if (!parsed.success) {
       return err(invalid(parsed.error));
     }
@@ -281,7 +253,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     content: string;
     format: ImportFormat;
   }): Result<ImportResult, InvalidInput> {
-    const input = importInput.safeParse(raw);
+    const input = importInputSchema.safeParse(raw);
     if (!input.success) {
       return err(invalid(input.error));
     }
@@ -397,7 +369,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   }
 
   activity(input: { cursor?: string | undefined }): ActivityPage {
-    const { cursor: after } = activityInput.parse(input);
+    const { cursor: after } = activityInputSchema.parse(input);
     const rows = this.db
       .select()
       .from(records)
@@ -481,12 +453,12 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     return [...this.index.values()];
   }
 
-  readMetadata(key: string): JsonObject | null {
+  readMetadata(key: string): Metadata | null {
     return this.metadata.get(key) ?? null;
   }
 
-  patchMetadata(key: string, patch: JsonObject): JsonObject {
-    const value = mergePatch(this.metadata.get(key) ?? {}, patch);
+  patchMetadata(key: string, patch: Metadata): Metadata {
+    const value = mergePatch(this.metadata.get(key), patch);
     this.db
       .insert(metadata)
       .values({ key, value })

@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "cn";
+import { parseResponse } from "hono/client";
 import { RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
@@ -7,6 +8,7 @@ import type { ReactNode } from "react";
 import { SETTINGS, useSettings } from "@/entities/memory";
 import { SessionExpired } from "@/features/auth";
 import { api, failure, isExpired } from "@/shared/api";
+import type { Settings, SettingsMergePatch, SettingsView } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
 import {
@@ -20,11 +22,6 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/ui/toggle-group";
-import type {
-  Settings,
-  SettingsMergePatch,
-  SettingsView,
-} from "@contract/settings";
 
 const FILTER_LEVELS: { label: string; value: Settings["relevanceFilter"] }[] = [
   { label: "Off", value: "off" },
@@ -111,7 +108,7 @@ const FeaturesForm = ({ view }: { view: SettingsView }) => {
   const [draft, setDraft] = useState(view.settings);
   const mutation = useMutation({
     mutationFn: (patch: SettingsMergePatch) =>
-      api.patch("/api/settings", { json: patch }).json<SettingsView>(),
+      parseResponse(api.settings.$patch({ json: patch })),
     onSuccess: (next) => queryClient.setQueryData(SETTINGS, next),
   });
   const { reset } = mutation;

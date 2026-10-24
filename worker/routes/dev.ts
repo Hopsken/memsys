@@ -8,14 +8,21 @@ import {
   getAuth,
   isAllowedEmail,
 } from "../lib/better-auth";
-import { corpus } from "../lib/dev-corpus";
-import { defaultSpace, openMemory, seedSpace } from "../lib/memory";
+import { corpusLog } from "../lib/dev-corpus";
+import { unwrap } from "../lib/problem";
+import { defaultSpace, openMemory } from "../memory";
+import { openMemorySpace } from "../middlewares/open-memory";
 import type { AppEnv } from "../types";
 import { mcp } from "./mcp";
-import { unwrap } from "./problem";
 import { settings } from "./settings";
 
-const seedInput = z.object({ email: z.email() });
+const seedInputSchema = z.object({ email: z.email() });
+
+const seed = (spaceId: string) =>
+  openMemory(spaceId).importLog({
+    content: corpusLog,
+    format: "ndjson",
+  });
 
 const sameOriginPath = (returnTo: string | undefined, origin: string) => {
   if (!returnTo?.startsWith("/")) {
@@ -31,7 +38,7 @@ export const dev =
   /* @__PURE__ */
   new Hono<AppEnv>()
     .post("/api/dev/seed", async (c) => {
-      const { email } = seedInput.parse(await c.req.json());
+      const { email } = seedInputSchema.parse(await c.req.json());
       const { internalAdapter } = await getAuth(c.env).$context;
       const found = await internalAdapter.findUserByEmail(email);
       if (!found) {
@@ -40,7 +47,7 @@ export const dev =
           404
         );
       }
-      return c.json(await seedSpace(defaultSpace(found.user.id), corpus));
+      return c.json(unwrap(await seed(defaultSpace(found.user.id))));
     })
     .get("/__dev/log-me-in/:email", async (c) => {
       const email = z.email().safeParse(c.req.param("email"));
@@ -62,7 +69,7 @@ export const dev =
           { email: email.data, emailVerified: true, name: "" },
           { method: "email-otp" }
         );
-        await seedSpace(defaultSpace(user.id), corpus);
+        unwrap(await seed(defaultSpace(user.id)));
       }
       const session = await internalAdapter.createSession(user.id);
       await setSignedCookie(
@@ -76,11 +83,15 @@ export const dev =
         sameOriginPath(c.req.query("returnTo"), new URL(c.req.url).origin)
       );
     })
-    .use("/__dev/eval/:space/*", (c, next) => {
-      c.set("memory", openMemory(`eval:${c.req.param("space")}`, "agent:eval"));
-      c.set("scopes", new Set([MEMORY_READ, MEMORY_WRITE]));
-      return next();
-    })
+    .use(
+      "/__dev/eval/:space/*",
+      (c, next) => {
+        c.set("author", "agent:eval");
+        c.set("scopes", new Set([MEMORY_READ, MEMORY_WRITE]));
+        return next();
+      },
+      openMemorySpace((c) => `eval:${c.req.param("space")}`)
+    )
     .route("/__dev/eval/:space/mcp", mcp)
     .route("/__dev/eval/:space/settings", settings)
     .get("/__dev/eval/:space/export", async (c) =>

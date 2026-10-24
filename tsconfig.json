@@ -7,10 +7,10 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "paths": {
       "@/*": ["./client/*"],
-      "@contract/*": ["./contract/*"],
       "@core": ["./core/index.ts"],
       "@core/*": ["./core/*"],
-      "@lib/*": ["./lib/*"]
+      "@lib/*": ["./lib/*"],
+      "@worker/*": ["./worker/*"]
     },
     "module": "Preserve",
     "moduleDetection": "force",
@@ -34,7 +34,6 @@
   "include": [
     "client/**/*.ts",
     "client/**/*.tsx",
-    "contract/**/*.ts",
     "core/**/*.ts",
     "eval/**/*.ts",
     "lib/**/*.ts",
