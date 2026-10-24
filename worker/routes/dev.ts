@@ -8,14 +8,20 @@ import {
   getAuth,
   isAllowedEmail,
 } from "../lib/better-auth";
-import { corpus } from "../lib/dev-corpus";
-import { defaultSpace, openMemory, seedSpace } from "../lib/memory";
+import { corpusLog } from "../lib/dev-corpus";
+import { defaultSpace, openMemory } from "../lib/memory";
 import type { AppEnv } from "../types";
 import { mcp } from "./mcp";
 import { unwrap } from "./problem";
 import { settings } from "./settings";
 
 const seedInput = z.object({ email: z.email() });
+
+const seed = (spaceId: string) =>
+  openMemory(spaceId, "user").importLog({
+    content: corpusLog,
+    format: "ndjson",
+  });
 
 const sameOriginPath = (returnTo: string | undefined, origin: string) => {
   if (!returnTo?.startsWith("/")) {
@@ -40,7 +46,7 @@ export const dev =
           404
         );
       }
-      return c.json(await seedSpace(defaultSpace(found.user.id), corpus));
+      return c.json(unwrap(await seed(defaultSpace(found.user.id))));
     })
     .get("/__dev/log-me-in/:email", async (c) => {
       const email = z.email().safeParse(c.req.param("email"));
@@ -62,7 +68,7 @@ export const dev =
           { email: email.data, emailVerified: true, name: "" },
           { method: "email-otp" }
         );
-        await seedSpace(defaultSpace(user.id), corpus);
+        unwrap(await seed(defaultSpace(user.id)));
       }
       const session = await internalAdapter.createSession(user.id);
       await setSignedCookie(

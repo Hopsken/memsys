@@ -1,7 +1,6 @@
-import type { Memory } from "@core";
+import type { Memory, Metadata } from "@core";
 import { z } from "zod";
 
-import type { Json, JsonObject } from "@contract/memory";
 import { err, ok } from "@contract/result";
 import type { Result } from "@contract/result";
 import type { Settings, SettingsView } from "@contract/settings";
@@ -35,7 +34,7 @@ const settingsPatch = z
   })
   .strict();
 
-const parseSettings = (stored: Json | undefined): Settings => {
+const parseSettings = (stored: Metadata | null): Settings => {
   const value = z.record(z.string(), z.json()).safeParse(stored).data ?? {};
   const field = <K extends keyof Settings>(key: K): Settings[K] => {
     if (value[key] === undefined) {
@@ -64,9 +63,7 @@ export class SettingsService {
   }
 
   async read(): Promise<Settings> {
-    return parseSettings(
-      (await this.#memory.readMetadata(SETTINGS_KEY)) ?? undefined
-    );
+    return parseSettings(await this.#memory.readMetadata(SETTINGS_KEY));
   }
 
   async view(): Promise<SettingsView> {
@@ -74,7 +71,7 @@ export class SettingsService {
   }
 
   async update(
-    patch: JsonObject
+    patch: Metadata
   ): Promise<Result<SettingsView, InvalidSettings>> {
     const parsed = settingsPatch.safeParse(patch);
     if (!parsed.success) {

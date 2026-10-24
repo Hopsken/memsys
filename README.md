@@ -104,7 +104,7 @@ pnpm eval        # Score recall on eval/dataset.ts; JEV=1 adds Jev (bills Worker
 
 The sign-in page on the dev server also offers **Sign in as dev@memsys.test**, which opens `/__dev/log-me-in/<email>?returnTo=<path>`. That route signs the browser in as any allowed address without a code, creating the account the first time, and returns to `returnTo` when it is a path on the same origin, otherwise to `/`. A new account starts with a fixed eight-fragment corpus (`worker/lib/dev-corpus.ts`) so the UI and recall have something to show.
 
-With the dev server running, `pnpm db:seed` replaces `dev@memsys.test`'s memory with that corpus again; set `SEED_EMAIL` for another user who has signed in, and `SEED_URL` if the server is not on `http://localhost:5173`. These routes skip sign-in, so anyone with access to the dev server can use them; do not store sensitive data there.
+With the dev server running, `pnpm db:seed` adds that corpus to `dev@memsys.test`'s memory again (memories already there are skipped); set `SEED_EMAIL` for another user who has signed in, and `SEED_URL` if the server is not on `http://localhost:5173`. These routes skip sign-in, so anyone with access to the dev server can use them; do not store sensitive data there.
 
 The printed codes and the dev routes (`worker/routes/dev.ts`) exist only in dev builds: they sit behind `import.meta.env.DEV`, which `vite build` replaces with `false`, so the deployed bundle contains neither and `/__dev/*` answers 404.
 

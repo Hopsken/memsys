@@ -1,8 +1,14 @@
-import type { Fragment, JsonObject } from "@contract/memory";
+import type { Fragment } from "@contract/memory";
 import { terms } from "@lib/analyzer";
 import { associationKeys, extractAnchors } from "@lib/anchor";
 
-import type { AnchorCount, Association, MemoryCore, SearchHit } from "./api";
+import type {
+  AnchorCount,
+  Association,
+  Memory,
+  Metadata,
+  SearchHit,
+} from "./api";
 import { mergePatch } from "./merge-patch";
 
 const BM25_K1 = 1.2;
@@ -178,19 +184,19 @@ export class FragmentIndex {
 
 export const inMemory = (
   fragments: Iterable<Fragment>,
-  metadata: Record<string, JsonObject> = {}
+  metadata: Record<string, Metadata> = {}
 ) => {
   const index = new FragmentIndex(fragments);
   const stored = { ...metadata };
   return {
-    anchors: () => index.anchors(),
-    associated: (keys: string[]) => index.associated(keys),
-    count: () => index.size,
-    patchMetadata: (key: string, patch: JsonObject) => {
+    anchors: () => Promise.resolve(index.anchors()),
+    associated: (keys: string[]) => Promise.resolve(index.associated(keys)),
+    count: () => Promise.resolve(index.size),
+    patchMetadata: (key: string, patch: Metadata) => {
       stored[key] = mergePatch(stored[key], patch);
-      return stored[key];
+      return Promise.resolve(stored[key]);
     },
-    readMetadata: (key: string) => stored[key] ?? null,
-    search: (query: string[]) => index.search(query),
-  } satisfies Partial<MemoryCore>;
+    readMetadata: (key: string) => Promise.resolve(stored[key] ?? null),
+    search: (query: string[]) => Promise.resolve(index.search(query)),
+  } satisfies Partial<Memory>;
 };

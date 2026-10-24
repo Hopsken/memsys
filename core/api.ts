@@ -7,10 +7,12 @@ import type {
   History,
   ImportFormat,
   ImportResult,
-  JsonObject,
   Restored,
 } from "@contract/memory";
 import type { InvalidInput, NotFound, Result } from "@contract/result";
+
+// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
+export type Metadata = Record<string, unknown>;
 
 export interface SearchHit {
   fragment: Fragment;
@@ -26,11 +28,6 @@ export interface Association {
 export interface AnchorCount {
   anchor: string;
   fragmentCount: number;
-}
-
-export interface SeedFragment {
-  date: string;
-  fragment: string;
 }
 
 export interface MemoryCore {
@@ -69,12 +66,12 @@ export interface MemoryCore {
   count: () => number;
   snapshot: () => Fragment[];
 
-  readMetadata: (key: string) => JsonObject | null;
-  patchMetadata: (key: string, patch: JsonObject) => JsonObject;
+  readMetadata: (key: string) => Metadata | null;
+  patchMetadata: (key: string, patch: Metadata) => Metadata;
 }
 
 export type Memory = {
   [K in keyof MemoryCore]: (
     ...args: Parameters<MemoryCore[K]>
-  ) => ReturnType<MemoryCore[K]> | Promise<ReturnType<MemoryCore[K]>>;
+  ) => Promise<ReturnType<MemoryCore[K]>>;
 };

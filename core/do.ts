@@ -14,7 +14,6 @@ import type {
   History,
   ImportFormat,
   ImportResult,
-  JsonObject,
   Op,
   Restored,
   Version,
@@ -26,8 +25,8 @@ import type {
   AnchorCount,
   Association,
   MemoryCore,
+  Metadata,
   SearchHit,
-  SeedFragment,
 } from "./api";
 import { metadata, records } from "./db/schema";
 import {
@@ -106,7 +105,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   private readonly index = new FragmentIndex();
   private latestAtByRef = new Map<string, number>();
   private readonly versions = new Map<string, number>();
-  private readonly metadata = new Map<string, JsonObject>();
+  private readonly metadata = new Map<string, Metadata>();
 
   constructor(ctx: DurableObjectState, env: CoreEnv) {
     super(ctx, env);
@@ -165,29 +164,6 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     const at = this.append(ref, null, "forget", by);
     this.index.delete(ref);
     return at;
-  }
-
-  seed(items: SeedFragment[]) {
-    if (!import.meta.env.DEV) {
-      throw new Error("Seeding is available only in development builds");
-    }
-    this.ctx.storage.transactionSync(() => {
-      this.db.delete(records).run();
-      this.db.delete(metadata).run();
-      for (const { date, fragment } of items) {
-        this.db
-          .insert(records)
-          .values({
-            at: Date.parse(`${date}T12:00:00Z`),
-            fragment,
-            op: "remember",
-            ref: newRef(),
-          })
-          .run();
-      }
-    });
-    this.load();
-    return { fragments: items.length };
   }
 
   remember(
@@ -481,12 +457,12 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     return [...this.index.values()];
   }
 
-  readMetadata(key: string): JsonObject | null {
+  readMetadata(key: string): Metadata | null {
     return this.metadata.get(key) ?? null;
   }
 
-  patchMetadata(key: string, patch: JsonObject): JsonObject {
-    const value = mergePatch(this.metadata.get(key) ?? {}, patch);
+  patchMetadata(key: string, patch: Metadata): Metadata {
+    const value = mergePatch(this.metadata.get(key), patch);
     this.db
       .insert(metadata)
       .values({ key, value })
