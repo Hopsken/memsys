@@ -2,9 +2,9 @@ export type Kind =
   | "exact"
   | "scattered"
   | "morphology"
-  | "partial"
+  | "extra-word"
   | "association"
-  | "multi"
+  | "multi-fragment"
   | "semantic"
   | "abstain";
 
@@ -504,30 +504,30 @@ export const cases: EvalCase[] = [
     cue: "vite dev server 403 error",
     hits: ["f05"],
     id: "c22",
-    kind: "partial",
+    kind: "extra-word",
   },
   {
     context: "Customer IDs lost their leading zeros after import",
     cue: "pandas leading zeros bug",
     hits: ["f45"],
     id: "c23",
-    kind: "partial",
+    kind: "extra-word",
   },
   {
     cue: "colima docker desktop alternative",
     hits: ["f37"],
     id: "c24",
-    kind: "partial",
+    kind: "extra-word",
   },
   {
     context: "About to commit a change",
     cue: "commit message style",
     hits: ["f16"],
     id: "c25",
-    kind: "partial",
+    kind: "extra-word",
   },
-  { cue: "VPN DNS issue", hits: ["f38"], id: "c26", kind: "partial" },
-  { cue: "cat's pills", hits: ["f48"], id: "c27", kind: "partial" },
+  { cue: "VPN DNS issue", hits: ["f38"], id: "c26", kind: "extra-word" },
+  { cue: "cat's pills", hits: ["f48"], id: "c27", kind: "extra-word" },
 
   {
     context: "Booking hotels for the April trip",
@@ -575,34 +575,34 @@ export const cases: EvalCase[] = [
     cue: "pnpm",
     hits: ["f14", "f15"],
     id: "c33",
-    kind: "multi",
+    kind: "multi-fragment",
   },
   {
     cue: "Japan",
     hits: ["f53", "f54", "f55"],
     id: "c34",
-    kind: "multi",
+    kind: "multi-fragment",
   },
   {
     context: "Working on ledger persistence",
     cue: "SwiftData",
     hits: ["f24", "f28"],
     id: "c35",
-    kind: "multi",
+    kind: "multi-fragment",
   },
   {
     context: "Calling a model from the worker",
     cue: "Workers AI",
     hits: ["f09", "f13"],
     id: "c36",
-    kind: "multi",
+    kind: "multi-fragment",
   },
   {
     context: "Designing storage for a new Cloudflare service",
     cue: "Durable Objects",
     hits: ["f01", "f04", "f57"],
     id: "c37",
-    kind: "multi",
+    kind: "multi-fragment",
   },
 
   {

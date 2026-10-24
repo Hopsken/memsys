@@ -55,9 +55,9 @@ const kinds: Kind[] = [
   "exact",
   "scattered",
   "morphology",
-  "partial",
+  "extra-word",
   "association",
-  "multi",
+  "multi-fragment",
   "semantic",
   "abstain",
 ];

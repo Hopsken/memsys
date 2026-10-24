@@ -148,17 +148,17 @@ export const replay = (
   rows: Iterable<Pick<Row, "at" | "fragment" | "ref">>
 ) => {
   const corpus = new Map<string, Fragment>();
-  const heads = new Map<string, number>();
+  const latestAtByRef = new Map<string, number>();
   for (const { at, fragment: text, ref } of rows) {
-    if (at <= (heads.get(ref) ?? Number.NEGATIVE_INFINITY)) {
+    if (at <= (latestAtByRef.get(ref) ?? Number.NEGATIVE_INFINITY)) {
       continue;
     }
-    heads.set(ref, at);
+    latestAtByRef.set(ref, at);
     if (text === null) {
       corpus.delete(ref);
     } else {
       corpus.set(ref, { at: new Date(at).toISOString(), fragment: text, ref });
     }
   }
-  return { corpus, heads };
+  return { corpus, latestAtByRef };
 };

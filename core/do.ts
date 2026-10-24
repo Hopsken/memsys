@@ -90,7 +90,7 @@ export type CoreEnv = Record<never, never>;
 export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   private readonly db;
   private readonly index = new FragmentIndex();
-  private heads = new Map<string, number>();
+  private latestAtByRef = new Map<string, number>();
   private readonly versions = new Map<string, number>();
   private readonly metadata = new Map<string, JsonObject>();
 
@@ -108,12 +108,12 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
 
   private load() {
     const rows = this.db.select().from(records).all();
-    const { corpus, heads } = replay(rows);
+    const { corpus, latestAtByRef } = replay(rows);
     this.index.clear();
     for (const item of corpus.values()) {
       this.index.set(item);
     }
-    this.heads = heads;
+    this.latestAtByRef = latestAtByRef;
     this.versions.clear();
     this.countVersions(rows);
     this.metadata.clear();
@@ -128,10 +128,14 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     }
   }
 
+  private nextAt(ref: string) {
+    return Math.max(Date.now(), (this.latestAtByRef.get(ref) ?? 0) + 1);
+  }
+
   private append(ref: string, fragment: string | null, op: Op, by: Author) {
-    const at = Math.max(Date.now(), (this.heads.get(ref) ?? 0) + 1);
+    const at = this.nextAt(ref);
     this.db.insert(records).values({ at, by, fragment, op, ref }).run();
-    this.heads.set(ref, at);
+    this.latestAtByRef.set(ref, at);
     this.versions.set(ref, (this.versions.get(ref) ?? 0) + 1);
     return at;
   }
@@ -181,7 +185,12 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
       return err(invalid(parsed.error));
     }
     return ok(
-      this.write(freshRef(this.heads), parsed.data.fragment, "remember", by)
+      this.write(
+        freshRef(this.latestAtByRef),
+        parsed.data.fragment,
+        "remember",
+        by
+      )
     );
   }
 
@@ -244,11 +253,11 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
 
   purge(input: { ref: string }): Result<{ ref: string }, NotFound> {
     const { ref } = input;
-    if (!this.heads.has(ref)) {
+    if (!this.latestAtByRef.has(ref)) {
       return notFound(ref);
     }
     this.db.delete(records).where(eq(records.ref, ref)).run();
-    this.heads.delete(ref);
+    this.latestAtByRef.delete(ref);
     this.versions.delete(ref);
     this.index.delete(ref);
     return ok({ ref });
@@ -276,7 +285,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     let skipped = 0;
     if ("texts" in parsed) {
       const at = Date.now();
-      const taken = new Set(this.heads.keys());
+      const taken = new Set(this.latestAtByRef.keys());
       for (const fragment of parsed.texts) {
         if (texts.has(fragment)) {
           skipped += 1;
@@ -289,11 +298,11 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
         imported += 1;
       }
     } else {
-      const { corpus, heads } = replay(parsed.rows);
+      const { corpus, latestAtByRef } = replay(parsed.rows);
       const history = Map.groupBy(parsed.rows, ({ ref }) => ref);
-      for (const ref of heads.keys()) {
+      for (const ref of latestAtByRef.keys()) {
         const current = corpus.get(ref)?.fragment ?? null;
-        if (this.heads.has(ref)) {
+        if (this.latestAtByRef.has(ref)) {
           if ((this.index.get(ref)?.fragment ?? null) === current) {
             skipped += 1;
           } else {
@@ -318,9 +327,9 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
       }
     });
     this.countVersions(rows);
-    const { corpus, heads } = replay(rows);
-    for (const [ref, at] of heads) {
-      this.heads.set(ref, at);
+    const { corpus, latestAtByRef } = replay(rows);
+    for (const [ref, at] of latestAtByRef) {
+      this.latestAtByRef.set(ref, at);
     }
     for (const item of corpus.values()) {
       this.index.set(item);
@@ -361,7 +370,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   }
 
   history({ ref }: { ref: string }): Result<History, NotFound> {
-    if (!this.heads.has(ref)) {
+    if (!this.latestAtByRef.has(ref)) {
       return notFound(ref);
     }
     const rows = this.db
@@ -411,7 +420,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
 
   forgotten(): ForgottenList {
     const fragments = [];
-    for (const [ref, forgottenAt] of this.heads) {
+    for (const [ref, forgottenAt] of this.latestAtByRef) {
       if (this.index.has(ref)) {
         continue;
       }

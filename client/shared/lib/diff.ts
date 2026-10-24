@@ -15,11 +15,12 @@ const MIN_SAME = 0.5;
 const walk = (before: string[], after: string[]): Part[] => {
   const rows = before.length;
   const cols = after.length;
-  const table = new Uint16Array((rows + 1) * (cols + 1));
-  const cell = (i: number, j: number) => table[i * (cols + 1) + j] ?? 0;
+  const lcsSuffixLengths = new Uint16Array((rows + 1) * (cols + 1));
+  const cell = (i: number, j: number) =>
+    lcsSuffixLengths[i * (cols + 1) + j] ?? 0;
   for (let i = rows - 1; i >= 0; i -= 1) {
     for (let j = cols - 1; j >= 0; j -= 1) {
-      table[i * (cols + 1) + j] =
+      lcsSuffixLengths[i * (cols + 1) + j] =
         before[i] === after[j]
           ? cell(i + 1, j + 1) + 1
           : Math.max(cell(i + 1, j), cell(i, j + 1));

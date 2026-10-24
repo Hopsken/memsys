@@ -151,12 +151,12 @@ const DeleteMemory = ({
 const Timeline = ({ versions }: { versions: Version[] }) => {
   const restore = useRestore();
   const [searchParams] = useSearchParams();
-  const [fresh, setFresh] = useState(searchParams.get("at"));
+  const [highlightedAt, setHighlightedAt] = useState(searchParams.get("at"));
   const highlighted = useRef<HTMLLIElement>(null);
   const current = versions[0]?.fragment ?? null;
 
   useEffect(() => {
-    if (!fresh) {
+    if (!highlightedAt) {
       return;
     }
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -165,9 +165,9 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
       block: "nearest",
     });
     highlighted.current?.focus({ preventScroll: true });
-    const timer = setTimeout(() => setFresh(null), 2000);
+    const timer = setTimeout(() => setHighlightedAt(null), 2000);
     return () => clearTimeout(timer);
-  }, [fresh]);
+  }, [highlightedAt]);
 
   return (
     <>
@@ -189,8 +189,8 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
             <li
               className="group relative pb-5 pl-6 outline-none last:pb-0"
               key={at}
-              ref={fresh === at ? highlighted : undefined}
-              tabIndex={fresh === at ? -1 : undefined}
+              ref={highlightedAt === at ? highlighted : undefined}
+              tabIndex={highlightedAt === at ? -1 : undefined}
             >
               <span
                 aria-hidden="true"
@@ -206,7 +206,7 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
               <div
                 className={cn(
                   "-mx-2 space-y-1 rounded-lg px-2 py-1 transition-colors duration-700",
-                  fresh === at && "bg-muted"
+                  highlightedAt === at && "bg-muted"
                 )}
               >
                 <div className="text-muted-foreground flex min-h-7 items-center justify-between gap-3 text-xs">
@@ -231,7 +231,10 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
                       onClick={() =>
                         restore.mutate(
                           { at, ref: version.ref },
-                          { onSuccess: (restored) => setFresh(restored.at) }
+                          {
+                            onSuccess: (restored) =>
+                              setHighlightedAt(restored.at),
+                          }
                         )
                       }
                       size="sm"
@@ -372,10 +375,9 @@ export const HistoryDialog = () => {
   const { ref = "" } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const openedDirectly = location.key === "default";
   const close = () => {
-    void (location.key === "default"
-      ? navigate("..", { replace: true })
-      : navigate(-1));
+    void (openedDirectly ? navigate("..", { replace: true }) : navigate(-1));
   };
   return <MemoryHistoryDialog memoryRef={ref} onClose={close} />;
 };

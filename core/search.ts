@@ -4,8 +4,8 @@ import { associationKeys, extractAnchors } from "@lib/anchor";
 
 import type { AnchorCount, Association, MemoryCore, SearchHit } from "./api";
 
-const K1 = 1.2;
-const B = 0.75;
+const BM25_K1 = 1.2;
+const BM25_B = 0.75;
 
 const newestFirst = (a: Fragment, b: Fragment) =>
   b.at.localeCompare(a.at) || a.ref.localeCompare(b.ref);
@@ -16,7 +16,7 @@ export class FragmentIndex {
   private readonly lengths = new Map<string, number>();
   private totalLength = 0;
   private readonly anchorsOf = new Map<string, string[]>();
-  private readonly byKey = new Map<string, Set<string>>();
+  private readonly refsByAssociationKey = new Map<string, Set<string>>();
   private readonly anchorCounts = new Map<string, number>();
 
   constructor(fragments: Iterable<Fragment> = []) {
@@ -61,10 +61,10 @@ export class FragmentIndex {
     for (const anchor of anchors) {
       this.anchorCounts.set(anchor, (this.anchorCounts.get(anchor) ?? 0) + 1);
       for (const key of associationKeys(anchor)) {
-        let refs = this.byKey.get(key);
+        let refs = this.refsByAssociationKey.get(key);
         if (!refs) {
           refs = new Set();
-          this.byKey.set(key, refs);
+          this.refsByAssociationKey.set(key, refs);
         }
         refs.add(ref);
       }
@@ -94,10 +94,10 @@ export class FragmentIndex {
         this.anchorCounts.set(anchor, count);
       }
       for (const key of associationKeys(anchor)) {
-        const refs = this.byKey.get(key);
+        const refs = this.refsByAssociationKey.get(key);
         refs?.delete(ref);
         if (refs?.size === 0) {
-          this.byKey.delete(key);
+          this.refsByAssociationKey.delete(key);
         }
       }
     }
@@ -139,8 +139,8 @@ export class FragmentIndex {
           if (tf > 0) {
             matched.push(term);
             score +=
-              (idf(term) * tf * (K1 + 1)) /
-              (tf + K1 * (1 - B + (B * length) / average));
+              (idf(term) * tf * (BM25_K1 + 1)) /
+              (tf + BM25_K1 * (1 - BM25_B + (BM25_B * length) / average));
           }
         }
         return { fragment, matched, score };
@@ -153,7 +153,9 @@ export class FragmentIndex {
   associated(keys: readonly string[]): Association[] {
     const wanted = new Set(keys);
     const refs = new Set(
-      [...wanted].flatMap((key) => [...(this.byKey.get(key) ?? [])])
+      [...wanted].flatMap((key) => [
+        ...(this.refsByAssociationKey.get(key) ?? []),
+      ])
     );
     return this.current(refs)
       .toSorted(newestFirst)

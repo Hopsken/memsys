@@ -161,7 +161,7 @@ const RecallPanel = ({
   const [draft, setDraft] = useState<Request>({ context: "", cue: "" });
   const [request, setRequest] = useState<Request | null>(null);
   const [opened, setOpened] = useState<string | null>(null);
-  const judged =
+  const usesContext =
     (useSettings().data?.settings.relevanceFilter ?? "off") !== "off";
   const query = useQuery({
     enabled: request !== null,
@@ -181,7 +181,7 @@ const RecallPanel = ({
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const next = {
-      context: judged ? draft.context.trim() : "",
+      context: usesContext ? draft.context.trim() : "",
       cue: draft.cue.trim(),
     };
     if (!next.cue) {
@@ -221,7 +221,7 @@ const RecallPanel = ({
             Search
           </Button>
         </div>
-        {judged ? (
+        {usesContext ? (
           <Input
             aria-label="What your AI is working on"
             autoComplete="off"

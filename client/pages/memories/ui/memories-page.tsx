@@ -26,7 +26,7 @@ import { TagFilterBar } from "./tag-filter-bar";
 const linkClass =
   "text-foreground underline underline-offset-4 hover:text-foreground/80";
 
-const flatten = (pages: FragmentPage[]) => {
+const latestPerRef = (pages: FragmentPage[]) => {
   const items = new Map<string, ListedFragment>();
   for (const item of pages.flatMap((page) => page.fragments)) {
     items.delete(item.ref);
@@ -90,7 +90,7 @@ export const FragmentsView = () => {
         .json<FragmentPage>(),
     queryKey: ["fragments", { tag: tags }],
   });
-  const items = flatten(query.data?.pages ?? []);
+  const items = latestPerRef(query.data?.pages ?? []);
   useReturnFocus();
   const filter = tags.join(" ");
   useEffect(() => {

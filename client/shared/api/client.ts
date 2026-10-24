@@ -32,5 +32,10 @@ export const failure = (error: Error): Failure => {
   };
 };
 
+export const isRetryable = (error: Error) => {
+  const { problem, status } = failure(error);
+  return problem.retry !== false && (status === null || status >= 500);
+};
+
 export const isExpired = (error: Error | null) =>
   error !== null && failure(error).expired;

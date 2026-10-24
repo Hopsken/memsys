@@ -30,7 +30,7 @@ import {
 } from "./server.ts";
 
 const WRITE_TOOLS = ["remember", "revise", "forget"] as const;
-const WRITER = 1;
+const WRITER_VERSION = 1;
 const WRITE_SOURCES = ["write.ts", "pi.ts", "dataset.ts"];
 
 const sessionLog = piRun.extend({
@@ -201,7 +201,7 @@ const key = sha(
     set,
     thinking: THINKING,
     tools: version.tools,
-    writer: WRITER,
+    writer: WRITER_VERSION,
   })
 ).slice(0, 8);
 const NAME = `${set}-${MODEL.split("/").at(-1) ?? MODEL}-${key}`;
