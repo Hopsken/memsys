@@ -11,7 +11,7 @@ export default defineConfig({
   ],
   sortImports: {
     ignoreCase: true,
-    internalPattern: ["@/", "@contract/", "@lib/", "@worker/"],
+    internalPattern: ["@/", "@lib/", "@worker/"],
     newlinesBetween: true,
     order: "asc",
   },

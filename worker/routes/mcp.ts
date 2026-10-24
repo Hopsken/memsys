@@ -9,8 +9,8 @@ import type { CallToolResult } from "@modelcontextprotocol/server";
 import { Hono } from "hono";
 import { z } from "zod";
 
-import { ok } from "@contract/result";
-import type { Failure, Result } from "@contract/result";
+import { ok } from "@lib/result";
+import type { Failure, Result } from "@lib/result";
 
 import { MEMORY_READ, MEMORY_WRITE } from "../lib/better-auth";
 import type { Scope } from "../lib/better-auth";

@@ -1,7 +1,7 @@
 import { inMemory } from "@core";
+import type { Fragment } from "@core";
 import { describe, expect, it } from "vitest";
 
-import type { Fragment } from "@contract/memory";
 import { terms } from "@lib/analyzer";
 import { extractAnchors } from "@lib/anchor";
 

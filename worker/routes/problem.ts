@@ -1,7 +1,7 @@
 import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
-import type { Code, Failure, Result } from "@contract/result";
+import type { Code, Failure, Result } from "@lib/result";
 
 const RETRY_AFTER_SECONDS = "5";
 

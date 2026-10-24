@@ -1,4 +1,4 @@
-import type { Failure, Issue } from "@contract/result";
+import type { Failure, Issue } from "@lib/result";
 
 export type TooLong = Failure<"invalid", "too-long">;
 

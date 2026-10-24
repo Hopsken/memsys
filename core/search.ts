@@ -1,4 +1,3 @@
-import type { Fragment } from "@contract/memory";
 import { terms } from "@lib/analyzer";
 import { associationKeys, extractAnchors } from "@lib/anchor";
 
@@ -10,6 +9,7 @@ import type {
   SearchHit,
 } from "./api";
 import { mergePatch } from "./merge-patch";
+import type { Fragment } from "./model";
 
 const BM25_K1 = 1.2;
 const BM25_B = 0.75;

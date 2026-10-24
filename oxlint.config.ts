@@ -82,7 +82,7 @@ const workerRules: OxlintOverride[] = [
           "../lib/*",
         ],
         message:
-          "worker/services may import only the core, contract/, lib/, and worker/errors.",
+          "worker/services may import only the core, lib/, and worker/errors.",
       },
     ]
   ),
@@ -123,7 +123,7 @@ const workerRules: OxlintOverride[] = [
     [
       {
         group: ["**/worker/**", "**/client/**", "@/**"],
-        message: "core/ may import only contract/, lib/, and packages.",
+        message: "core/ may import only lib/ and packages.",
       },
     ]
   ),
@@ -141,7 +141,7 @@ export default defineConfig({
   ],
   overrides: [
     {
-      files: ["contract/**", "lib/**"],
+      files: ["lib/**"],
       rules: {
         "no-restricted-imports": [
           "error",
@@ -159,8 +159,7 @@ export default defineConfig({
                   "@worker/**",
                   "cloudflare:*",
                 ],
-                message:
-                  "contract/ and lib/ may import only contract/, lib/, and packages.",
+                message: "lib/ may import only lib/ and packages.",
               },
             ],
           },

@@ -4,9 +4,8 @@ import { env } from "cloudflare:workers";
 import type { JSONValue } from "hono/utils/types";
 import { describe, expect, it, vi } from "vitest";
 
-import type { SettingsView } from "@contract/settings";
-
 import worker from "../worker/index";
+import type { SettingsView } from "../worker/services/settings";
 import { patchSettings, useAuth } from "./helpers";
 import type { User } from "./helpers";
 

@@ -1,20 +1,20 @@
-import type { AnchorCount, Association, Memory, SearchHit } from "@core";
+import type {
+  AnchorCount,
+  Association,
+  Fragment,
+  Memory,
+  SearchHit,
+} from "@core";
 import { z } from "zod";
 
-import type {
-  Fragment,
-  RecallInput,
-  RecallItem,
-  RecallResult,
-} from "@contract/memory";
-import { err, ok } from "@contract/result";
-import type { Result } from "@contract/result";
-import type { Strictness } from "@contract/settings";
 import { terms } from "@lib/analyzer";
 import { associationKeys, extractAnchors } from "@lib/anchor";
+import { err, ok } from "@lib/result";
+import type { Result } from "@lib/result";
 
 import type { RelevanceUnavailable } from "../errors";
 import { SettingsService } from "./settings";
+import type { Strictness } from "./settings";
 
 export const recallInput = z
   .object({
@@ -35,6 +35,15 @@ export const recallInput = z
       ),
   })
   .strict();
+
+export type RecallInput = z.infer<typeof recallInput>;
+
+export type RecallItem = Fragment & { via?: string[] };
+
+export interface RecallResult {
+  fragments: RecallItem[];
+  truncated: boolean;
+}
 
 const RESULT_SIZE = 10;
 const MAX_SEED_MATCHES = 10;

@@ -1,8 +1,7 @@
 import { activityInput, inputs, listInput, restoreInput } from "@core";
+import type { ImportFormat } from "@core";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
-
-import type { ImportFormat } from "@contract/memory";
 
 import { validate } from "../lib/validate";
 import { recallInput } from "../services/recall";

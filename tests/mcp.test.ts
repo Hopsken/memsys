@@ -1,8 +1,7 @@
+import type { Fragment } from "@core";
 import { env } from "cloudflare:workers";
 import type { JSONValue } from "hono/utils/types";
 import { describe, expect, it } from "vitest";
-
-import type { Fragment } from "@contract/memory";
 
 import { RELEVANCE_UNAVAILABLE } from "../worker/errors";
 import worker from "../worker/index";

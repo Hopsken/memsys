@@ -1,12 +1,23 @@
 import type { Memory, Metadata } from "@core";
 import { z } from "zod";
 
-import { err, ok } from "@contract/result";
-import type { Result } from "@contract/result";
-import type { Settings, SettingsView } from "@contract/settings";
 import { FRAGMENT_MAX } from "@lib/fragment";
+import { err, ok } from "@lib/result";
+import type { Result } from "@lib/result";
 
 import type { InvalidSettings } from "../errors";
+
+export type Strictness = "low" | "medium" | "high" | "max";
+
+export interface Settings {
+  length: { warn: number; refuse: number };
+  relevanceFilter: "off" | Strictness;
+}
+
+export interface SettingsView {
+  settings: Settings;
+  defaults: Settings;
+}
 
 const SETTINGS_KEY = "settings";
 

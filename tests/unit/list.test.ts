@@ -1,7 +1,6 @@
+import type { Fragment } from "@core";
 import { listFragments } from "@core/inputs";
 import { describe, expect, it } from "vitest";
-
-import type { Fragment } from "@contract/memory";
 
 const item = (
   ref: string,

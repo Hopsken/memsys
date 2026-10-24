@@ -1,8 +1,7 @@
+import type { Fragment } from "@core";
 import { evictDurableObject, runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
-
-import type { Fragment } from "@contract/memory";
 
 import { openMemory } from "../worker/lib/memory";
 

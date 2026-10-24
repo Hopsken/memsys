@@ -1,9 +1,7 @@
 import { inMemory } from "@core";
+import type { Fragment } from "@core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-
-import type { Fragment, Json, RecallItem } from "@contract/memory";
-import type { Strictness } from "@contract/settings";
 
 import {
   JEV_ATTEMPTS,
@@ -13,6 +11,8 @@ import {
 } from "../../worker/clients/jev";
 import type { Ai } from "../../worker/clients/jev";
 import { JUDGE_BUDGET, RecallService } from "../../worker/services/recall";
+import type { RecallItem } from "../../worker/services/recall";
+import type { Strictness } from "../../worker/services/settings";
 
 const item = (ref: string, fragment: string, via?: string[]): RecallItem => ({
   at: "",
@@ -44,6 +44,7 @@ const noul = (scores: Record<string, number>) => ({
 });
 
 type Run = Ai["run"];
+type Json = Awaited<ReturnType<Run>>;
 
 const asked = (request: Json | undefined) =>
   Object.keys(

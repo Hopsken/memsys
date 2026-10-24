@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-import type { Author, Fragment, LogRecord, Op } from "@contract/memory";
-import type { Issue } from "@contract/result";
+import type { Issue } from "@lib/result";
 
-import { fragment, logRecord } from "./inputs";
+import { fragmentText, logRecord } from "./model";
+import type { Author, Fragment, LogRecord, Op } from "./model";
 
 export interface Row {
   at: number;
@@ -112,7 +112,7 @@ export const parseText = (
     if (line.trim() === "") {
       continue;
     }
-    const parsed = fragment.safeParse(line);
+    const parsed = fragmentText.safeParse(line);
     if (parsed.success) {
       texts.push(parsed.data);
     } else {

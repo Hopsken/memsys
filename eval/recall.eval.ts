@@ -3,11 +3,10 @@ import { writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { inMemory } from "@core";
+import type { Fragment, Metadata } from "@core";
 import { afterAll, it, vi } from "vitest";
 import { getPlatformProxy } from "wrangler";
 import { z } from "zod";
-
-import type { Fragment, JsonObject } from "@contract/memory";
 
 import { jev } from "../worker/clients/jev";
 import type { Ai } from "../worker/clients/jev";
@@ -27,7 +26,11 @@ const corpus: Fragment[] = fragments.map(({ date, fragment, id }) => ({
   ref: id,
 }));
 
-const setups: { name: string; settings: JsonObject; jev?: boolean }[] = [
+const setups: {
+  name: string;
+  settings: Metadata;
+  jev?: boolean;
+}[] = [
   { name: "idf", settings: {} },
   {
     jev: true,
@@ -64,7 +67,7 @@ const ai: Ai = {
 
 vi.spyOn(console, "error").mockReturnValue();
 
-const recall = async (settings: JsonObject, item: EvalCase) => {
+const recall = async (settings: Metadata, item: EvalCase) => {
   const input = recallInput.parse({
     cue: item.cue,
     ...(item.context && { context: item.context }),

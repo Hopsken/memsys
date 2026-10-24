@@ -5,27 +5,23 @@ import { migrate } from "drizzle-orm/durable-sqlite/migrator";
 import { customAlphabet } from "nanoid";
 import { z } from "zod";
 
+import { err, ok } from "@lib/result";
+import type { Issue, Result } from "@lib/result";
+
 import type {
   ActivityPage,
-  Author,
+  AnchorCount,
+  Association,
   ForgottenList,
-  Fragment,
   FragmentPage,
   History,
   ImportFormat,
   ImportResult,
-  Op,
-  Restored,
-  Version,
-} from "@contract/memory";
-import { err, ok } from "@contract/result";
-import type { InvalidInput, Issue, NotFound, Result } from "@contract/result";
-
-import type {
-  AnchorCount,
-  Association,
+  InvalidInput,
   MemoryCore,
   Metadata,
+  NotFound,
+  Restored,
   SearchHit,
 } from "./api";
 import { metadata, records } from "./db/schema";
@@ -35,13 +31,13 @@ import {
   inputs,
   listFragments,
   PAGE_SIZE,
-  REF_ALPHABET,
-  REF_LENGTH,
 } from "./inputs";
 import { parseLog, parseText, replay, serializeLog } from "./log";
 import type { Row } from "./log";
 import { mergePatch } from "./merge-patch";
 import migrations from "./migrations/migrations.js";
+import { REF_ALPHABET, REF_LENGTH } from "./model";
+import type { Author, Fragment, Op, Version } from "./model";
 import { FragmentIndex } from "./search";
 
 const newRef = customAlphabet(REF_ALPHABET, REF_LENGTH);

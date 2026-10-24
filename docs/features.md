@@ -1,6 +1,6 @@
 # Features
 
-What memsys does on top of storing and matching memories, and which parts the owner can change under **Settings → Features**. The settings are one object (`contract/settings.ts`, parsed in `worker/services/settings.ts`); why there are no plugins is in [RFC 0004](rfcs/0004-memory-core.md).
+What memsys does on top of storing and matching memories, and which parts the owner can change under **Settings → Features**. The settings are one object; why there are no plugins is in [RFC 0004](rfcs/0004-memory-core.md).
 
 | Feature                | Setting                        | Default  |
 | ---------------------- | ------------------------------ | -------- |

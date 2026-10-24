@@ -1,11 +1,18 @@
+import type { Fragment } from "@core";
 import { z } from "zod";
 
-import type { Fragment, Json, JsonObject, RecallInput } from "@contract/memory";
-import { err, ok } from "@contract/result";
-import type { Result } from "@contract/result";
+import { err, ok } from "@lib/result";
+import type { Result } from "@lib/result";
 
 import { relevanceUnavailable } from "../errors";
 import type { RelevanceUnavailable } from "../errors";
+
+type Json = z.output<ReturnType<typeof z.json>>;
+
+interface Query {
+  context?: string | undefined;
+  cue: string;
+}
 
 export const JEV_MODEL = "typesafe/jev";
 export const JEV_TIMEOUT_MS = 1500;
@@ -52,7 +59,7 @@ const isTransient = (error: Error) => {
 };
 
 export interface Ai {
-  run: (model: string, input: JsonObject) => Promise<Json>;
+  run: (model: string, input: Record<string, Json>) => Promise<Json>;
 }
 
 const answers = z.object({
@@ -102,7 +109,7 @@ const withTimeout = async <T>(promise: Promise<T>, ms: number) => {
 const ask = async (
   ai: Ai,
   candidates: readonly Fragment[],
-  { context, cue }: RecallInput
+  { context, cue }: Query
 ) => {
   const output = await withTimeout(
     ai.run(JEV_MODEL, {
@@ -132,7 +139,7 @@ const persistent = (
 const score = async (
   ai: Ai,
   candidates: readonly Fragment[],
-  input: RecallInput
+  input: Query
 ): Promise<Result<Map<string, number>, RelevanceUnavailable>> => {
   const scores = new Map<string, number>();
   let failure = "";
@@ -179,5 +186,5 @@ const score = async (
 };
 
 export const jev =
-  (ai: Ai) => (candidates: readonly Fragment[], input: RecallInput) =>
+  (ai: Ai) => (candidates: readonly Fragment[], input: Query) =>
     score(ai, candidates, input);

@@ -1,4 +1,4 @@
-import type { LogRecord } from "@contract/memory";
+import type { LogRecord } from "@core";
 
 const memories = [
   {

@@ -1,7 +1,6 @@
+import type { Author } from "@core";
 import type { Context } from "hono";
 import { createMiddleware } from "hono/factory";
-
-import type { Author } from "@contract/memory";
 
 import {
   ALL_SCOPES,
