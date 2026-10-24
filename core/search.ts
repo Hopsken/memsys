@@ -133,18 +133,18 @@ export class FragmentIndex {
       .map((fragment) => {
         const { ref } = fragment;
         const length = this.lengths.get(ref) ?? 0;
-        const matched: string[] = [];
+        const matchedTerms: string[] = [];
         let score = 0;
         for (const term of unique) {
           const tf = this.postings.get(term)?.get(ref) ?? 0;
           if (tf > 0) {
-            matched.push(term);
+            matchedTerms.push(term);
             score +=
               (idf(term) * tf * (BM25_K1 + 1)) /
               (tf + BM25_K1 * (1 - BM25_B + (BM25_B * length) / average));
           }
         }
-        return { fragment, matched, score };
+        return { fragment, matchedTerms, score };
       })
       .toSorted(
         (a, b) => b.score - a.score || newestFirst(a.fragment, b.fragment)
@@ -171,7 +171,7 @@ export class FragmentIndex {
   anchors(): AnchorCount[] {
     return [...this.anchorCounts.keys()].toSorted().map((anchor) => ({
       anchor,
-      fragments: this.anchorCounts.get(anchor) ?? 0,
+      fragmentCount: this.anchorCounts.get(anchor) ?? 0,
     }));
   }
 }

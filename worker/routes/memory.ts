@@ -12,6 +12,13 @@ const IMPORT_FORMATS = new Map<string, ImportFormat>([
   ["text/plain", "text"],
 ]);
 
+const toRpcObject = <T extends object>(nullPrototype: T): T => ({
+  ...nullPrototype,
+});
+
+const textOfAnyMediaType = async (request: Request) =>
+  new TextDecoder().decode(await request.arrayBuffer());
+
 export const memory = new Hono<AppEnv>()
   .get("/activity", async (c) => {
     c.header("Cache-Control", "no-store");
@@ -19,13 +26,14 @@ export const memory = new Hono<AppEnv>()
     if (!activityInput.safeParse(query).success) {
       return c.json({ error: "Invalid activity query" }, 400);
     }
-    // Hono's query object has a null prototype; RPC requires a plain object.
-    return c.json(await c.get("memory").activity({ ...query }));
+    return c.json(await c.get("memory").activity(toRpcObject(query)));
   })
   .get("/fragments", async (c) => {
     c.header("Cache-Control", "no-store");
-    // Hono's query object has a null prototype; RPC requires a plain object.
-    const query = { ...c.req.query(), tag: c.req.queries("tag") };
+    const query = toRpcObject({
+      ...c.req.query(),
+      tag: c.req.queries("tag"),
+    });
     if (!listInput.safeParse(query).success) {
       return c.json({ error: "Invalid list query" }, 400);
     }
@@ -90,8 +98,7 @@ export const memory = new Hono<AppEnv>()
         415
       );
     }
-    // Decoded directly: workerd warns when .text() reads a non-text type.
-    const content = new TextDecoder().decode(await c.req.arrayBuffer());
+    const content = await textOfAnyMediaType(c.req.raw);
     const result = await c.get("memory").importLog({ content, format });
     return c.json(unwrap(result));
   })

@@ -24,6 +24,12 @@ interface Picked {
   type: string;
 }
 
+const LARGE_IMPORT_TIMEOUT_MS = 60_000;
+
+const allowPickingSameFileAgain = (input: HTMLInputElement) => {
+  input.value = "";
+};
+
 const mediaType = ({ name, type }: File) => {
   const lower = name.toLowerCase();
   if (lower.endsWith(".ndjson") || type === "application/x-ndjson") {
@@ -71,12 +77,11 @@ export const DataView = () => {
   const [unreadable, setUnreadable] = useState<string | null>(null);
   const mutation = useMutation({
     mutationFn: ({ file, type }: Picked) =>
-      // A large memory can take longer than ky's default ten seconds.
       api
         .post("/api/import", {
           body: file,
           headers: { "Content-Type": type },
-          timeout: 60_000,
+          timeout: LARGE_IMPORT_TIMEOUT_MS,
         })
         .json<ImportResult>(),
     onSuccess: () => {
@@ -157,8 +162,7 @@ export const DataView = () => {
                 className="hidden"
                 onChange={(event) => {
                   pick(event.target.files?.[0]);
-                  // Picking the same file again should still trigger a change.
-                  event.target.value = "";
+                  allowPickingSameFileAgain(event.target);
                 }}
                 ref={input}
                 type="file"

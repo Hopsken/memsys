@@ -13,8 +13,7 @@ import {
 import { defaultSpace, openMemory } from "../lib/memory";
 import type { AppEnv } from "../types";
 
-// Points apps without a token to OAuth sign-in (RFC 9728).
-const unauthorized = (c: Context<AppEnv>) => {
+const pointToOAuthSignIn = (c: Context<AppEnv>) => {
   c.header(
     "WWW-Authenticate",
     `Bearer resource_metadata="${resourceMetadataUrl(c.env)}", scope="${OAUTH_SCOPES.join(" ")}"`
@@ -30,12 +29,12 @@ export const requireToken = createMiddleware<AppEnv>(async (c, next) => {
     c.req.header("Authorization") ?? ""
   )?.groups?.["key"];
   if (!key) {
-    return unauthorized(c);
+    return pointToOAuthSignIn(c);
   }
   if (key.startsWith("memsys_")) {
     const verified = await getAuth(c.env).api.verifyApiKey({ body: { key } });
     if (!verified.valid || !verified.key) {
-      return unauthorized(c);
+      return pointToOAuthSignIn(c);
     }
     c.set(
       "memory",
@@ -50,7 +49,7 @@ export const requireToken = createMiddleware<AppEnv>(async (c, next) => {
   }
   const verified = await verifyAccessToken(c.env, key);
   if (!verified) {
-    return unauthorized(c);
+    return pointToOAuthSignIn(c);
   }
   if (verified.scopes.size === 0) {
     c.header(

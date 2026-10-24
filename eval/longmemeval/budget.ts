@@ -27,7 +27,6 @@ export default function budget(pi: Pi) {
         reason: `${BUDGET_REASON} ${max} calls is used up. Answer with what you already have.`,
       };
     }
-    // Pi runs the call.
     // oxlint-disable-next-line no-useless-undefined
     return undefined;
   });

@@ -5,15 +5,15 @@ import { useNavigate, useParams, useSearchParams } from "react-router";
 export const memoryId = (ref: string, at?: string | null) =>
   at ? `memory-${ref}-${Date.parse(at)}` : `memory-${ref}`;
 
-// Menus render in a portal, so their clicks bubble through React but not
-// through the row's DOM.
 export const useOpenHistory = () => {
   const navigate = useNavigate();
   return (to: string) => (event: MouseEvent<HTMLElement>) => {
     const { currentTarget, target } = event;
+    const clickedInPortalMenu =
+      target instanceof Element && !currentTarget.contains(target);
     if (
       !(target instanceof Element) ||
-      !currentTarget.contains(target) ||
+      clickedInPortalMenu ||
       target.closest("a, button") ||
       window.getSelection()?.toString()
     ) {

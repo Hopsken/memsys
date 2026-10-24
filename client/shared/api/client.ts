@@ -3,7 +3,6 @@ import * as z from "zod/mini";
 
 export const api = ky.create({ cache: "no-store", retry: 0 });
 
-// Better Auth routes put their message in `message`.
 const problemSchema = z.object({
   error: z.optional(z.string()),
   issues: z.optional(

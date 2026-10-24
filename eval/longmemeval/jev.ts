@@ -1,7 +1,3 @@
-// Jev (Workers AI) as the judge, through a remote binding. Two jobs: label
-// which fragments of an evidence session carry the answer, and grade
-// answers with LongMemEval's per-type rules (src/evaluation/evaluate_qa.py).
-
 import path from "node:path";
 
 import { getPlatformProxy } from "wrangler";

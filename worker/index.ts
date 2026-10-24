@@ -68,7 +68,6 @@ app.use("/api/*", (c, next) => {
 app.on(["GET", "POST"], ["/api/auth/*", "/.well-known/*"], (c) =>
   getAuth(c.env).handler(c.req.raw)
 );
-// Replaced with `false` in production builds, which then drop routes/dev.
 if (import.meta.env.DEV && process.env.NODE_ENV !== "production") {
   app.route("/", dev);
 }
@@ -90,18 +89,20 @@ app.onError((cause, c) => {
   return c.json({ error: "Internal server error" }, 500);
 });
 
+const finishEvenIfClientLeaves = (
+  response: Response | Promise<Response>,
+  ctx?: ExecutionContext
+) => {
+  const finished = Promise.resolve(response);
+  ctx?.waitUntil(finished);
+  return finished;
+};
+
 export default {
-  // Start Better Auth here, so its setup outlives this request if needed.
-  // Requests in an isolate also share work in flight, such as fetching an
-  // app's client metadata document; if the request doing it is canceled,
-  // every request waiting on it hangs. So each request runs to the end.
   fetch: (request: Request, env: Env, ctx?: ExecutionContext) => {
     getAuth(env, ctx);
-    const response = Promise.resolve(app.fetch(request, env, ctx));
-    ctx?.waitUntil(response);
-    return response;
+    return finishEvenIfClientLeaves(app.fetch(request, env, ctx), ctx);
   },
 };
 
-// Wrangler takes Durable Object classes from the Worker's entry point.
 export { MemoryDO } from "@core/do";

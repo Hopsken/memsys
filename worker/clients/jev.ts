@@ -11,14 +11,12 @@ export const JEV_MODEL = "typesafe/jev";
 export const JEV_TIMEOUT_MS = 1500;
 export const JEV_ATTEMPTS = 3;
 
-// Workers AI codes that retrying cannot fix: no balance, a model that is gone,
-// or an account or plan that may not use it.
-const PERSISTENT = new Set([3023, 3036, 3041, 3042, 5007, 5016, 5018, 5035]);
+const UNRETRYABLE_AI_ERROR_CODES = new Set([
+  3023, 3036, 3041, 3042, 5007, 5016, 5018, 5035,
+]);
 
-// The binding throws `AiError: 3036: …`; some versions also set `code`.
 const AI_ERROR_CODE = /(?:^|\s)(?<code>\d{4}):/u;
-// Gateway failures between the binding and the model carry no code.
-const UPSTREAM = /InferenceUpstreamError/u;
+const UPSTREAM_GATEWAY_ERROR = /InferenceUpstreamError/u;
 const BACKOFF_MS = 250;
 
 class JevAttemptError extends Error {
@@ -48,9 +46,9 @@ const isTransient = (error: Error) => {
     z.object({ code: z.number() }).safeParse(error).data?.code ??
     Number(AI_ERROR_CODE.exec(String(error))?.groups?.["code"]);
   if (Number.isInteger(code)) {
-    return !PERSISTENT.has(code);
+    return !UNRETRYABLE_AI_ERROR_CODES.has(code);
   }
-  return UPSTREAM.test(String(error));
+  return UPSTREAM_GATEWAY_ERROR.test(String(error));
 };
 
 export interface Ai {
@@ -60,15 +58,13 @@ export interface Ai {
 const answers = z.object({
   answers: z.record(z.string(), z.object({ noul: z.number().min(0).max(1) })),
 });
-// Workers AI wraps Jev's body in a gateway envelope ({ state, result, … });
-// the model docs show it bare. Accept both.
-const response = z.union([
+const bareOrGatewayEnveloped = z.union([
   answers,
   z.object({ result: answers }).transform(({ result }) => result),
 ]);
 
 const parseScores = (value: Json) => {
-  const parsed = response.safeParse(value);
+  const parsed = bareOrGatewayEnveloped.safeParse(value);
   if (!parsed.success) {
     const keys = Object.keys(z.looseObject({}).safeParse(value).data ?? {});
     throw new JevAttemptError(

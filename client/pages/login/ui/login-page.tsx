@@ -27,8 +27,7 @@ const MESSAGES = new Map([
   ],
 ]);
 
-// Better Auth answers with `{ data, error }`; mutations want a thrown error.
-const check = async (
+const throwBetterAuthError = async (
   result: Promise<{
     error: {
       code?: string | undefined;
@@ -86,7 +85,7 @@ export const LoginView = () => {
   }, [cooldown]);
   const send = useMutation({
     mutationFn: (address: string) =>
-      check(
+      throwBetterAuthError(
         authClient.emailOtp.sendVerificationOtp({
           email: address,
           type: "sign-in",
@@ -100,7 +99,9 @@ export const LoginView = () => {
   });
   const verify = useMutation({
     mutationFn: (otp: string) =>
-      check(authClient.signIn.emailOtp({ email: sentTo ?? "", otp })),
+      throwBetterAuthError(
+        authClient.signIn.emailOtp({ email: sentTo ?? "", otp })
+      ),
     onSuccess: () => (forApp ? undefined : navigate("/", { replace: true })),
   });
 

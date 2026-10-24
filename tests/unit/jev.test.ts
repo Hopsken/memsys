@@ -64,7 +64,11 @@ const stage = (
   rows: RecallItem[] = items,
   strictness: Strictness = "medium"
 ) =>
-  new RecallService(inMemory([]), jev({ run })).filter(rows, input, strictness);
+  new RecallService(inMemory([]), jev({ run })).keepOnlyJudgedRelevant(
+    rows,
+    input,
+    strictness
+  );
 
 const refs = (result: Awaited<ReturnType<typeof stage>>) =>
   result.ok ? result.value.items.map((row) => row.ref) : result.error;

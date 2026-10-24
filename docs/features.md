@@ -22,7 +22,7 @@ Length is counted in grapheme clusters (`lib/fragment.ts`), the same way core co
 
 ## Relevance filter (Jev)
 
-Asks [Jev](https://developers.cloudflare.com/ai/models/typesafe/jev/), a small judgment model on Workers AI, whether each recalled fragment helps with the agent's cue and `context`, and hides the ones it rules out (`RecallService.filter` in `worker/services/recall.ts`; the Workers AI call is `worker/clients/jev.ts`). Runs after ranking. Uses Workers AI credits and adds about a second per recall.
+Asks [Jev](https://developers.cloudflare.com/ai/models/typesafe/jev/), a small judgment model on Workers AI, whether each recalled fragment helps with the agent's cue and `context`, and hides the ones it rules out (`RecallService.keepOnlyJudgedRelevant` in `worker/services/recall.ts`; the Workers AI call is `worker/clients/jev.ts`). Runs after ranking. Uses Workers AI credits and adds about a second per recall.
 
 `relevanceFilter` is `off` or how much to hide: `low` 0.1, `medium` 0.3, `high` 0.5, `max` 0.7. A fragment is hidden when Jev's probability that it helps falls below the level. On real recalls, misses scored about 0.15 or lower and hits about 0.9, which is where the levels come from.
 

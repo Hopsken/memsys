@@ -36,7 +36,6 @@ describe(getAuth, () => {
     expect(getAuth(bindings, ctx)).toBe(auth);
     expect(waitUntil).toHaveBeenCalledOnce();
     await waitOnExecutionContext(ctx);
-    // Setup ran through the schema check, whose clean result is now cached.
     const { checkSchema } = await auth.$context;
     expect(checkSchema).toBeDefined();
     expect(checkSchema?.()).toBeUndefined();
@@ -68,10 +67,7 @@ describe(getAuth, () => {
   });
 });
 
-// Kysely lets a SQLite database run one query at a time, across every
-// request in the isolate. On D1 each query stands alone, so none may wait on
-// another request's.
-describe("D1 queries", () => {
+describe("D1 queries, unlike Kysely's one-at-a-time SQLite", () => {
   const signIn = useAuth();
 
   it("answers while another request's query never settles", async () => {

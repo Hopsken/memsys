@@ -16,12 +16,11 @@ const exportFile = (user: User, query = "") =>
     env
   );
 
-// Decoded directly: workerd warns when .text() reads a non-text type.
-const read = async (response: Response) =>
+const textOfAnyMediaType = async (response: Response) =>
   new TextDecoder().decode(await response.arrayBuffer());
 
 const records = async (user: User, query = "") => {
-  const text = await read(await exportFile(user, query));
+  const text = await textOfAnyMediaType(await exportFile(user, query));
   return text
     .split("\n")
     .filter(Boolean)
@@ -77,7 +76,7 @@ describe("Fragment export and import", () => {
       ),
       "content-type": "application/x-ndjson; charset=utf-8",
     });
-    const file = await read(response);
+    const file = await textOfAnyMediaType(response);
     expect(file.split("\n")).toHaveLength(3);
 
     const target = await signIn();
@@ -116,7 +115,10 @@ describe("Fragment export and import", () => {
     ]);
 
     const target = await signIn();
-    const imported = await importFile(target, await read(response));
+    const imported = await importFile(
+      target,
+      await textOfAnyMediaType(response)
+    );
     await expect(imported.json()).resolves.toStrictEqual({
       conflicts: [],
       imported: 1,

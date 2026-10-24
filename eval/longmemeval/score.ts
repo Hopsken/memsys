@@ -7,7 +7,7 @@ import type { SlimQuestion } from "./dataset.ts";
 import { CORRECT, UNSURE } from "./jev.ts";
 import { READ_TOOLS } from "./pi.ts";
 import type { PiRun, ToolCall } from "./pi.ts";
-import type { SettingsPatch } from "./server.ts";
+import type { SettingsMergePatch } from "./server.ts";
 
 const recalled = z.object({
   fragments: z.array(z.looseObject({ fragment: z.string(), ref: z.string() })),
@@ -150,7 +150,7 @@ export interface RunMeta {
   corpus: string;
   corpusSize: Record<string, number>;
   model: string;
-  settings: SettingsPatch;
+  settings: SettingsMergePatch;
   recallRounds: number;
   repeats: number;
   run: string;

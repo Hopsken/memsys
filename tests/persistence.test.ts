@@ -6,7 +6,6 @@ import type { Fragment } from "@contract/memory";
 
 import { openMemory } from "../worker/lib/memory";
 
-// Recall through the Worker's service, as routes and MCP do.
 const recall = async (cue: string) => {
   const result = await openMemory("persistence", "user").recall({ cue });
   if (!result.ok) {

@@ -24,6 +24,8 @@ node eval/longmemeval/recall.ts --corpus <name> --run <run> [--set smoke] [--mod
 - **label** asks Jev which fragments written from each evidence session carry the answer, and writes `labels.json` (question → session → refs) and `labels-review.md`, every candidate with its score. Correct `labels.json` by hand; a rerun keeps hand edits. An empty list is a write miss and leaves the recall denominator.
 - **recall** runs Pi on each question with `list_tags` and `recall` only, `--rounds` recall calls at most (`budget.ts`), `--repeats` times. It writes `hub/runs/<run>/results.md`: found, read next to the dump size, rounds, stale fragments for knowledge-update, and the answer graded by Jev as a secondary metric. An interrupted run continues; delete `results.json` to grade again. `--settings` sets memsys settings for the run as JSON over the defaults, as under Settings → Features. Each choice of settings gets its own memory spaces, so such runs can run side by side. The relevance filter needs Workers AI: start the dev Worker with `JEV=1`.
 
+Pi shows MCP server instructions as one line only, so write and recall put them in the system prompt, as Claude Code does. They are read live from the dev Worker.
+
 Sets: `smoke` (2 per type) is the head of `dev` (10 per type); `holdout` (10 per type) shares nothing with `dev`; `full` is all 500.
 
 For a recall change: `smoke` to check nothing broke, then `dev` against the last kept run on the same corpus (found does not drop, read or rounds drop). After several kept changes, `dev` with a second recall model, then `holdout` once. A write-side change (server instructions, `remember`/`revise`/`forget`, the write model) makes a new corpus.

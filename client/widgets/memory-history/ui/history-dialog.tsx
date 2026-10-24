@@ -46,6 +46,9 @@ import { formatRelativeDate } from "@lib/date";
 
 import { MemoryText } from "./memory-text";
 
+const DIM_FOR_NESTED_DIALOG_WITHOUT_BACKDROP =
+  "after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:bg-black/0 after:transition-colors data-nested-dialog-open:after:bg-black/10";
+
 const stamp = (at: string) =>
   `${formatRelativeDate(at)}, ${new Date(at).toLocaleTimeString([], {
     hour: "numeric",
@@ -288,9 +291,10 @@ export const MemoryHistoryDialog = ({
       open
     >
       <DialogContent
-        // A nested dialog, such as the delete confirmation, has no backdrop
-        // of its own, so this one dims instead.
-        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 p-0 after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:bg-black/0 after:transition-colors data-nested-dialog-open:after:bg-black/10 sm:max-h-[85dvh] sm:max-w-xl"
+        className={cn(
+          "flex max-h-[calc(100dvh-2rem)] flex-col gap-0 p-0 sm:max-h-[85dvh] sm:max-w-xl",
+          DIM_FOR_NESTED_DIALOG_WITHOUT_BACKDROP
+        )}
         initialFocus={body}
         showCloseButton={false}
       >

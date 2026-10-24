@@ -1,6 +1,3 @@
-// One Pi conversation with memsys as its only tools, read from Pi's JSON
-// event stream (docs/json.md in the Pi package).
-
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -24,6 +21,8 @@ export const piRun = z.object({
   tools: z.array(toolCall),
 });
 export type PiRun = z.infer<typeof piRun>;
+
+const MCP_RESOURCE_TOOLS = "list_mcp_*,read_mcp_resource";
 
 const block = z.looseObject({ text: z.string().optional(), type: z.string() });
 const texts = (blocks: z.infer<typeof block>[]) =>
@@ -57,9 +56,6 @@ const event = z.discriminatedUnion("type", [
       errorMessage: z.string().optional(),
       role: z.string(),
       stopReason: z.string().optional(),
-      // The level Pi ran at. A level the provider lacks is moved to the
-      // nearest one it has, silently: opencode-go/deepseek-v4.1-flash has no
-      // medium and runs high instead.
       thinkingLevel: z.string().optional(),
       usage: z.object({ cost: z.object({ total: z.number() }) }).optional(),
     }),
@@ -168,9 +164,8 @@ const runOnce = async (
       "-e",
       "builtin:mcp",
       ...(readOnly ? ["-e", path.join(import.meta.dirname, "budget.ts")] : []),
-      // Pi's own MCP tools would let the agent read server resources.
       "--exclude-tools",
-      "list_mcp_*,read_mcp_resource",
+      MCP_RESOURCE_TOOLS,
       "--model",
       options.model,
       "--thinking",

@@ -10,6 +10,4 @@ export interface SettingsView {
   defaults: Settings;
 }
 
-// A JSON Merge Patch: each field given is a whole new value, or null to
-// return it to its default. Fields left out stay as they are.
-export type SettingsPatch = { [K in keyof Settings]?: Settings[K] | null };
+export type SettingsMergePatch = { [K in keyof Settings]?: Settings[K] | null };

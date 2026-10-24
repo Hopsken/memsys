@@ -17,9 +17,7 @@ import { settings } from "./settings";
 
 const seedInput = z.object({ email: z.email() });
 
-// Where to send the browser after signing in: a path on this origin.
-// Anything else, such as `//host` or `/\host`, would leave the site.
-const returnPath = (returnTo: string | undefined, origin: string) => {
+const sameOriginPath = (returnTo: string | undefined, origin: string) => {
   if (!returnTo?.startsWith("/")) {
     return "/";
   }
@@ -67,7 +65,6 @@ export const dev =
         await seedSpace(defaultSpace(user.id), corpus);
       }
       const session = await internalAdapter.createSession(user.id);
-      // The cookie Better Auth sets on sign-in, signed the same way.
       await setSignedCookie(
         c,
         authCookies.sessionToken.name,
@@ -76,7 +73,7 @@ export const dev =
         authCookies.sessionToken.attributes
       );
       return c.redirect(
-        returnPath(c.req.query("returnTo"), new URL(c.req.url).origin)
+        sameOriginPath(c.req.query("returnTo"), new URL(c.req.url).origin)
       );
     })
     .use("/__dev/eval/:space/*", (c, next) => {

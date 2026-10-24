@@ -8,12 +8,14 @@ const STOPWORDS = new Set(
 
 const segmenter = new Intl.Segmenter("en", { granularity: "word" });
 
-// Unicode words, lowercased; possessives dropped and plain English words
-// stemmed, so "evicted", "eviction", and "D1's" meet "evict" and "d1".
-// Anchors are words too: "#durable-objects" yields "durable" and "objects".
+const POSSESSIVE = /['’]s(?!\p{L})/gu;
+
+export const stemPlainEnglish = (word: string) =>
+  /^[a-z]+$/u.test(word) ? stem(word) : word;
+
 export const terms = (text: string): string[] =>
-  [...segmenter.segment(text.toLowerCase().replaceAll(/['’]s(?!\p{L})/gu, ""))]
+  [...segmenter.segment(text.toLowerCase().replaceAll(POSSESSIVE, ""))]
     .filter((segment) => segment.isWordLike)
     .map((segment) => segment.segment)
     .filter((word) => !STOPWORDS.has(word))
-    .map((word) => (/^[a-z]+$/u.test(word) ? stem(word) : word));
+    .map(stemPlainEnglish);

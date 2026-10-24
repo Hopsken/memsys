@@ -18,8 +18,6 @@ export const ALL_SCOPES: ReadonlySet<Scope> = new Set([
   MEMORY_READ,
   MEMORY_WRITE,
 ]);
-// Refresh tokens are issued only with offline_access; without it an app
-// would need the user to sign in again every hour.
 export const OAUTH_SCOPES = [MEMORY_READ, MEMORY_WRITE, "offline_access"];
 
 export const mcpResource = (env: Env) => `${env.PUBLIC_URL}/mcp`;
@@ -51,8 +49,7 @@ const clientRegistration = z.looseObject({
 
 const authorizationRequest = z.looseObject({ scope: z.string() });
 
-// A before hook may replace the body or query the endpoint sees.
-interface RequestOverride {
+interface BeforeHookOverride {
   context:
     | { body: z.output<typeof clientRegistration> }
     | { query: z.output<typeof authorizationRequest> };
@@ -69,20 +66,74 @@ const isNativeRedirect = (uri: string) => {
   return url.protocol !== "https:";
 };
 
-// Fetches an app's client metadata document (CIMD). Better Auth's transport
-// is Node-only; on Workers, fetch cannot reach private networks, so this
-// refuses the rest: plain HTTP, IP literals, localhost, and redirects.
-// Better Auth asks for redirect "error", which Workers rejects; "manual"
-// hands a redirect back as a 3xx, which Better Auth then refuses.
-const fetchClientMetadata: ClientMetadataResourceFetch = (input, init) => {
-  const request = new Request(input, { ...init, redirect: "manual" });
-  const { hostname, protocol } = new URL(request.url);
+const registerLoopbackOnlyAppsAsNative = (
+  path: string,
+  client: z.output<typeof clientRegistration> | undefined
+): BeforeHookOverride | null => {
   if (
-    protocol !== "https:" ||
-    hostname === "localhost" ||
-    hostname.startsWith("[") ||
-    /^[\d.]+$/u.test(hostname)
+    path !== "/oauth2/register" ||
+    !client ||
+    client.application_type !== undefined ||
+    !client.redirect_uris.every(isNativeRedirect)
   ) {
+    return null;
+  }
+  return { context: { body: { ...client, application_type: "native" } } };
+};
+
+const requestRefreshTokensForEveryApp = (
+  path: string,
+  authorization: z.output<typeof authorizationRequest> | undefined
+): BeforeHookOverride | null => {
+  if (
+    path !== "/oauth2/authorize" ||
+    !authorization ||
+    authorization.scope.split(" ").includes("offline_access")
+  ) {
+    return null;
+  }
+  return {
+    context: {
+      query: {
+        ...authorization,
+        scope: `${authorization.scope} offline_access`,
+      },
+    },
+  };
+};
+
+const refuseSignInCodesToUnlistedEmails = (
+  env: Env,
+  path: string,
+  request: z.output<typeof signInCodeRequest> | undefined
+) => {
+  if (
+    path === "/email-otp/send-verification-otp" &&
+    request &&
+    !isAllowedEmail(env, request.email)
+  ) {
+    throw new APIError("FORBIDDEN", {
+      message: "This email is not allowed to sign in.",
+    });
+  }
+};
+
+const isPublicHttpsHost = ({ hostname, protocol }: URL) =>
+  protocol === "https:" &&
+  hostname !== "localhost" &&
+  !hostname.startsWith("[") &&
+  !/^[\d.]+$/u.test(hostname);
+
+const fetchClientMetadataFromPublicHttps: ClientMetadataResourceFetch = (
+  input,
+  init
+) => {
+  const redirectsReturnedAsResponses = "manual";
+  const request = new Request(input, {
+    ...init,
+    redirect: redirectsReturnedAsResponses,
+  });
+  if (!isPublicHttpsHost(new URL(request.url))) {
     throw new TypeError("Client metadata must be on a public HTTPS host");
   }
   return fetch(request, { signal: init?.signal ?? AbortSignal.timeout(5000) });
@@ -123,51 +174,25 @@ const createAuth = (env: Env) =>
       },
     },
     hooks: {
-      before: createAuthMiddleware((ctx): Promise<RequestOverride | null> => {
-        // Desktop MCP apps register loopback redirects without saying they
-        // are native apps, and web apps may not use http://localhost.
-        const client = clientRegistration.safeParse(ctx.body);
-        if (
-          ctx.path === "/oauth2/register" &&
-          client.success &&
-          client.data.application_type === undefined &&
-          client.data.redirect_uris.every(isNativeRedirect)
-        ) {
-          return Promise.resolve({
-            context: { body: { ...client.data, application_type: "native" } },
-          });
+      before: createAuthMiddleware(
+        (ctx): Promise<BeforeHookOverride | null> => {
+          refuseSignInCodesToUnlistedEmails(
+            env,
+            ctx.path,
+            signInCodeRequest.safeParse(ctx.body).data
+          );
+          return Promise.resolve(
+            registerLoopbackOnlyAppsAsNative(
+              ctx.path,
+              clientRegistration.safeParse(ctx.body).data
+            ) ??
+              requestRefreshTokensForEveryApp(
+                ctx.path,
+                authorizationRequest.safeParse(ctx.query).data
+              )
+          );
         }
-        // Apps such as ChatGPT ask only for the scopes /mcp lists, which
-        // leave out offline_access, and so would get no refresh token and
-        // need the user to sign in again every hour. Ask for it on their
-        // behalf; only apps registered for refresh tokens receive one.
-        const authorization = authorizationRequest.safeParse(ctx.query);
-        if (
-          ctx.path === "/oauth2/authorize" &&
-          authorization.success &&
-          !authorization.data.scope.split(" ").includes("offline_access")
-        ) {
-          return Promise.resolve({
-            context: {
-              query: {
-                ...authorization.data,
-                scope: `${authorization.data.scope} offline_access`,
-              },
-            },
-          });
-        }
-        const request = signInCodeRequest.safeParse(ctx.body);
-        if (
-          ctx.path === "/email-otp/send-verification-otp" &&
-          request.success &&
-          !isAllowedEmail(env, request.data.email)
-        ) {
-          throw new APIError("FORBIDDEN", {
-            message: "This email is not allowed to sign in.",
-          });
-        }
-        return Promise.resolve(null);
-      }),
+      ),
     },
     plugins: [
       emailOTP({
@@ -189,7 +214,7 @@ const createAuth = (env: Env) =>
       jwt({ disableSettingJwtHeader: true }),
       mcpPlugin(env),
       cimd({
-        fetchClientMetadataResource: fetchClientMetadata,
+        fetchClientMetadataResource: fetchClientMetadataFromPublicHttps,
         metadataProfile: "mcp-2026-07-28",
       }),
     ],
@@ -209,15 +234,14 @@ interface Instance {
   ready: boolean;
 }
 
-// Better Auth sets itself up with D1 queries as soon as it is created.
 const SETUP_TIMEOUT_MS = 10_000;
 
 const instances = new WeakMap<Env, Instance>();
 
-// A failed setup is dropped, so the next request starts over. Setup ends
-// with a schema check that Better Auth starts but does not wait for, and
-// every request waits on it; so it is part of setup too.
-const settle = async (env: Env, instance: Instance) => {
+const finishSetupIncludingSchemaCheck = async (
+  env: Env,
+  instance: Instance
+) => {
   try {
     const context = await instance.auth.$context;
     await context.checkSchema?.();
@@ -229,17 +253,12 @@ const settle = async (env: Env, instance: Instance) => {
   }
 };
 
-// Every request in an isolate waits on the shared instance's setup. That
-// setup's I/O belongs to the request that started it: if that request is
-// canceled, the setup never finishes and every later request hangs. So the
-// starting request keeps it alive with waitUntil, and an instance still not
-// ready after the timeout is replaced.
+const isStalled = (instance: Instance) =>
+  !instance.ready && Date.now() - instance.createdAt >= SETUP_TIMEOUT_MS;
+
 export const getAuth = (env: Env, ctx?: ExecutionContext) => {
   const cached = instances.get(env);
-  if (
-    cached &&
-    (cached.ready || Date.now() - cached.createdAt < SETUP_TIMEOUT_MS)
-  ) {
+  if (cached && !isStalled(cached)) {
     return cached.auth;
   }
   const instance: Instance = {
@@ -247,8 +266,11 @@ export const getAuth = (env: Env, ctx?: ExecutionContext) => {
     createdAt: Date.now(),
     ready: false,
   };
-  const setup = settle(env, instance);
-  ctx?.waitUntil(setup);
+  const setupOutlivingItsRequest = finishSetupIncludingSchemaCheck(
+    env,
+    instance
+  );
+  ctx?.waitUntil(setupOutlivingItsRequest);
   instances.set(env, instance);
   return instance.auth;
 };
@@ -264,6 +286,7 @@ const jwksCacheKeys = new WeakMap<Env, object>();
 
 export const verifyAccessToken = async (env: Env, token: string) => {
   const auth = getAuth(env);
+  const readJwksInProcess = () => auth.api.getJwks();
   let jwksCacheKey = jwksCacheKeys.get(env);
   if (!jwksCacheKey) {
     jwksCacheKey = {};
@@ -271,14 +294,12 @@ export const verifyAccessToken = async (env: Env, token: string) => {
   }
   const payload = await verifyJwsAccessToken(token, {
     jwksCacheKey,
-    // Read the keys in-process; fetching our own /jwks URL is a subrequest
-    // to this Worker.
-    jwksFetch: () => auth.api.getJwks(),
+    jwksFetch: readJwksInProcess,
     verifyOptions: { audience: mcpResource(env), issuer: issuer(env) },
   }).catch(() => null);
   const claims = accessToken.safeParse(payload);
-  // Sender-constrained (DPoP) tokens are refused; /mcp checks bearers only.
-  if (!claims.success || claims.data.cnf !== undefined) {
+  const isSenderConstrained = claims.data?.cnf !== undefined;
+  if (!claims.success || isSenderConstrained) {
     return null;
   }
   const { adapter } = await auth.$context;

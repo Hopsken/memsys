@@ -11,8 +11,6 @@ export type RelevanceUnavailable = Failure<
   "relevance-unavailable"
 > & { retry: boolean };
 
-// What the agent and the owner read when the relevance filter fails. The
-// cause never reaches them: neither can fix Workers AI.
 export const RELEVANCE_UNAVAILABLE =
   "The relevance filter is unavailable, and retrying will not help. Recall works again once the owner turns the filter off under Settings → Features in memsys.";
 export const RELEVANCE_RETRY =

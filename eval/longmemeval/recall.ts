@@ -29,7 +29,7 @@ import {
   serverInstructions,
   setSettings,
 } from "./server.ts";
-import type { SettingsPatch } from "./server.ts";
+import type { SettingsMergePatch } from "./server.ts";
 
 const { values: args } = parseArgs({
   options: {
@@ -51,7 +51,7 @@ if (CORPUS === undefined || RUN === undefined) {
 }
 const RUN_DIR = path.join(RUNS_DIR, RUN);
 const REPEATS = Number(args.repeats);
-const SETTINGS: SettingsPatch = z
+const SETTINGS: SettingsMergePatch = z
   .record(z.string(), z.json())
   .parse(JSON.parse(args.settings));
 const settingsKey =

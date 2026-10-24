@@ -4,9 +4,6 @@ import type { Json, JsonObject } from "@contract/memory";
 
 const jsonObject = z.record(z.string(), z.json());
 
-// JSON Merge Patch (RFC 7396): a patch object's fields replace the target's,
-// recursively; `null` removes a field; any other patch value replaces the
-// target's whole.
 export const mergePatch = (
   target: Json | undefined,
   patch: JsonObject

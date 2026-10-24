@@ -1,9 +1,6 @@
 import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-// Better Auth's tables in the Worker's D1 database. Better Auth reads them
-// directly, so table and column names are its own model and field names, as
-// its CLI would generate them. Other D1 tables get their own file here.
 const now = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
 const createdAt = () =>
   integer({ mode: "timestamp_ms" }).default(now).notNull();
@@ -123,8 +120,6 @@ export const jwks = sqliteTable("jwks", {
   publicKey: text().notNull(),
 });
 
-// OAuth for /mcp: apps that sign in on a user's behalf. List columns hold
-// JSON arrays; `metadata` holds a JSON object.
 export const oauthClient = sqliteTable(
   "oauthClient",
   {

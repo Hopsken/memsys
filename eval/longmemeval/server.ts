@@ -14,6 +14,9 @@ export const server = async (route: string, init?: RequestInit) => {
   return body;
 };
 
+const jsonOfPlainOrSseBody = (body: string) =>
+  body.startsWith("{") ? body : (body.split("data: ")[1] ?? "");
+
 const rpc = async (
   space: string,
   method: string,
@@ -27,14 +30,11 @@ const rpc = async (
     },
     method: "POST",
   });
-  // The reply may come as one SSE event.
-  const json = body.startsWith("{") ? body : (body.split("data: ")[1] ?? "");
-  return z.object({ result: z.json() }).parse(JSON.parse(json)).result;
+  return z
+    .object({ result: z.json() })
+    .parse(JSON.parse(jsonOfPlainOrSseBody(body))).result;
 };
 
-// Pi shows MCP server instructions only as one line, and not at all for tools
-// it declares directly. Claude Code puts them in the system prompt, so the
-// harness does the same, read live so edits to worker/routes/mcp.ts take effect.
 export const serverInstructions = async () =>
   z.object({ instructions: z.string() }).parse(
     await rpc("instructions", "initialize", {
@@ -56,11 +56,11 @@ export const toolDescriptions = async () =>
       .tools.map((tool) => [tool.name, tool.description])
   );
 
-export type SettingsPatch = Record<string, z.core.util.JSONType>;
+export type SettingsMergePatch = Record<string, z.core.util.JSONType>;
 
 const settingsView = z.object({ defaults: z.record(z.string(), z.json()) });
 
-export const setSettings = async (space: string, patch: SettingsPatch) => {
+export const setSettings = async (space: string, patch: SettingsMergePatch) => {
   const view = settingsView.parse(
     JSON.parse(await server(`${space}/settings`))
   );

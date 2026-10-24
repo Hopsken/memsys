@@ -9,7 +9,7 @@ import { FRAGMENT_MAX } from "@lib/fragment";
 
 import type { InvalidSettings } from "../errors";
 
-const KEY = "settings";
+const SETTINGS_KEY = "settings";
 
 const characters = z.int().min(1).max(FRAGMENT_MAX);
 
@@ -56,7 +56,6 @@ const parseSettings = (stored: Json | undefined): Settings => {
   return { length: field("length"), relevanceFilter: field("relevanceFilter") };
 };
 
-// The owner's settings, kept as one metadata document in the core.
 export class SettingsService {
   readonly #memory: Pick<Memory, "patchMetadata" | "readMetadata">;
 
@@ -65,14 +64,15 @@ export class SettingsService {
   }
 
   async read(): Promise<Settings> {
-    return parseSettings((await this.#memory.readMetadata(KEY)) ?? undefined);
+    return parseSettings(
+      (await this.#memory.readMetadata(SETTINGS_KEY)) ?? undefined
+    );
   }
 
   async view(): Promise<SettingsView> {
     return { defaults: DEFAULT_SETTINGS, settings: await this.read() };
   }
 
-  // Applies the owner's JSON Merge Patch; the last save of a field wins.
   async update(
     patch: JsonObject
   ): Promise<Result<SettingsView, InvalidSettings>> {
@@ -88,7 +88,7 @@ export class SettingsService {
         reason: "invalid-settings",
       });
     }
-    const stored = await this.#memory.patchMetadata(KEY, patch);
+    const stored = await this.#memory.patchMetadata(SETTINGS_KEY, patch);
     return ok({ defaults: DEFAULT_SETTINGS, settings: parseSettings(stored) });
   }
 }

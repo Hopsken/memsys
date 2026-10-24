@@ -1,4 +1,4 @@
-import type { Memory } from "@core";
+import type { AnchorCount, Association, Memory, SearchHit } from "@core";
 import { z } from "zod";
 
 import type {
@@ -37,8 +37,8 @@ export const recallInput = z
   .strict();
 
 const RESULT_SIZE = 10;
-const SEEDS = 10;
-const ASSOCIATED = 100;
+const MAX_SEED_MATCHES = 10;
+const MAX_ASSOCIATIONS_RANKED = 100;
 export const JUDGE_BUDGET = 40;
 
 const STRICTNESS = {
@@ -56,7 +56,7 @@ const cueTerms = (cue: string) => [...new Set(terms(cue))];
 const selectMatches = (
   cue: string,
   query: readonly string[],
-  hits: readonly { fragment: Fragment; matched: string[]; score: number }[]
+  hits: readonly SearchHit[]
 ): Fragment[] => {
   const required = query.length >= 3 ? query.length - 1 : query.length;
   const phrase = normalize(cue);
@@ -65,11 +65,11 @@ const selectMatches = (
       ...hit,
       phrase: normalize(hit.fragment.fragment).includes(phrase),
     }))
-    .filter((hit) => hit.phrase || hit.matched.length >= required)
+    .filter((hit) => hit.phrase || hit.matchedTerms.length >= required)
     .toSorted(
       (a, b) =>
         Number(b.phrase) - Number(a.phrase) ||
-        b.matched.length - a.matched.length ||
+        b.matchedTerms.length - a.matchedTerms.length ||
         b.score - a.score
     )
     .map((hit) => hit.fragment);
@@ -78,32 +78,30 @@ const selectMatches = (
 const seedKeys = (matches: readonly Fragment[]) => [
   ...new Set(
     matches
-      .slice(0, SEEDS)
+      .slice(0, MAX_SEED_MATCHES)
       .flatMap((item) => extractAnchors(item.fragment).flatMap(associationKeys))
   ),
 ];
 
-// Associations that share a rare #tag come first; ones linked only by a hub
-// like #work sink. Each anchor weighs ln((N+1)/(df+1)). Matches are left out,
-// and at most ASSOCIATED are kept, newest first, before ranking. The cut is
-// not reported: no better cue brings those fragments back through spreading
-// (RFC 0002, decision 6).
-const rankAssociations = (
-  found: readonly { fragment: Fragment; via: string[] }[],
+const rankByRarestSharedAnchor = (
+  found: readonly Association[],
   matches: readonly Fragment[],
-  anchors: readonly { anchor: string; fragments: number }[],
+  anchors: readonly AnchorCount[],
   corpusSize: number
 ): RecallItem[] => {
   const matched = new Set(matches.map((item) => item.ref));
-  const df = new Map(anchors.map((item) => [item.anchor, item.fragments]));
-  const weight = (anchor: string) =>
+  const df = new Map(anchors.map((item) => [item.anchor, item.fragmentCount]));
+  const inverseDocumentFrequency = (anchor: string) =>
     Math.log((corpusSize + 1) / ((df.get(anchor) ?? 0) + 1));
   return found
     .filter((item) => !matched.has(item.fragment.ref))
-    .slice(0, ASSOCIATED)
+    .slice(0, MAX_ASSOCIATIONS_RANKED)
     .map(({ fragment, via }) => ({
       item: { ...fragment, via },
-      score: via.reduce((sum, anchor) => sum + weight(anchor), 0),
+      score: via.reduce(
+        (sum, anchor) => sum + inverseDocumentFrequency(anchor),
+        0
+      ),
     }))
     .toSorted((a, b) => b.score - a.score)
     .map(({ item }) => item);
@@ -135,9 +133,6 @@ type RecallMemory = Pick<
   | "search"
 >;
 
-// Cue matches, best first, then the memories that share a #tag with them,
-// most specific link first; the relevance filter, when the owner turned it
-// on, hides the ones that do not help.
 export class RecallService {
   readonly #memory: RecallMemory;
   readonly #judge: Judge;
@@ -170,11 +165,11 @@ export class RecallService {
         : [[], [], 0];
     let items: RecallItem[] = [
       ...matches,
-      ...rankAssociations(found, matches, anchors, size),
+      ...rankByRarestSharedAnchor(found, matches, anchors, size),
     ];
     let truncated = false;
     if (settings.relevanceFilter !== "off") {
-      const filtered = await this.filter(
+      const filtered = await this.keepOnlyJudgedRelevant(
         items,
         input,
         settings.relevanceFilter
@@ -187,11 +182,7 @@ export class RecallService {
     return ok(cut(items, truncated));
   }
 
-  // Keeps the candidates the judge finds relevant at this strictness, in
-  // order. It never passes on a candidate it did not judge: it cuts to its
-  // budget first, and fails the recall if it cannot judge (RFC 0002,
-  // decision 5).
-  async filter(
+  async keepOnlyJudgedRelevant(
     items: readonly RecallItem[],
     input: RecallInput,
     strictness: Strictness

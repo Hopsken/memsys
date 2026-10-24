@@ -20,7 +20,11 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/ui/toggle-group";
-import type { Settings, SettingsPatch, SettingsView } from "@contract/settings";
+import type {
+  Settings,
+  SettingsMergePatch,
+  SettingsView,
+} from "@contract/settings";
 
 const FILTER_LEVELS: { label: string; value: Settings["relevanceFilter"] }[] = [
   { label: "Off", value: "off" },
@@ -106,7 +110,7 @@ const FeaturesForm = ({ view }: { view: SettingsView }) => {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState(view.settings);
   const mutation = useMutation({
-    mutationFn: (patch: SettingsPatch) =>
+    mutationFn: (patch: SettingsMergePatch) =>
       api.patch("/api/settings", { json: patch }).json<SettingsView>(),
     onSuccess: (next) => queryClient.setQueryData(SETTINGS, next),
   });

@@ -19,9 +19,7 @@ import { SettingsService } from "./settings";
 
 export type Written = Fragment & { warnings?: string[] };
 
-// The owner's length limits on what agents write: a warning above `warn`,
-// a refusal above `refuse`.
-const checkLength = (
+const checkOwnerLengthLimits = (
   { refuse, warn }: Settings["length"],
   text: string
 ): Result<string | null, TooLong> => {
@@ -41,9 +39,6 @@ const checkLength = (
   return ok(null);
 };
 
-// One caller's memory space, with the Worker's rules applied. Routes and
-// MCP tools reach the core only through this class, so no write can skip
-// the owner's limits.
 export class MemoryService {
   readonly #memory: Memory;
   readonly #by: Author;
@@ -77,8 +72,6 @@ export class MemoryService {
     return await this.#memory.restore(input);
   }
 
-  // The user's own actions: purge and import are never an agent's, and
-  // import keeps what the old instance accepted, so no length limits.
   async purge(input: { ref: string }) {
     return await this.#memory.purge(input);
   }
@@ -111,7 +104,6 @@ export class MemoryService {
     return await this.#recall.recall(input);
   }
 
-  // Every #anchor in use, sorted.
   async listTags() {
     const anchors = await this.#memory.anchors();
     return anchors.map(({ anchor }) => anchor);
@@ -130,7 +122,7 @@ export class MemoryService {
     store: () => Promise<Result<Fragment, E>> | Result<Fragment, E>
   ): Promise<Result<Written, E | TooLong>> {
     const { length } = await this.#settings.read();
-    const checked = checkLength(length, text);
+    const checked = checkOwnerLengthLimits(length, text);
     if (!checked.ok) {
       return checked;
     }

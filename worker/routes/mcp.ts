@@ -18,8 +18,7 @@ import type { MemoryService } from "../services/memory";
 import { recallInput } from "../services/recall";
 import type { AppEnv } from "../types";
 
-// A failure reads the same as over HTTP.
-const result = <T>(value: Result<T, Failure>): CallToolResult =>
+const toolResult = <T>(value: Result<T, Failure>): CallToolResult =>
   value.ok
     ? { content: [{ text: JSON.stringify(value.value), type: "text" }] }
     : { content: [{ text: value.error.message, type: "text" }], isError: true };
@@ -47,7 +46,7 @@ Recall with short textual cues such as distinctive phrases, names, projects, con
           "Store one durable, independently recallable memory fragment. Keep it atomic, self-contained, and concise. Split multiple ideas into separate fragments. Use #anchors to link related memories.",
         inputSchema: inputs.remember,
       },
-      async (input) => result(await memory.remember(input))
+      async (input) => toolResult(await memory.remember(input))
     );
   }
   if (canRead) {
@@ -59,7 +58,7 @@ Recall with short textual cues such as distinctive phrases, names, projects, con
           "Recall memories using a short textual cue. Prefer distinctive phrases, entities, concepts, or #anchors. Fragments matching the cue come first; fragments with `via` were associated through the listed shared #anchors. `truncated: true` means some matching memories were left out: recall again with a more specific cue, or with an #anchor from `via`.",
         inputSchema: recallInput,
       },
-      async (input) => result(await memory.recall(input))
+      async (input) => toolResult(await memory.recall(input))
     );
     server.registerTool(
       "list_tags",
@@ -68,7 +67,7 @@ Recall with short textual cues such as distinctive phrases, names, projects, con
         description: "List all #anchor names currently used.",
         inputSchema: z.object({}).strict(),
       },
-      async () => result(ok(await memory.listTags()))
+      async () => toolResult(ok(await memory.listTags()))
     );
   }
   if (canWrite) {
@@ -79,7 +78,7 @@ Recall with short textual cues such as distinctive phrases, names, projects, con
           "Replace the full text of a known memory when its information has changed or needs correction. Keep the replacement atomic and self-contained.",
         inputSchema: inputs.revise,
       },
-      async (input) => result(await memory.revise(input))
+      async (input) => toolResult(await memory.revise(input))
     );
     server.registerTool(
       "forget",
@@ -89,10 +88,25 @@ Recall with short textual cues such as distinctive phrases, names, projects, con
           "Delete a known memory that is obsolete, incorrect, duplicated, or explicitly requested to be forgotten.",
         inputSchema: inputs.forget,
       },
-      async (input) => result(await memory.forget(input))
+      async (input) => toolResult(await memory.forget(input))
     );
   }
   return server;
+};
+
+const answerLegacyClientWithPlainJson = async (
+  server: McpServer,
+  request: Request
+) => {
+  const transport = new WebStandardStreamableHTTPServerTransport({
+    enableJsonResponse: true,
+  });
+  try {
+    await server.connect(transport);
+    return await transport.handleRequest(request);
+  } finally {
+    await server.close();
+  }
 };
 
 export const mcp = new Hono<AppEnv>().all("/", async (c) => {
@@ -103,21 +117,8 @@ export const mcp = new Hono<AppEnv>().all("/", async (c) => {
   const memory = c.get("memory");
   const scopes = c.get("scopes");
   const factory = () => createMcpServer(memory, scopes);
-  if (!(await isLegacyRequest(c.req.raw))) {
-    return await createMcpHandler(factory, { legacy: "reject" }).fetch(
-      c.req.raw
-    );
+  if (await isLegacyRequest(c.req.raw)) {
+    return await answerLegacyClientWithPlainJson(factory(), c.req.raw);
   }
-  // 2025-era clients keep plain JSON responses; the SDK's built-in legacy
-  // fallback would stream every response as SSE.
-  const server = factory();
-  const transport = new WebStandardStreamableHTTPServerTransport({
-    enableJsonResponse: true,
-  });
-  try {
-    await server.connect(transport);
-    return await transport.handleRequest(c.req.raw);
-  } finally {
-    await server.close();
-  }
+  return await createMcpHandler(factory, { legacy: "reject" }).fetch(c.req.raw);
 });
