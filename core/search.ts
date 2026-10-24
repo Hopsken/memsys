@@ -3,6 +3,7 @@ import { terms } from "@lib/analyzer";
 import { associationKeys, extractAnchors } from "@lib/anchor";
 
 import type { AnchorCount, Association, MemoryCore, SearchHit } from "./api";
+import { mergePatch } from "./merge-patch";
 
 const BM25_K1 = 1.2;
 const BM25_B = 0.75;
@@ -180,11 +181,16 @@ export const inMemory = (
   metadata: Record<string, JsonObject> = {}
 ) => {
   const index = new FragmentIndex(fragments);
+  const stored = { ...metadata };
   return {
     anchors: () => index.anchors(),
     associated: (keys: string[]) => index.associated(keys),
     count: () => index.size,
-    readMetadata: (key: string) => metadata[key] ?? null,
+    patchMetadata: (key: string, patch: JsonObject) => {
+      stored[key] = mergePatch(stored[key], patch);
+      return stored[key];
+    },
+    readMetadata: (key: string) => stored[key] ?? null,
     search: (query: string[]) => index.search(query),
   } satisfies Partial<MemoryCore>;
 };

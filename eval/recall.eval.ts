@@ -11,7 +11,7 @@ import type { Fragment, JsonObject } from "@contract/memory";
 
 import { jev } from "../worker/clients/jev";
 import type { Ai } from "../worker/clients/jev";
-import { recall as runRecall, recallInput } from "../worker/services/recall";
+import { RecallService, recallInput } from "../worker/services/recall";
 import { cases, fragments } from "./dataset";
 import type { EvalCase } from "./dataset";
 import { report } from "./metrics";
@@ -69,13 +69,10 @@ const recall = async (settings: JsonObject, item: EvalCase) => {
     cue: item.cue,
     ...(item.context && { context: item.context }),
   });
-  const result = await runRecall(
-    {
-      judge: jev(ai),
-      memory: inMemory(corpus, { settings }),
-    },
-    input
-  );
+  const result = await new RecallService(
+    inMemory(corpus, { settings }),
+    jev(ai)
+  ).recall(input);
   return result.ok
     ? {
         failed: false,

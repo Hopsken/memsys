@@ -14,7 +14,7 @@ import { terms } from "@lib/analyzer";
 import { associationKeys, extractAnchors } from "@lib/anchor";
 
 import type { RelevanceUnavailable } from "../errors";
-import { readSettings } from "./settings";
+import { SettingsService } from "./settings";
 
 export const recallInput = z
   .object({
@@ -125,80 +125,94 @@ export type Judge = (
   input: RecallInput
 ) => Promise<Result<Map<string, number>, RelevanceUnavailable>>;
 
-// Keeps the candidates the judge finds relevant at this strictness, in
-// order. It never passes on a candidate it did not judge: it cuts to its
-// budget first, and fails the recall if it cannot judge (RFC 0002,
-// decision 5).
-export const filterRelevant = async (
-  judge: Judge,
-  items: readonly RecallItem[],
-  input: RecallInput,
-  strictness: Strictness
-): Promise<
-  Result<{ items: RecallItem[]; truncated: boolean }, RelevanceUnavailable>
-> => {
-  const judged = items.slice(0, JUDGE_BUDGET);
-  const truncated = droppedMatch(items.slice(JUDGE_BUDGET));
-  if (judged.length === 0) {
-    return ok({ items: [], truncated });
-  }
-  const scores = await judge(judged, input);
-  if (!scores.ok) {
-    return scores;
-  }
-  const threshold = STRICTNESS[strictness];
-  return ok({
-    items: judged.filter(
-      (item) => (scores.value.get(item.ref) ?? 0) >= threshold
-    ),
-    truncated,
-  });
-};
+type RecallMemory = Pick<
+  Memory,
+  | "anchors"
+  | "associated"
+  | "count"
+  | "patchMetadata"
+  | "readMetadata"
+  | "search"
+>;
 
-export const recall = async (
-  {
-    judge,
-    memory,
-  }: {
-    judge: Judge;
-    memory: Pick<
-      Memory,
-      "anchors" | "associated" | "count" | "readMetadata" | "search"
-    >;
-  },
-  input: RecallInput
-): Promise<Result<RecallResult, RelevanceUnavailable>> => {
-  const query = cueTerms(input.cue);
-  const [settings, hits] = await Promise.all([
-    readSettings(memory),
-    query.length > 0 ? memory.search(query) : [],
-  ]);
-  const matches = selectMatches(input.cue, query, hits);
-  const keys = seedKeys(matches);
-  const [found, anchors, size] =
-    keys.length > 0
-      ? await Promise.all([
-          memory.associated(keys),
-          memory.anchors(),
-          memory.count(),
-        ])
-      : [[], [], 0];
-  let items: RecallItem[] = [
-    ...matches,
-    ...rankAssociations(found, matches, anchors, size),
-  ];
-  let truncated = false;
-  if (settings.relevanceFilter !== "off") {
-    const filtered = await filterRelevant(
-      judge,
-      items,
-      input,
-      settings.relevanceFilter
-    );
-    if (!filtered.ok) {
-      return err(filtered.error);
-    }
-    ({ items, truncated } = filtered.value);
+// Cue matches, best first, then the memories that share a #tag with them,
+// most specific link first; the relevance filter, when the owner turned it
+// on, hides the ones that do not help.
+export class RecallService {
+  readonly #memory: RecallMemory;
+  readonly #judge: Judge;
+  readonly #settings: SettingsService;
+
+  constructor(memory: RecallMemory, judge: Judge) {
+    this.#memory = memory;
+    this.#judge = judge;
+    this.#settings = new SettingsService(memory);
   }
-  return ok(cut(items, truncated));
-};
+
+  async recall(
+    input: RecallInput
+  ): Promise<Result<RecallResult, RelevanceUnavailable>> {
+    const memory = this.#memory;
+    const query = cueTerms(input.cue);
+    const [settings, hits] = await Promise.all([
+      this.#settings.read(),
+      query.length > 0 ? memory.search(query) : [],
+    ]);
+    const matches = selectMatches(input.cue, query, hits);
+    const keys = seedKeys(matches);
+    const [found, anchors, size] =
+      keys.length > 0
+        ? await Promise.all([
+            memory.associated(keys),
+            memory.anchors(),
+            memory.count(),
+          ])
+        : [[], [], 0];
+    let items: RecallItem[] = [
+      ...matches,
+      ...rankAssociations(found, matches, anchors, size),
+    ];
+    let truncated = false;
+    if (settings.relevanceFilter !== "off") {
+      const filtered = await this.filter(
+        items,
+        input,
+        settings.relevanceFilter
+      );
+      if (!filtered.ok) {
+        return err(filtered.error);
+      }
+      ({ items, truncated } = filtered.value);
+    }
+    return ok(cut(items, truncated));
+  }
+
+  // Keeps the candidates the judge finds relevant at this strictness, in
+  // order. It never passes on a candidate it did not judge: it cuts to its
+  // budget first, and fails the recall if it cannot judge (RFC 0002,
+  // decision 5).
+  async filter(
+    items: readonly RecallItem[],
+    input: RecallInput,
+    strictness: Strictness
+  ): Promise<
+    Result<{ items: RecallItem[]; truncated: boolean }, RelevanceUnavailable>
+  > {
+    const judged = items.slice(0, JUDGE_BUDGET);
+    const truncated = droppedMatch(items.slice(JUDGE_BUDGET));
+    if (judged.length === 0) {
+      return ok({ items: [], truncated });
+    }
+    const scores = await this.#judge(judged, input);
+    if (!scores.ok) {
+      return scores;
+    }
+    const threshold = STRICTNESS[strictness];
+    return ok({
+      items: judged.filter(
+        (item) => (scores.value.get(item.ref) ?? 0) >= threshold
+      ),
+      truncated,
+    });
+  }
+}

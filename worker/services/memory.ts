@@ -13,9 +13,9 @@ import type { Settings } from "@contract/settings";
 import { fragmentLength } from "@lib/fragment";
 
 import type { TooLong } from "../errors";
-import { recall } from "./recall";
+import { RecallService } from "./recall";
 import type { Judge } from "./recall";
-import { readSettings, updateSettings, viewSettings } from "./settings";
+import { SettingsService } from "./settings";
 
 export type Written = Fragment & { warnings?: string[] };
 
@@ -47,12 +47,14 @@ const checkLength = (
 export class MemoryService {
   readonly #memory: Memory;
   readonly #by: Author;
-  readonly #judge: Judge;
+  readonly #settings: SettingsService;
+  readonly #recall: RecallService;
 
   constructor(memory: Memory, { by, judge }: { by: Author; judge: Judge }) {
     this.#memory = memory;
     this.#by = by;
-    this.#judge = judge;
+    this.#settings = new SettingsService(memory);
+    this.#recall = new RecallService(memory, judge);
   }
 
   async remember(input: { fragment: string }) {
@@ -106,7 +108,7 @@ export class MemoryService {
   }
 
   async recall(input: RecallInput) {
-    return await recall({ judge: this.#judge, memory: this.#memory }, input);
+    return await this.#recall.recall(input);
   }
 
   // Every #anchor in use, sorted.
@@ -116,18 +118,18 @@ export class MemoryService {
   }
 
   async settings() {
-    return await viewSettings(this.#memory);
+    return await this.#settings.view();
   }
 
   async updateSettings(patch: JsonObject) {
-    return await updateSettings(this.#memory, patch);
+    return await this.#settings.update(patch);
   }
 
   async #write<E>(
     text: string,
     store: () => Promise<Result<Fragment, E>> | Result<Fragment, E>
   ): Promise<Result<Written, E | TooLong>> {
-    const { length } = await readSettings(this.#memory);
+    const { length } = await this.#settings.read();
     const checked = checkLength(length, text);
     if (!checked.ok) {
       return checked;

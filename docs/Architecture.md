@@ -63,7 +63,7 @@ Any future "let's add X" starts here. Features are code in this repo, not plugin
 Four tools, the minimal complete operation set of a memory: write, change, forget, bring back.
 
 - **The contract** — tool names, input schemas, output shape, field meanings — is meant to hold for years. New fields are additive, with defaults that reproduce prior behavior.
-- **`recall` is one function** (`worker/services/recall.ts`): match the cue, spread to associations, rank them, filter if the owner turned the filter on, cut to the result size ([RFC 0002](rfcs/0002-recall-contract.md) fixes the contract). The agent sends only `cue` and `context`.
+- **`recall` is one method** (`RecallService` in `worker/services/recall.ts`): match the cue, spread to associations, rank them, filter if the owner turned the filter on, cut to the result size ([RFC 0002](rfcs/0002-recall-contract.md) fixes the contract). The agent sends only `cue` and `context`.
 - **`recall` returns one list**: cue matches first, then associations. An item's `via` (the shared anchors) is both its kind and the reason it was associated. `truncated` means a more specific cue would bring back memories that were left out.
 - **Core carries information only a feature uses.** `context` (what the agent is doing) is accepted on every recall; only the relevance filter reads it.
 - **Core keeps an absolute safety ceiling; the owner's limits sit under it.** No setting can let an unbounded fragment in. Tool descriptions carry no instance-specific numbers; warnings and rejections do.

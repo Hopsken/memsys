@@ -5,13 +5,12 @@ import type { Fragment } from "@contract/memory";
 import { terms } from "@lib/analyzer";
 import { extractAnchors } from "@lib/anchor";
 
-import { recall as runRecall, recallInput } from "../../worker/services/recall";
+import { RecallService, recallInput } from "../../worker/services/recall";
 
 const noJudge = () => Promise.reject(new Error("The relevance filter is off"));
 
 const recall = async (corpus: Iterable<Fragment>, raw: { cue: string }) => {
-  const result = await runRecall(
-    { judge: noJudge, memory: inMemory(corpus) },
+  const result = await new RecallService(inMemory(corpus), noJudge).recall(
     recallInput.parse(raw)
   );
   if (!result.ok) {

@@ -56,34 +56,39 @@ const parseSettings = (stored: Json | undefined): Settings => {
   return { length: field("length"), relevanceFilter: field("relevanceFilter") };
 };
 
-export const readSettings = async (
-  memory: Pick<Memory, "readMetadata">
-): Promise<Settings> =>
-  parseSettings((await memory.readMetadata(KEY)) ?? undefined);
+// The owner's settings, kept as one metadata document in the core.
+export class SettingsService {
+  readonly #memory: Pick<Memory, "patchMetadata" | "readMetadata">;
 
-export const viewSettings = async (
-  memory: Pick<Memory, "readMetadata">
-): Promise<SettingsView> => ({
-  defaults: DEFAULT_SETTINGS,
-  settings: await readSettings(memory),
-});
-
-export const updateSettings = async (
-  memory: Pick<Memory, "patchMetadata">,
-  patch: JsonObject
-): Promise<Result<SettingsView, InvalidSettings>> => {
-  const parsed = settingsPatch.safeParse(patch);
-  if (!parsed.success) {
-    return err({
-      code: "invalid",
-      issues: parsed.error.issues.map(({ message, path }) => ({
-        message,
-        path: path.map(String),
-      })),
-      message: "Invalid settings",
-      reason: "invalid-settings",
-    });
+  constructor(memory: Pick<Memory, "patchMetadata" | "readMetadata">) {
+    this.#memory = memory;
   }
-  const stored = await memory.patchMetadata(KEY, patch);
-  return ok({ defaults: DEFAULT_SETTINGS, settings: parseSettings(stored) });
-};
+
+  async read(): Promise<Settings> {
+    return parseSettings((await this.#memory.readMetadata(KEY)) ?? undefined);
+  }
+
+  async view(): Promise<SettingsView> {
+    return { defaults: DEFAULT_SETTINGS, settings: await this.read() };
+  }
+
+  // Applies the owner's JSON Merge Patch; the last save of a field wins.
+  async update(
+    patch: JsonObject
+  ): Promise<Result<SettingsView, InvalidSettings>> {
+    const parsed = settingsPatch.safeParse(patch);
+    if (!parsed.success) {
+      return err({
+        code: "invalid",
+        issues: parsed.error.issues.map(({ message, path }) => ({
+          message,
+          path: path.map(String),
+        })),
+        message: "Invalid settings",
+        reason: "invalid-settings",
+      });
+    }
+    const stored = await this.#memory.patchMetadata(KEY, patch);
+    return ok({ defaults: DEFAULT_SETTINGS, settings: parseSettings(stored) });
+  }
+}

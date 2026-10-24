@@ -12,11 +12,7 @@ import {
   jev,
 } from "../../worker/clients/jev";
 import type { Ai } from "../../worker/clients/jev";
-import {
-  JUDGE_BUDGET,
-  filterRelevant,
-  recall,
-} from "../../worker/services/recall";
+import { JUDGE_BUDGET, RecallService } from "../../worker/services/recall";
 
 const item = (ref: string, fragment: string, via?: string[]): RecallItem => ({
   at: "",
@@ -67,7 +63,8 @@ const stage = (
   run: Run,
   rows: RecallItem[] = items,
   strictness: Strictness = "medium"
-) => filterRelevant(jev({ run }), rows, input, strictness);
+) =>
+  new RecallService(inMemory([]), jev({ run })).filter(rows, input, strictness);
 
 const refs = (result: Awaited<ReturnType<typeof stage>>) =>
   result.ok ? result.value.items.map((row) => row.ref) : result.error;
@@ -255,13 +252,10 @@ describe("Relevance filter", () => {
   });
 
   it("fails the recall as persistent when no response parses", async () => {
-    const result = await recall(
-      {
-        judge: jev({ run: malformed }),
-        memory: inMemory(corpus, { settings: { relevanceFilter: "medium" } }),
-      },
-      input
-    );
+    const result = await new RecallService(
+      inMemory(corpus, { settings: { relevanceFilter: "medium" } }),
+      jev({ run: malformed })
+    ).recall(input);
     expect(result).toStrictEqual(failed(false));
   });
 });

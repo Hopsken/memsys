@@ -149,7 +149,7 @@ worker/
 - Every call to a memory space goes through `MemoryService`, one per request in `c.var.memory`. It applies the Worker's rules, such as the owner's length limits on agent writes, so no route or tool can skip them. Only `lib/memory.ts` touches the `MEMORY` binding; lint rejects any other use.
 - It follows Hono's guidance: no controller classes, handlers written on the route, input checked with zod schemas.
 - Bindings are read from the global `env` of `cloudflare:workers`, not passed through constructors or `c.var`. Only values that change per request travel in `c.var`: the caller's MemoryService, which knows who writes, and their scopes. Better Auth is the exception: it keeps one instance per env object, so it reads `c.env`, and its tests swap env objects to check setup and query isolation.
-- `MemoryService` is a class over the core's interface, not a subclass of the Durable Object, so the Worker's rules stay out of the core. Recall and settings are functions it calls; recall takes its relevance judge as an argument, so tests and the eval pass a fake or Jev with their own Workers AI.
+- Services are classes over the core's interface: `MemoryService`, `RecallService`, and `SettingsService`. None subclasses the Durable Object, so the Worker's rules stay out of the core. `MemoryService` creates the other two; `RecallService` takes its relevance judge in its constructor, so tests and the eval pass a fake or Jev with their own Workers AI.
 - Jev splits along the same line: "judge what you keep, or fail the recall", the budget, and the thresholds are recall rules in `services/recall.ts`; calling Workers AI, retrying, and classifying its errors is `clients/jev.ts`.
 
 ### 8. The core is a module now and a package later
