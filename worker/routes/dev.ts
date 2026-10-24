@@ -11,7 +11,7 @@ import {
 import { corpusLog } from "../lib/dev-corpus";
 import { unwrap } from "../lib/problem";
 import { defaultSpace, openMemory } from "../memory";
-import { openMemoryOf } from "../middlewares/open-memory";
+import { openMemorySpace } from "../middlewares/open-memory";
 import type { AppEnv } from "../types";
 import { mcp } from "./mcp";
 import { settings } from "./settings";
@@ -90,7 +90,7 @@ export const dev =
         c.set("scopes", new Set([MEMORY_READ, MEMORY_WRITE]));
         return next();
       },
-      openMemoryOf((c) => `eval:${c.req.param("space")}`)
+      openMemorySpace((c) => `eval:${c.req.param("space")}`)
     )
     .route("/__dev/eval/:space/mcp", mcp)
     .route("/__dev/eval/:space/settings", settings)
