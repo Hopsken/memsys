@@ -24,23 +24,28 @@ const toolResult = <T>(value: Result<T, Failure>): CallToolResult =>
     ? { content: [{ text: JSON.stringify(value.value), type: "text" }] }
     : { content: [{ text: value.error.message, type: "text" }], isError: true };
 
+const INSTRUCTIONS = `Memsys is long-term fragment memory.
+
+Store durable information as small, atomic, self-contained fragments rather than summaries, transcripts, or reasoning traces. Keep fragments concise and split independent ideas into separate memories.
+
+Use #anchors for stable entities or concepts that should link related fragments. Fragments with similar anchors are considered as associated and will be returned when recall.
+
+Recall with short textual cues such as distinctive phrases, names, projects, concepts, or #anchors. A cue is free text and may combine several words, but every word must appear in a match, so extra words narrow the results. To search more broadly, call recall again with a different cue.`;
+
 const createMcpServer = (
   memory: MemoryService,
   author: Author,
-  scopes: ReadonlySet<Scope>
+  scopes: ReadonlySet<Scope>,
+  ownerInstructions: string
 ) => {
   const canRead = scopes.has(MEMORY_READ);
   const canWrite = scopes.has(MEMORY_WRITE);
   const server = new McpServer(
     { name: "memsys", version: "0.1.0" },
     {
-      instructions: `Memsys is long-term fragment memory.
-
-Store durable information as small, atomic, self-contained fragments rather than summaries, transcripts, or reasoning traces. Keep fragments concise and split independent ideas into separate memories.
-
-Use #anchors for stable entities or concepts that should link related fragments. Fragments with similar anchors are considered as associated and will be returned when recall.
-
-Recall with short textual cues such as distinctive phrases, names, projects, concepts, or #anchors. A cue is free text and may combine several words, but every word must appear in a match, so extra words narrow the results. To search more broadly, call recall again with a different cue.`,
+      instructions: [INSTRUCTIONS, ownerInstructions.trim()]
+        .filter(Boolean)
+        .join("\n\n"),
     }
   );
   if (canWrite) {
@@ -122,7 +127,9 @@ export const mcp = new Hono<AppEnv>().all("/", async (c) => {
   const memory = c.get("memory");
   const author = c.get("author");
   const scopes = c.get("scopes");
-  const factory = () => createMcpServer(memory, author, scopes);
+  const { settings } = await memory.settings();
+  const factory = () =>
+    createMcpServer(memory, author, scopes, settings.instructions);
   if (await isLegacyRequest(c.req.raw)) {
     return await answerLegacyClientWithPlainJson(factory(), c.req.raw);
   }

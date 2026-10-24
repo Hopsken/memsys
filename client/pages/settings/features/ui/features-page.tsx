@@ -21,6 +21,7 @@ import {
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Skeleton } from "@/shared/ui/skeleton";
+import { Textarea } from "@/shared/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/ui/toggle-group";
 
 const FILTER_LEVELS: { label: string; value: Settings["relevanceFilter"] }[] = [
@@ -30,6 +31,8 @@ const FILTER_LEVELS: { label: string; value: Settings["relevanceFilter"] }[] = [
   { label: "High", value: "high" },
   { label: "Max", value: "max" },
 ];
+
+const INSTRUCTIONS_MAX = 500;
 
 const same = (a: Settings, b: Settings) =>
   JSON.stringify(a) === JSON.stringify(b);
@@ -127,6 +130,10 @@ const FeaturesForm = ({ view }: { view: SettingsView }) => {
   const busy = mutation.isPending;
   const problem = mutation.error ? describe(mutation.error) : null;
   const errors = problem?.fields ?? {};
+  const tooLong = draft.instructions.length > INSTRUCTIONS_MAX;
+  const instructionsError = tooLong
+    ? `Too long. Keep it to ${INSTRUCTIONS_MAX} characters.`
+    : errors["instructions"];
 
   return (
     <form
@@ -217,6 +224,42 @@ const FeaturesForm = ({ view }: { view: SettingsView }) => {
             </p>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle id="instructions">Instructions</CardTitle>
+            <CardDescription>
+              Every connected AI gets these along with memsys’s own guidance.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              aria-describedby="instructions-hint"
+              aria-invalid={Boolean(instructionsError)}
+              aria-labelledby="instructions"
+              className="min-h-24"
+              onChange={(event) =>
+                setDraft({ ...draft, instructions: event.target.value })
+              }
+              placeholder="Before starting a task, recall #must-read."
+              value={draft.instructions}
+            />
+            <div
+              className={cn(
+                "mt-2 flex items-start justify-between gap-4 text-xs",
+                instructionsError ? "text-destructive" : "text-muted-foreground"
+              )}
+            >
+              <p id="instructions-hint">
+                {instructionsError ??
+                  "Put the most important line first. Some apps show only part of it, and some don’t show it at all."}
+              </p>
+              <span className="font-mono whitespace-nowrap tabular-nums">
+                {draft.instructions.length} / {INSTRUCTIONS_MAX}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
       </fieldset>
 
       {problem?.text ? (
@@ -233,7 +276,11 @@ const FeaturesForm = ({ view }: { view: SettingsView }) => {
             <Button
               disabled={busy}
               onClick={() =>
-                mutation.mutate({ length: null, relevanceFilter: null })
+                mutation.mutate({
+                  instructions: null,
+                  length: null,
+                  relevanceFilter: null,
+                })
               }
               size="sm"
               type="button"
@@ -257,7 +304,7 @@ const FeaturesForm = ({ view }: { view: SettingsView }) => {
               >
                 Discard
               </Button>
-              <Button disabled={busy} size="sm" type="submit">
+              <Button disabled={busy || tooLong} size="sm" type="submit">
                 {busy ? "Saving…" : "Save"}
               </Button>
             </div>

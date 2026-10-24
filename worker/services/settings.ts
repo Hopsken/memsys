@@ -10,6 +10,7 @@ import type { InvalidSettings } from "../errors";
 export type Strictness = "low" | "medium" | "high" | "max";
 
 export interface Settings {
+  instructions: string;
   length: { warn: number; refuse: number };
   relevanceFilter: "off" | Strictness;
 }
@@ -23,7 +24,15 @@ const SETTINGS_KEY = "settings";
 
 const charactersSchema = z.int().min(1).max(FRAGMENT_MAX);
 
+const INSTRUCTIONS_MAX = 500;
+
 const fields = {
+  instructions: z
+    .string()
+    .max(
+      INSTRUCTIONS_MAX,
+      `Too long. Keep it to ${INSTRUCTIONS_MAX} characters.`
+    ),
   length: z
     .object({ refuse: charactersSchema, warn: charactersSchema })
     .refine((value) => value.warn <= value.refuse, {
@@ -34,12 +43,14 @@ const fields = {
 } satisfies { [K in keyof Settings]: z.ZodType<Settings[K]> };
 
 export const DEFAULT_SETTINGS: Settings = {
+  instructions: "",
   length: { refuse: 500, warn: 300 },
   relevanceFilter: "off",
 };
 
 const settingsPatchSchema = z
   .object({
+    instructions: fields.instructions.nullable().optional(),
     length: fields.length.nullable().optional(),
     relevanceFilter: fields.relevanceFilter.nullable().optional(),
   })
@@ -63,7 +74,11 @@ const parseSettings = (stored: Metadata | null): Settings => {
     // SAFETY: each field's schema is typed against its Settings field above.
     return parsed.data as Settings[K];
   };
-  return { length: field("length"), relevanceFilter: field("relevanceFilter") };
+  return {
+    instructions: field("instructions"),
+    length: field("length"),
+    relevanceFilter: field("relevanceFilter"),
+  };
 };
 
 export class SettingsService {
