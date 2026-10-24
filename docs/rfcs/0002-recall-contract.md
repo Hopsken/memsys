@@ -4,6 +4,7 @@
 - Created: 2026-09-28
 - Revised: 2026-09-29, 2026-10-23
 - Discussion: pull request #51, pull request #62, [Amp thread](https://ampcode.com/threads/T-01a16769-1429-7192-876b-ddd66f368083)
+- Superseded in part: decisions 2 and 3 by [RFC 0004](0004-memory-core.md), which drops plugins and the stage host and moves recall algorithms out of the memory core
 
 ## Summary
 
