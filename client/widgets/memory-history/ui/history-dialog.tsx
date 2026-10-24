@@ -52,8 +52,6 @@ const stamp = (at: string) =>
     minute: "2-digit",
   })}`;
 
-// Forgetting closes the dialog and leaves a toast to undo it, which puts the
-// memory back where it was in the list.
 const useForget = (onForgotten: () => void) => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -87,9 +85,6 @@ const useForget = (onForgotten: () => void) => {
   });
 };
 
-// Delete is the user's purge: unlike forgetting, it removes the history too.
-// It is the next step for a forgotten memory, as Forget is for a live one,
-// and waits behind a confirmation.
 const DeleteMemory = ({
   onDeleted,
   target,
@@ -155,15 +150,13 @@ const DeleteMemory = ({
 
 const Timeline = ({ versions }: { versions: Version[] }) => {
   const restore = useRestore();
-  // A link can point at one version, as Activity does; show it first.
   const [searchParams] = useSearchParams();
-  const [fresh, setFresh] = useState(searchParams.get("at"));
+  const [highlightedAt, setHighlightedAt] = useState(searchParams.get("at"));
   const highlighted = useRef<HTMLLIElement>(null);
   const current = versions[0]?.fragment ?? null;
 
-  // A restore lands at the top, maybe out of view: show it and point it out.
   useEffect(() => {
-    if (!fresh) {
+    if (!highlightedAt) {
       return;
     }
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -172,9 +165,9 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
       block: "nearest",
     });
     highlighted.current?.focus({ preventScroll: true });
-    const timer = setTimeout(() => setFresh(null), 2000);
+    const timer = setTimeout(() => setHighlightedAt(null), 2000);
     return () => clearTimeout(timer);
-  }, [fresh]);
+  }, [highlightedAt]);
 
   return (
     <>
@@ -196,8 +189,8 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
             <li
               className="group relative pb-5 pl-6 outline-none last:pb-0"
               key={at}
-              ref={fresh === at ? highlighted : undefined}
-              tabIndex={fresh === at ? -1 : undefined}
+              ref={highlightedAt === at ? highlighted : undefined}
+              tabIndex={highlightedAt === at ? -1 : undefined}
             >
               <span
                 aria-hidden="true"
@@ -213,7 +206,7 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
               <div
                 className={cn(
                   "-mx-2 space-y-1 rounded-lg px-2 py-1 transition-colors duration-700",
-                  fresh === at && "bg-muted"
+                  highlightedAt === at && "bg-muted"
                 )}
               >
                 <div className="text-muted-foreground flex min-h-7 items-center justify-between gap-3 text-xs">
@@ -238,7 +231,10 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
                       onClick={() =>
                         restore.mutate(
                           { at, ref: version.ref },
-                          { onSuccess: (restored) => setFresh(restored.at) }
+                          {
+                            onSuccess: (restored) =>
+                              setHighlightedAt(restored.at),
+                          }
                         )
                       }
                       size="sm"
@@ -265,7 +261,6 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
   );
 };
 
-// Every version of one memory, over whatever opened it.
 export const MemoryHistoryDialog = ({
   memoryRef: ref,
   onClose: close,
@@ -280,10 +275,7 @@ export const MemoryHistoryDialog = ({
   });
   const missing = query.error !== null && failure(query.error).status === 404;
   const forget = useForget(close);
-  // The header offers the next step down: Forget for a memory your AI can
-  // still recall, Delete for a forgotten one.
   const current = query.data?.versions[0];
-  // Focus starts on the history, not on an action one Enter away.
   const body = useRef<HTMLDivElement>(null);
 
   return (
@@ -379,17 +371,13 @@ export const MemoryHistoryDialog = ({
   );
 };
 
-// The history as a child route of the list that links to it.
 export const HistoryDialog = () => {
   const { ref = "" } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  // Back returns to the list as it was; a link opened directly has no list
-  // behind it in history, so it replaces itself with one.
+  const openedDirectly = location.key === "default";
   const close = () => {
-    void (location.key === "default"
-      ? navigate("..", { replace: true })
-      : navigate(-1));
+    void (openedDirectly ? navigate("..", { replace: true }) : navigate(-1));
   };
   return <MemoryHistoryDialog memoryRef={ref} onClose={close} />;
 };

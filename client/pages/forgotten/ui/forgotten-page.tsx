@@ -68,7 +68,6 @@ const ForgottenRow = ({ item }: { item: ForgottenFragment }) => {
   );
 };
 
-// Memories an agent or the user forgot: out of recall, still in the log.
 export const ForgottenView = () => {
   const query = useQuery({
     queryFn: ({ signal }) =>

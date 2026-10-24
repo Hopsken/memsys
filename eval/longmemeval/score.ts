@@ -1,6 +1,3 @@
-// Scores one recall conversation against a corpus's evidence labels, and
-// turns a run's scores into results.md (RFC 0003, Scoring).
-
 import { z } from "zod";
 
 import { BUDGET_REASON } from "./budget.ts";
@@ -22,33 +19,24 @@ const recallArgs = z.looseObject({
 
 export const round = z.object({
   cue: z.string(),
-  // Refs of the answer-bearing fragments this round returned.
   evidence: z.array(z.string()),
   returned: z.number(),
 });
 
 export const score = z.object({
-  // Jev's score for the answer, [0, 1]; secondary.
   answer: z.number(),
   answerText: z.string(),
   cost: z.number(),
-  // Pi failed, or a tool other than list_tags and recall ran.
   error: z.string().optional(),
-  // Every required evidence session had an answer-bearing fragment returned.
   found: z.boolean(),
-  // The round after which found was true, 1-based; 0 when never.
   foundAt: z.number(),
   id: z.string(),
-  // Fragments returned over all rounds, and their text as ≈tokens (chars/4).
   read: z.number(),
   readTokens: z.number(),
   repeat: z.number(),
   rounds: z.array(round),
-  // Knowledge-update: returned fragments that hold the value an evidence
-  // session later replaced.
   stale: z.number(),
   type: z.string(),
-  // A required session with no answer-bearing fragment in the corpus.
   writeMiss: z.boolean(),
 });
 export type Score = z.infer<typeof score>;
@@ -68,8 +56,6 @@ export const scoreRun = (
   const evidenceRefs = new Set(
     q.evidence.flatMap((s) => labelsOf?.[s.index] ?? [])
   );
-  // A record revised in place keeps its ref, so a ref that also carries the
-  // final value is current, not stale.
   const staleRefs = new Set<string>();
   if (q.type === "knowledge-update") {
     const current = labeled(q.evidence.at(-1)?.index ?? -1);
@@ -162,10 +148,8 @@ const oneLine = (text: string, max: number) => {
 
 export interface RunMeta {
   corpus: string;
-  // Current fragments per question: what dumping everything would read.
   corpusSize: Record<string, number>;
   model: string;
-  // Settings the run changed; the rest ran at their defaults.
   settings: SettingsPatch;
   recallRounds: number;
   repeats: number;
@@ -173,9 +157,6 @@ export interface RunMeta {
   thinking: string;
 }
 
-// Repeats of one question are grouped; a question counts toward the recall
-// denominator only when it is scorable: not abstention, not a write miss,
-// and no repeat errored.
 export const report = (
   questions: SlimQuestion[],
   scores: Score[],
@@ -193,7 +174,6 @@ export const report = (
     runs.some((s) => s.writeMiss)
   );
   const errored = groups.filter(({ runs }) => runs.some((s) => s.error));
-  // found@k: the evidence was complete within the first k rounds.
   const ks = Array.from({ length: meta.recallRounds }, (_, k) => k + 1);
   const summary = (items: typeof scorable) => {
     const runs = items.flatMap(({ runs: r }) => r);

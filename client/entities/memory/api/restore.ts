@@ -6,8 +6,6 @@ import type { FragmentPage, History, Restored } from "@contract/memory";
 
 type ListData = InfiniteData<FragmentPage>;
 
-// Where a memory sat in each loaded list, whole or filtered, keyed by the
-// list's query hash, so Undo can put it back there.
 type Positions = Map<string, { index: number; page: number }>;
 
 const lists = (queryClient: QueryClient) =>
@@ -43,9 +41,6 @@ export const removeFromList = (
   return positions;
 };
 
-// A restored memory keeps its place in each loaded list, or returns to the
-// place it was forgotten from, until the list reloads; restoring never makes
-// a row jump out of view. A list it was in neither way reloads.
 const showInList = (
   queryClient: QueryClient,
   restored: Restored,

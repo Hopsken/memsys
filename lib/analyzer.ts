@@ -1,10 +1,5 @@
 import { stem } from "porter2";
 
-// How text becomes search terms. The core indexes fragments with it, and apps
-// run cues through it before they search, so both meet on the same terms.
-
-// Function words that carry no cue. Kept short: a missed stopword costs one
-// unmatched term, a wrong one makes a real term unsearchable.
 const STOPWORDS = new Set(
   "a an and are as at be by for from how in into is it its of on or that the this to was were what when where which with"
     .split(" ")

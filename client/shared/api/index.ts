@@ -1,2 +1,2 @@
 export { authClient } from "./auth";
-export { api, failure, isExpired } from "./client";
+export { api, failure, isExpired, isRetryable } from "./client";

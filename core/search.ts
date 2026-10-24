@@ -4,28 +4,19 @@ import { associationKeys, extractAnchors } from "@lib/anchor";
 
 import type { AnchorCount, Association, MemoryCore, SearchHit } from "./api";
 
-const K1 = 1.2;
-const B = 0.75;
+const BM25_K1 = 1.2;
+const BM25_B = 0.75;
 
-// Newest first, then by ref: the order every query returns ties in.
 const newestFirst = (a: Fragment, b: Fragment) =>
   b.at.localeCompare(a.at) || a.ref.localeCompare(b.ref);
 
-// The current fragments and the indexes derived from them, kept up to date
-// on every write. Plain code: the Durable Object fills it from its log, tests
-// and the eval from a list of fragments.
 export class FragmentIndex {
   private readonly fragments = new Map<string, Fragment>();
-  // term → ref → how often the term occurs in that fragment.
   private readonly postings = new Map<string, Map<string, number>>();
-  // ref → the fragment's length in terms.
   private readonly lengths = new Map<string, number>();
   private totalLength = 0;
-  // ref → the fragment's anchors.
   private readonly anchorsOf = new Map<string, string[]>();
-  // association key → refs of fragments with an anchor that has the key.
-  private readonly byKey = new Map<string, Set<string>>();
-  // anchor → fragments carrying it.
+  private readonly refsByAssociationKey = new Map<string, Set<string>>();
   private readonly anchorCounts = new Map<string, number>();
 
   constructor(fragments: Iterable<Fragment> = []) {
@@ -70,10 +61,10 @@ export class FragmentIndex {
     for (const anchor of anchors) {
       this.anchorCounts.set(anchor, (this.anchorCounts.get(anchor) ?? 0) + 1);
       for (const key of associationKeys(anchor)) {
-        let refs = this.byKey.get(key);
+        let refs = this.refsByAssociationKey.get(key);
         if (!refs) {
           refs = new Set();
-          this.byKey.set(key, refs);
+          this.refsByAssociationKey.set(key, refs);
         }
         refs.add(ref);
       }
@@ -103,10 +94,10 @@ export class FragmentIndex {
         this.anchorCounts.set(anchor, count);
       }
       for (const key of associationKeys(anchor)) {
-        const refs = this.byKey.get(key);
+        const refs = this.refsByAssociationKey.get(key);
         refs?.delete(ref);
         if (refs?.size === 0) {
-          this.byKey.delete(key);
+          this.refsByAssociationKey.delete(key);
         }
       }
     }
@@ -126,8 +117,6 @@ export class FragmentIndex {
     });
   }
 
-  // Okapi BM25 over the whole corpus, for every fragment containing at least
-  // one of the terms; best first, ties newest first.
   search(query: readonly string[]): SearchHit[] {
     const unique = [...new Set(query)];
     const n = this.fragments.size;
@@ -150,8 +139,8 @@ export class FragmentIndex {
           if (tf > 0) {
             matched.push(term);
             score +=
-              (idf(term) * tf * (K1 + 1)) /
-              (tf + K1 * (1 - B + (B * length) / average));
+              (idf(term) * tf * (BM25_K1 + 1)) /
+              (tf + BM25_K1 * (1 - BM25_B + (BM25_B * length) / average));
           }
         }
         return { fragment, matched, score };
@@ -161,12 +150,12 @@ export class FragmentIndex {
       );
   }
 
-  // Every fragment with an anchor whose association key is one of `keys`,
-  // newest first; `via` lists those anchors.
   associated(keys: readonly string[]): Association[] {
     const wanted = new Set(keys);
     const refs = new Set(
-      [...wanted].flatMap((key) => [...(this.byKey.get(key) ?? [])])
+      [...wanted].flatMap((key) => [
+        ...(this.refsByAssociationKey.get(key) ?? []),
+      ])
     );
     return this.current(refs)
       .toSorted(newestFirst)
@@ -178,7 +167,6 @@ export class FragmentIndex {
       }));
   }
 
-  // Every anchor in use, sorted, with the number of fragments carrying it.
   anchors(): AnchorCount[] {
     return [...this.anchorCounts.keys()].toSorted().map((anchor) => ({
       anchor,
@@ -187,7 +175,6 @@ export class FragmentIndex {
   }
 }
 
-// The core's reads over a fixed list of fragments, for tests and the eval.
 export const inMemory = (
   fragments: Iterable<Fragment>,
   metadata: Record<string, JsonObject> = {}

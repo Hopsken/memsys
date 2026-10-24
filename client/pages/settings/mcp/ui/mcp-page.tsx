@@ -26,7 +26,6 @@ import { formatRelativeDateInline } from "@lib/date";
 import { ConnectedApps } from "./connected-apps";
 import { RemoveMenu } from "./remove-menu";
 
-// Better Auth API keys; the list never includes the secret.
 interface ApiKey {
   createdAt: string;
   id: string;
@@ -75,7 +74,6 @@ const Snippet = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
-// The secret exists only in this response; closing it loses it for good.
 const NewApiKey = ({
   onDone,
   secret,

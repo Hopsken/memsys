@@ -11,7 +11,6 @@ import { z } from "zod";
 
 import { sendSignInCode } from "../../clients/resend";
 
-// What an MCP caller may do. API keys may do both.
 export const MEMORY_READ = "memory:read";
 export const MEMORY_WRITE = "memory:write";
 export type Scope = typeof MEMORY_READ | typeof MEMORY_WRITE;
@@ -23,13 +22,11 @@ export const ALL_SCOPES: ReadonlySet<Scope> = new Set([
 // would need the user to sign in again every hour.
 export const OAUTH_SCOPES = [MEMORY_READ, MEMORY_WRITE, "offline_access"];
 
-// The /mcp URL is the OAuth resource: tokens name it as their audience.
 export const mcpResource = (env: Env) => `${env.PUBLIC_URL}/mcp`;
 export const resourceMetadataUrl = (env: Env) =>
   `${env.PUBLIC_URL}/.well-known/oauth-protected-resource/mcp`;
 const issuer = (env: Env) => `${env.PUBLIC_URL}/api/auth`;
 
-// AUTH_ALLOWED_EMAILS: comma- or space-separated addresses, or `@domain`.
 export const isAllowedEmail = (env: Env, email: string) => {
   const address = email.trim().toLowerCase();
   return (env.AUTH_ALLOWED_EMAILS ?? "")
@@ -47,7 +44,6 @@ const signInCodeRequest = z.object({
   type: z.literal("sign-in"),
 });
 
-// Loose, so the rest of the registration passes through untouched.
 const clientRegistration = z.looseObject({
   application_type: z.string().optional(),
   redirect_uris: z.array(z.string()).min(1),
@@ -62,8 +58,6 @@ interface RequestOverride {
     | { query: z.output<typeof authorizationRequest> };
 }
 
-// A redirect back to an app on the user's machine: a loopback address or
-// the app's own URL scheme.
 const isNativeRedirect = (uri: string) => {
   const url = URL.parse(uri);
   if (!url) {
@@ -94,15 +88,11 @@ const fetchClientMetadata: ClientMetadataResourceFetch = (input, init) => {
   return fetch(request, { signal: init?.signal ?? AbortSignal.timeout(5000) });
 };
 
-// OAuth for /mcp: apps sign the user in instead of holding a key.
 const mcpPlugin = (env: Env) =>
   // SAFETY: widening to the plugin id only drops the endpoint types, which
   // fail exactOptionalPropertyTypes; nothing here calls them via `auth.api`.
   mcp({
-    // Apps that predate client metadata documents register themselves;
-    // each still needs a signed-in user's consent.
     allowDynamicClientRegistration: true,
-    // The sign-in page names the app before the user has a session.
     allowPublicClientPrelogin: true,
     allowUnauthenticatedClientRegistration: true,
     clientRegistrationDefaultScopes: OAUTH_SCOPES,
@@ -121,7 +111,6 @@ const createAuth = (env: Env) =>
     databaseHooks: {
       user: {
         create: {
-          // Sign-in creates the account, so the allowlist is enforced here too.
           before: (user) => {
             if (!isAllowedEmail(env, user.email)) {
               throw new APIError("FORBIDDEN", {
@@ -167,7 +156,6 @@ const createAuth = (env: Env) =>
             },
           });
         }
-        // Tell an address outside the allowlist so, before any code is stored.
         const request = signInCodeRequest.safeParse(ctx.body);
         if (
           ctx.path === "/email-otp/send-verification-otp" &&
@@ -183,7 +171,6 @@ const createAuth = (env: Env) =>
     },
     plugins: [
       emailOTP({
-        // Codes go only to allowed addresses.
         sendVerificationOTP: async ({ email, otp, type }) => {
           if (type === "sign-in" && isAllowedEmail(env, email)) {
             await sendSignInCode(email, otp);
@@ -191,8 +178,6 @@ const createAuth = (env: Env) =>
         },
         storeOTP: "hashed",
       }),
-      // API keys for /mcp. A key never stands in for a session, so it cannot reach
-      // /api: settings and token management stay with the user.
       apiKey({
         defaultPrefix: "memsys_",
         enableSessionForAPIKeys: false,
@@ -209,8 +194,6 @@ const createAuth = (env: Env) =>
       }),
     ],
     rateLimit: {
-      // Reading the session only answers who is signed in; limiting it would
-      // cost a D1 read and write on every page load.
       customRules: { "/get-session": false },
       enabled: true,
       storage: "database",
@@ -229,7 +212,6 @@ interface Instance {
 // Better Auth sets itself up with D1 queries as soon as it is created.
 const SETUP_TIMEOUT_MS = 10_000;
 
-// Bindings are fixed per deployment; reuse one instance per env object.
 const instances = new WeakMap<Env, Instance>();
 
 // A failed setup is dropped, so the next request starts over. Setup ends
@@ -278,11 +260,8 @@ const accessToken = z.object({
   sub: z.string(),
 });
 
-// Signing keys, cached per env object like the auth instance.
 const jwksCacheKeys = new WeakMap<Env, object>();
 
-// An OAuth access token for /mcp: signed by us, for /mcp, and from an app
-// the user has not disconnected since.
 export const verifyAccessToken = async (env: Env, token: string) => {
   const auth = getAuth(env);
   let jwksCacheKey = jwksCacheKeys.get(env);

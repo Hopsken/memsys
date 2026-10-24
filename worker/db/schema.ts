@@ -72,7 +72,6 @@ export const verification = sqliteTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)]
 );
 
-// API keys for /mcp. Only the hash of each key is stored.
 export const apikey = sqliteTable(
   "apikey",
   {
@@ -107,7 +106,6 @@ export const apikey = sqliteTable(
   ]
 );
 
-// Rate-limit counters; in-memory counters would reset per isolate.
 export const rateLimit = sqliteTable("rateLimit", {
   count: integer().notNull(),
   id: text().primaryKey(),
@@ -115,7 +113,6 @@ export const rateLimit = sqliteTable("rateLimit", {
   lastRequest: integer().notNull(),
 });
 
-// Signing keys for OAuth access tokens.
 export const jwks = sqliteTable("jwks", {
   alg: text(),
   createdAt: createdAt(),
@@ -171,7 +168,6 @@ export const oauthClient = sqliteTable(
   (table) => [index("oauthClient_userId_idx").on(table.userId)]
 );
 
-// Resources tokens are issued for; here only /mcp.
 export const oauthResource = sqliteTable("oauthResource", {
   accessTokenTtl: integer(),
   allowedScopes: text(),
@@ -279,7 +275,6 @@ export const oauthAccessToken = sqliteTable(
   ]
 );
 
-// What each user let each app do. Removing one disconnects the app.
 export const oauthConsent = sqliteTable(
   "oauthConsent",
   {
@@ -301,7 +296,6 @@ export const oauthConsent = sqliteTable(
   ]
 );
 
-// Client assertion ids already used, so none is replayed.
 export const oauthClientAssertion = sqliteTable("oauthClientAssertion", {
   expiresAt: integer({ mode: "timestamp_ms" }).notNull(),
   id: text().primaryKey(),

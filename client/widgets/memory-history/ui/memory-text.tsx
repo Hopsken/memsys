@@ -3,8 +3,6 @@ import { cn } from "cn";
 import { TaggedText } from "@/features/tag-filter";
 import { diffWords } from "@/shared/lib/diff";
 
-// A memory's text with its #tags as links, marked up against the text before
-// it when there is one and the two are close enough for a diff to read well.
 export const MemoryText = ({
   before = null,
   className,
@@ -26,7 +24,6 @@ export const MemoryText = ({
       </p>
     );
   }
-  // Tags link where this version has them: in its unchanged and added text.
   const after = diff
     .filter(({ kind }) => kind !== "removed")
     .map(({ text: part }) => part)

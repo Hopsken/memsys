@@ -8,7 +8,6 @@ import { recall as runRecall, recallInput } from "../../worker/services/recall";
 
 const noJudge = () => Promise.reject(new Error("The relevance filter is off"));
 
-// Recall at the default settings, which never call the model.
 const recall = async (corpus: Iterable<Fragment>, raw: { cue: string }) => {
   const result = await runRecall(
     { judge: noJudge, memory: inMemory(corpus) },
@@ -42,7 +41,6 @@ describe("Recall grouping", () => {
   });
 
   it("follows tags the way recall associates them", async () => {
-    // #auth-tokens reaches #auth through its split words.
     const { fragments } = await recall(corpus, { cue: "tokens" });
     expect(refs(fragments)).toStrictEqual([["m2", ["r2"]]]);
   });

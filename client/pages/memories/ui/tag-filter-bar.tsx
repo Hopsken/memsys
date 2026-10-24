@@ -4,10 +4,6 @@ import { Link } from "react-router";
 
 import { filteredList, selectedTag, useTags } from "@/features/tag-filter";
 
-// The tags filtering the list, heading it like a toolbar. It sticks under
-// the app header, so on a long list it stays in reach; it is opaque, so the
-// list scrolls cleanly under it. Like the header, it has no rule: the gap
-// before the first card sets it apart.
 export const TagFilterBar = () => {
   const tags = useTags();
   if (tags.length === 0) {

@@ -89,7 +89,6 @@ describe("Fragment export and import", () => {
       skipped: 0,
     });
     const [before, after] = await Promise.all([list(source), list(target)]);
-    // Current fragments only: each arrives as a single version.
     expect(after).toStrictEqual({
       ...before,
       fragments: before.fragments.map((item) => ({ ...item, versions: 1 })),
@@ -158,7 +157,6 @@ describe("Fragment export and import", () => {
       "New one",
       "Same text elsewhere",
     ]);
-    // A known ref stays known after the object restarts.
     await evictDurableObject(memoryOf(user));
     const again = await importFile(
       user,

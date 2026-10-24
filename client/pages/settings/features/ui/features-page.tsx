@@ -33,8 +33,6 @@ const FILTER_LEVELS: { label: string; value: Settings["relevanceFilter"] }[] = [
 const same = (a: Settings, b: Settings) =>
   JSON.stringify(a) === JSON.stringify(b);
 
-// 422 issues attach to fields by path, such as "length.warn"; anything
-// else is one message for the page.
 const describe = (error: Error) => {
   const { problem } = failure(error);
   return {

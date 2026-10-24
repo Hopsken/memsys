@@ -6,12 +6,8 @@ import type { Result } from "@contract/result";
 
 import type { RelevanceUnavailable } from "../errors";
 
-// Jev on Workers AI scores every candidate: one independent noul per
-// candidate, so "nothing is relevant" is a possible answer. It retries what
-// it can and says whether the caller should retry the rest.
 export const JEV_MODEL = "typesafe/jev";
 export const JEV_TIMEOUT_MS = 1500;
-// Tries per recall; each retry asks only about candidates still unanswered.
 export const JEV_ATTEMPTS = 3;
 
 // Workers AI codes that retrying cannot fix: no balance, a model that is gone,
@@ -22,10 +18,8 @@ const PERSISTENT = new Set([3023, 3036, 3041, 3042, 5007, 5016, 5018, 5035]);
 const AI_ERROR_CODE = /(?:^|\s)(?<code>\d{4}):/u;
 // Gateway failures between the binding and the model carry no code.
 const UPSTREAM = /InferenceUpstreamError/u;
-// Waits before the second and third attempts, so a capacity error can clear.
 const BACKOFF_MS = 250;
 
-// An attempt that failed on Jev's side of the call.
 class JevAttemptError extends Error {
   readonly kind: "timeout" | "malformed";
 
@@ -45,9 +39,6 @@ const sleep = async (ms: number) => {
   await promise;
 };
 
-// Whether retrying can fix a failed attempt. Anything not known to be an
-// outage is persistent: a missing binding or an unknown error does not
-// clear on its own, and an agent told to retry would retry forever.
 const isTransient = (error: Error) => {
   if (error instanceof JevAttemptError) {
     return true;
@@ -61,7 +52,6 @@ const isTransient = (error: Error) => {
   return UPSTREAM.test(String(error));
 };
 
-// Workers AI, narrowed to one call. Output is model JSON; Jev checks its shape.
 export interface Ai {
   run: (model: string, input: JsonObject) => Promise<Json>;
 }
@@ -88,7 +78,6 @@ const parseScores = (value: Json) => {
   return parsed.data.answers;
 };
 
-// Keys are refs; Jev does not show keys to the model, so they are safe ids.
 const question = (ref: string) => ({
   criteria: {
     false:
@@ -136,8 +125,6 @@ const ask = async (
   return parseScores(output);
 };
 
-// The cause goes only to the log: neither the agent nor the owner can fix
-// Workers AI, since the service pays for it.
 const persistent = (
   cause: string
 ): { error: RelevanceUnavailable; ok: false } => {
@@ -145,8 +132,6 @@ const persistent = (
   return err({ kind: "relevance-unavailable", retry: false });
 };
 
-// A score for every candidate, or a failure that says whether a retry can
-// help.
 const score = async (
   ai: Ai,
   candidates: readonly Fragment[],
@@ -157,7 +142,6 @@ const score = async (
   let allMalformed = true;
   for (let attempt = 1; attempt <= JEV_ATTEMPTS; attempt += 1) {
     if (attempt > 1) {
-      // Sequential by design: each retry waits a little longer.
       // oxlint-disable-next-line no-await-in-loop
       await sleep(BACKOFF_MS * (attempt - 1));
     }
@@ -189,7 +173,6 @@ const score = async (
     console.error({ attempt, error: failure, event: "jev.attempt.failed" });
   }
   if (scores.size < candidates.length) {
-    // A response that never parses means the model changed, not an outage.
     if (allMalformed) {
       return persistent(failure);
     }
@@ -198,7 +181,6 @@ const score = async (
   return ok(scores);
 };
 
-// Jev on Workers AI as recall's relevance judge.
 export const jev =
   (ai: Ai) => (candidates: readonly Fragment[], input: RecallInput) =>
     score(ai, candidates, input);

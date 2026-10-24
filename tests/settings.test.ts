@@ -30,7 +30,6 @@ const save = async (user: User, patch: JSONValue) => {
   return { body: await response.json(), status: response.status };
 };
 
-// The plugin settings a memory object kept before settings replaced them.
 const PLUGIN_ROWS = {
   jevOff: [["jev", 0, '{"strictness":"max"}', 3]],
   jevOn: [

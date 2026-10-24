@@ -176,7 +176,6 @@ describe("Stateless MCP", () => {
     const user = await signIn();
     await call(user, "remember", { fragment: "Judged memory #test" });
     await patchSettings(user, { relevanceFilter: "medium" });
-    // Tests have no Workers AI binding, which retrying cannot fix.
     const failed = await call(user, "recall", { cue: "judged memory" });
     const owner = RELEVANCE_UNAVAILABLE;
     expect({

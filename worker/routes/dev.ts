@@ -30,14 +30,10 @@ const returnPath = (returnTo: string | undefined, origin: string) => {
     : "/";
 };
 
-// Development-only routes, mounted under `import.meta.env.DEV`.
-// Marked pure so production builds, where nothing mounts it, drop the module.
-// They skip sign-in; anyone who can reach the dev server can use them.
 export const dev =
   /* @__PURE__ */
   new Hono<AppEnv>()
     .post("/api/dev/seed", async (c) => {
-      // The email only finds the user; their default space is seeded.
       const { email } = seedInput.parse(await c.req.json());
       const { internalAdapter } = await getAuth(c.env).$context;
       const found = await internalAdapter.findUserByEmail(email);
@@ -51,8 +47,6 @@ export const dev =
         await env.MEMORY.getByName(defaultSpace(found.user.id)).seed(corpus)
       );
     })
-    // Signs the browser in as anyone on the allowlist, creating the account
-    // with the seed corpus the first time, then sends it to `returnTo`.
     .get("/__dev/log-me-in/:email", async (c) => {
       const email = z.email().safeParse(c.req.param("email"));
       if (!email.success) {
@@ -69,7 +63,6 @@ export const dev =
       const found = await internalAdapter.findUserByEmail(email.data);
       let user = found?.user;
       if (!user) {
-        // Created as email sign-in creates accounts.
         user = await internalAdapter.createUser(
           { email: email.data, emailVerified: true, name: "" },
           { method: "email-otp" }
@@ -89,9 +82,6 @@ export const dev =
         returnPath(c.req.query("returnTo"), new URL(c.req.url).origin)
       );
     })
-    // Throwaway memory spaces for eval/longmemeval, one per run, with no
-    // account behind them: MCP with every tool, settings, and the whole
-    // log out and in.
     .use("/__dev/eval/:space/*", (c, next) => {
       c.set("memory", memoryOf(`eval:${c.req.param("space")}`));
       c.set("scopes", new Set([MEMORY_READ, MEMORY_WRITE]));

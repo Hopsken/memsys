@@ -30,8 +30,6 @@ interface RemoveMenuProps {
   title: string;
 }
 
-// Removing a row sits in its menu behind a confirmation, so it is never one
-// stray click away.
 export const RemoveMenu = ({
   action,
   description,

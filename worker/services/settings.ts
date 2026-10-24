@@ -9,12 +9,10 @@ import { FRAGMENT_MAX, fragmentLength } from "@lib/fragment";
 
 import type { InvalidSettings, TooLong } from "../errors";
 
-// The owner's settings are one metadata document in the core.
 const KEY = "settings";
 
 const characters = z.int().min(1).max(FRAGMENT_MAX);
 
-// Each field is stored, defaulted, and checked on its own.
 const fields = {
   length: z
     .object({ refuse: characters, warn: characters })
@@ -30,8 +28,6 @@ export const DEFAULT_SETTINGS: Settings = {
   relevanceFilter: "off",
 };
 
-// A JSON Merge Patch over the stored settings: a field is a whole new value,
-// or null to return it to its default.
 const settingsPatch = z
   .object({
     length: fields.length.nullable().optional(),
@@ -39,7 +35,6 @@ const settingsPatch = z
   })
   .strict();
 
-// Stored settings with a default for every field missing or no longer valid.
 const parseSettings = (stored: Json | undefined): Settings => {
   const value = z.record(z.string(), z.json()).safeParse(stored).data ?? {};
   const field = <K extends keyof Settings>(key: K): Settings[K] => {
@@ -73,7 +68,6 @@ export const viewSettings = async (
   settings: await readSettings(memory),
 });
 
-// Applies the owner's change; the last save of a field wins.
 export const updateSettings = async (
   memory: Pick<Memory, "patchMetadata">,
   patch: JsonObject
@@ -88,13 +82,10 @@ export const updateSettings = async (
       kind: "invalid-settings",
     });
   }
-  // SAFETY: the parsed patch holds only JSON: numbers, strings, and null.
-  const stored = await memory.patchMetadata(KEY, parsed.data as JsonObject);
+  const stored = await memory.patchMetadata(KEY, patch);
   return ok({ defaults: DEFAULT_SETTINGS, settings: parseSettings(stored) });
 };
 
-// The owner's length limits on what agents write: a warning above `warn`,
-// a refusal above `refuse`.
 export const checkLength = (
   { refuse, warn }: Settings["length"],
   text: string

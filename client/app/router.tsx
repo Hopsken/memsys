@@ -18,10 +18,8 @@ export const router = createBrowserRouter([
   { element: <LoginView />, path: "/login" },
   { element: <ConsentView />, path: "/consent" },
   {
-    // App sends visitors without a session to /login.
     children: [
       { element: <Navigate replace to="activity" />, index: true },
-      // History opens as a dialog over the list that links to it.
       {
         children: [{ element: <HistoryDialog />, path: ":ref" }],
         element: <ActivityView />,
@@ -42,7 +40,6 @@ export const router = createBrowserRouter([
           { element: <Navigate replace to="mcp" />, index: true },
           { element: <ApiKeysView />, path: "mcp" },
           { element: <FeaturesView />, path: "features" },
-          // Settings → Plugins became Settings → Features.
           {
             element: <Navigate replace to="/settings/features" />,
             path: "plugins",

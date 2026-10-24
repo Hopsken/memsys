@@ -1,7 +1,3 @@
-// Pi extension for the recall phase: refuses every recall past the budget in
-// RECALL_ROUNDS, so "ask until the memory is empty" cannot count as a win.
-// The model sees the reason as a tool error and is told to answer.
-
 export const BUDGET_REASON = "Recall budget of";
 
 interface ToolCallEvent {

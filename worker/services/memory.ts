@@ -7,11 +7,8 @@ import type { InvalidInput, NotFound, Result } from "@contract/result";
 import type { TooLong } from "../errors";
 import { checkLength, readSettings } from "./settings";
 
-// What an agent's write returns: the fragment, with a nudge when it is
-// longer than the owner would like.
 export type Written = Fragment & { warnings?: string[] };
 
-// Checks the owner's length limits, then writes through the core.
 const write = async <E>(
   memory: Pick<Memory, "readMetadata">,
   text: string,
@@ -47,7 +44,6 @@ export const revise = (
 ): Promise<Result<Written, InvalidInput | NotFound | TooLong>> =>
   write(memory, input.fragment, () => memory.revise(input, by));
 
-// Every #anchor in use, sorted.
 export const listTags = async (memory: Pick<Memory, "anchors">) => {
   const anchors = await memory.anchors();
   return anchors.map(({ anchor }) => anchor);

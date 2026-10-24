@@ -1,6 +1,3 @@
-// The dev Worker the harness talks to (vite.config.ts, :5174): throwaway
-// memory spaces behind /__dev/eval/:space, with MCP, export, and import.
-
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 
@@ -17,7 +14,6 @@ export const server = async (route: string, init?: RequestInit) => {
   return body;
 };
 
-// One MCP JSON-RPC call to a space; params are the method's own object.
 const rpc = async (
   space: string,
   method: string,
@@ -48,7 +44,6 @@ export const serverInstructions = async () =>
     })
   ).instructions;
 
-// Tool name → description, as the agent sees them.
 export const toolDescriptions = async () =>
   Object.fromEntries(
     z
@@ -61,15 +56,10 @@ export const toolDescriptions = async () =>
       .tools.map((tool) => [tool.name, tool.description])
   );
 
-// What a run changes from the default settings, e.g.
-// `{ "relevanceFilter": "low" }`.
 export type SettingsPatch = Record<string, z.core.util.JSONType>;
 
 const settingsView = z.object({ defaults: z.record(z.string(), z.json()) });
 
-// Puts a space's settings in exactly the given state: every field back to
-// its default, with the patch over them. The Worker refuses an unknown or
-// invalid value.
 export const setSettings = async (space: string, patch: SettingsPatch) => {
   const view = settingsView.parse(
     JSON.parse(await server(`${space}/settings`))
@@ -84,7 +74,6 @@ export const setSettings = async (space: string, patch: SettingsPatch) => {
   });
 };
 
-// A record as /export writes it; other fields pass through to /import.
 export const logRecord = z.looseObject({
   at: z.string(),
   fragment: z.string().nullable(),
@@ -119,7 +108,6 @@ export const exportLog = async (space: string) => {
     .map((line) => logRecord.parse(JSON.parse(line)));
 };
 
-// Import takes whole refs, and the dev server limits bodies to 32 KB.
 export const importLog = async (space: string, records: LogRecord[]) => {
   const chunks = [""];
   for (const group of Object.values(Object.groupBy(records, (r) => r.ref))) {
@@ -132,13 +120,11 @@ export const importLog = async (space: string, records: LogRecord[]) => {
     chunks[chunks.length - 1] += lines;
   }
   for (const body of chunks.filter(Boolean)) {
-    // Chunks go in order.
     // oxlint-disable-next-line no-await-in-loop
     await server(`${space}/import`, { body, method: "POST" });
   }
 };
 
-// The fragments in force after replaying a log, by ref.
 export const currentMemories = (records: LogRecord[]) => {
   const memories = new Map<string, string>();
   for (const { fragment, ref } of records) {
@@ -159,7 +145,6 @@ export const pool = async <T>(
   const queue = [...items];
   const worker = async () => {
     for (let item = queue.shift(); item !== undefined; item = queue.shift()) {
-      // Each worker takes one item at a time.
       // oxlint-disable-next-line no-await-in-loop
       await task(item);
     }

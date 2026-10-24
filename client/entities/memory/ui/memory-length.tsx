@@ -4,8 +4,6 @@ import { fragmentLength } from "@lib/fragment";
 
 import { useSettings } from "../api/settings";
 
-// A memory's length, in amber when it is above the warning limit. Below the
-// limit it shows only when `always` is set.
 export const MemoryLength = ({
   always = false,
   text,

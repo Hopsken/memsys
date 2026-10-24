@@ -70,7 +70,6 @@ describe("Memory persistence", () => {
       Date.parse("2026-01-01T00:00:00.000Z"),
       Date.parse("2026-02-01T00:00:00.000Z"),
     ];
-    // Roll the object back to the schema before the log.
     await runInDurableObject(memory, (_, state) => {
       const { sql } = state.storage;
       sql.exec("DROP TABLE records");
@@ -118,7 +117,6 @@ describe("Memory persistence", () => {
   it("gives each earlier record the op its place in the log implies", async () => {
     const memory = env.MEMORY.getByName("op-migration");
     await memory.list({});
-    // Roll the object back to the log before ops were kept.
     await runInDurableObject(memory, (_, state) => {
       const { sql } = state.storage;
       sql.exec("DROP TABLE records");
@@ -156,7 +154,6 @@ describe("Memory persistence", () => {
       throw new Error(saved.error.message);
     }
     const { ref } = saved.value;
-    // Back to back, these usually land in the same millisecond.
     await memory.revise({ fragment: "Two", ref }, "user");
     await memory.forget({ ref }, "user");
     await memory.revise({ fragment: "Three", ref }, "user");
