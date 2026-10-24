@@ -3,11 +3,8 @@ import type { JSONValue } from "hono/utils/types";
 import { afterAll, beforeAll, vi } from "vitest";
 import { z } from "zod";
 
-import type {
-  Fragment,
-  FragmentPage,
-  ListedFragment,
-} from "../contract/memory";
+import type { Fragment, FragmentPage, ListedFragment } from "@contract/memory";
+
 import worker from "../worker/index";
 import { defaultSpace } from "../worker/lib/memory";
 

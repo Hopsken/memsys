@@ -1,8 +1,9 @@
+import { inMemory } from "@core";
 import { describe, expect, it } from "vitest";
 
+import type { Fragment, RecallItem } from "@contract/memory";
+
 import { groupByMatch } from "../../client/widgets/recall-preview/lib/group";
-import type { Fragment, RecallItem } from "../../contract/memory";
-import { inMemory } from "../../core";
 import { recall as runRecall, recallInput } from "../../worker/services/recall";
 
 const noJudge = () => Promise.reject(new Error("The relevance filter is off"));

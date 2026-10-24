@@ -1,6 +1,7 @@
-import type { Fragment, JsonObject } from "../contract/memory";
-import { terms } from "../lib/analyzer";
-import { associationKeys, extractAnchors } from "../lib/anchor";
+import type { Fragment, JsonObject } from "@contract/memory";
+import { terms } from "@lib/analyzer";
+import { associationKeys, extractAnchors } from "@lib/anchor";
+
 import type { AnchorCount, Association, MemoryCore, SearchHit } from "./api";
 
 const K1 = 1.2;

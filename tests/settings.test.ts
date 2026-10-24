@@ -1,10 +1,11 @@
+import migrations from "@core/migrations/migrations.js";
 import { evictDurableObject, runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import type { JSONValue } from "hono/utils/types";
 import { describe, expect, it, vi } from "vitest";
 
-import type { SettingsView } from "../contract/settings";
-import migrations from "../core/migrations/migrations.js";
+import type { SettingsView } from "@contract/settings";
+
 import worker from "../worker/index";
 import { patchSettings, useAuth } from "./helpers";
 import type { User } from "./helpers";

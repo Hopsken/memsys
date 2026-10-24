@@ -1,9 +1,10 @@
+import { inMemory } from "@core";
 import { describe, expect, it } from "vitest";
 
-import type { Fragment } from "../../contract/memory";
-import { inMemory } from "../../core";
-import { terms } from "../../lib/analyzer";
-import { extractAnchors } from "../../lib/anchor";
+import type { Fragment } from "@contract/memory";
+import { terms } from "@lib/analyzer";
+import { extractAnchors } from "@lib/anchor";
+
 import { recall as runRecall, recallInput } from "../../worker/services/recall";
 
 const noJudge = () => Promise.reject(new Error("The relevance filter is off"));

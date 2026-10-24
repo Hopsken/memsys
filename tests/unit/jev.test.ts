@@ -1,9 +1,10 @@
+import { inMemory } from "@core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import type { Fragment, Json, RecallItem } from "../../contract/memory";
-import type { Strictness } from "../../contract/settings";
-import { inMemory } from "../../core";
+import type { Fragment, Json, RecallItem } from "@contract/memory";
+import type { Strictness } from "@contract/settings";
+
 import {
   JEV_ATTEMPTS,
   JEV_MODEL,

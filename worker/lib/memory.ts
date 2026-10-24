@@ -1,6 +1,5 @@
+import type { Memory } from "@core";
 import { env } from "cloudflare:workers";
-
-import type { Memory } from "../../core";
 
 // A memory space id names one memory object. Each user has a default space
 // whose id is their user id; this is the only place that ties the two, so

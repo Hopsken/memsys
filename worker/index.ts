@@ -111,4 +111,4 @@ export default {
 };
 
 // Wrangler takes Durable Object classes from the Worker's entry point.
-export { MemoryDO } from "../core/do";
+export { MemoryDO } from "@core/do";

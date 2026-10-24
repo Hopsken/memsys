@@ -2,7 +2,8 @@ import { evictDurableObject, runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
-import type { Fragment } from "../contract/memory";
+import type { Fragment } from "@contract/memory";
+
 import { memoryOf } from "../worker/lib/memory";
 import { recall as runRecall } from "../worker/services/recall";
 

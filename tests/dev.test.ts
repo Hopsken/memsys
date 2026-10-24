@@ -1,7 +1,8 @@
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
-import type { Fragment } from "../contract/memory";
+import type { Fragment } from "@contract/memory";
+
 import worker from "../worker/index";
 import { corpus } from "../worker/lib/dev-corpus";
 import { list, ORIGIN, post, useAuth } from "./helpers";

@@ -1,3 +1,4 @@
+import type { Memory } from "@core";
 import { z } from "zod";
 
 import type {
@@ -5,13 +6,13 @@ import type {
   RecallInput,
   RecallItem,
   RecallResult,
-} from "../../contract/memory";
-import { err, ok } from "../../contract/result";
-import type { Result } from "../../contract/result";
-import type { Strictness } from "../../contract/settings";
-import type { Memory } from "../../core";
-import { terms } from "../../lib/analyzer";
-import { associationKeys, extractAnchors } from "../../lib/anchor";
+} from "@contract/memory";
+import { err, ok } from "@contract/result";
+import type { Result } from "@contract/result";
+import type { Strictness } from "@contract/settings";
+import { terms } from "@lib/analyzer";
+import { associationKeys, extractAnchors } from "@lib/anchor";
+
 import type { RelevanceUnavailable } from "../errors";
 import { readSettings } from "./settings";
 

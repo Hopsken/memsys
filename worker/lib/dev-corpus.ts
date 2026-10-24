@@ -1,6 +1,6 @@
 // Seed data for local development; imported only by routes/dev.ts.
 
-import type { SeedFragment } from "../../core";
+import type { SeedFragment } from "@core";
 
 // The shared test corpus from RFC 3–7 in English, in order f1–f8. Its anchors are chosen
 // on purpose: #memsys is a hub, durable-object(s) only meet after stemming,
