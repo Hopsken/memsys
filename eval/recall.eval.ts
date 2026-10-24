@@ -9,7 +9,7 @@ import { getPlatformProxy } from "wrangler";
 import { z } from "zod";
 
 import { jev } from "../worker/clients/jev";
-import type { Ai } from "../worker/clients/jev";
+import { workersAiFetch } from "../worker/clients/workers-ai";
 import {
   recall as recallWith,
   recallInputSchema,
@@ -57,7 +57,7 @@ afterAll(async () => {
   await proxy?.dispose();
 });
 
-const ai: Ai = {
+const ai = workersAiFetch({
   run: async (model, input) => {
     if (!proxy) {
       throw new Error("Workers AI is off; set JEV=1");
@@ -66,7 +66,7 @@ const ai: Ai = {
     // parsed as JSON before Jev sees it, as in MemoryDO.
     return z.json().parse(await proxy.env.AI.run(model as never, input));
   },
-};
+});
 
 vi.spyOn(console, "error").mockReturnValue();
 

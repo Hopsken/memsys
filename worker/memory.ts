@@ -1,8 +1,16 @@
 import type { Memory } from "@core";
 import { env } from "cloudflare:workers";
+import { z } from "zod";
 
-import { relevanceJudge } from "./clients/workers-ai";
+import { jev } from "./clients/jev";
+import { workersAiFetch } from "./clients/workers-ai";
 import { MemoryService } from "./services/memory";
+
+const relevanceJudge = jev(
+  workersAiFetch({
+    run: async (model, input) => z.json().parse(await env.AI.run(model, input)),
+  })
+);
 
 export const defaultSpace = (userId: string) => userId;
 

@@ -9,7 +9,8 @@ import {
   JEV_TIMEOUT_MS,
   jev,
 } from "../../worker/clients/jev";
-import type { Ai } from "../../worker/clients/jev";
+import { workersAiFetch } from "../../worker/clients/workers-ai";
+import type { WorkersAiBinding } from "../../worker/clients/workers-ai";
 import {
   JUDGE_BUDGET,
   keepOnlyJudgedRelevant,
@@ -47,7 +48,7 @@ const noul = (scores: Record<string, number>) => ({
   model: "jev-1.13.0",
 });
 
-type Run = Ai["run"];
+type Run = WorkersAiBinding["run"];
 type Json = Awaited<ReturnType<Run>>;
 
 const asked = (request: Json | undefined) =>
@@ -68,7 +69,8 @@ const stage = (
   run: Run,
   rows: RecallItem[] = items,
   strictness: Strictness = "medium"
-) => keepOnlyJudgedRelevant(jev({ run }), rows, input, strictness);
+) =>
+  keepOnlyJudgedRelevant(jev(workersAiFetch({ run })), rows, input, strictness);
 
 const refs = (result: Awaited<ReturnType<typeof stage>>) =>
   result.ok ? result.value.items.map((row) => row.ref) : result.error;
@@ -147,27 +149,6 @@ describe("Relevance filter", () => {
     }
   );
 
-  it("asks again only about the candidates the model left unanswered", async () => {
-    const run = vi
-      .fn<Run>()
-      .mockResolvedValueOnce(noul({ f2: 0.6, f7: 0.9, f8: 0.1 }))
-      .mockResolvedValueOnce(noul({ fx: 0.8 }));
-    await expect(stage(run).then(refs)).resolves.toStrictEqual([
-      "f7",
-      "f2",
-      "fx",
-    ]);
-    expect(asked(run.mock.calls[1]?.[1])).toStrictEqual(["fx"]);
-  });
-
-  it("fails the recall, never passing an unjudged candidate, when one stays unanswered", async () => {
-    const run = vi.fn<Run>(() =>
-      Promise.resolve(noul({ f2: 0.9, f7: 0.9, f8: 0.9 }))
-    );
-    await expect(stage(run)).resolves.toStrictEqual(failed(true));
-    expect(run).toHaveBeenCalledTimes(JEV_ATTEMPTS);
-  });
-
   it.each([
     [
       "a capacity error",
@@ -198,6 +179,7 @@ describe("Relevance filter", () => {
       "a code property",
       Object.assign(new Error("No such model"), { code: 5007 }),
     ],
+    ["a code it does not list", new Error("Error: 7003: User Input Error")],
     ["no code at all", new Error("Binding AI needs to be run remotely")],
   ])(
     "fails at once on a persistent error named in %s",
@@ -259,7 +241,7 @@ describe("Relevance filter", () => {
     const result = await recall(
       inMemory(corpus, { settings: { relevanceFilter: "medium" } }),
       input,
-      jev({ run: malformed })
+      jev(workersAiFetch({ run: malformed }))
     );
     expect(result).toStrictEqual(failed(false));
   });

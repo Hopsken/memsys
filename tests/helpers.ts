@@ -57,18 +57,17 @@ const codes = new Map<string, string>();
 
 export const useAuth = () => {
   beforeAll(() => {
-    vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
-      if (String(input) !== "https://api.resend.com/emails") {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const request = new Request(input, init);
+      if (request.url !== "https://api.resend.com/emails") {
         throw new Error("Unexpected network request");
       }
-      const { text, to } = resendEmailSchema.parse(
-        JSON.parse(String(init?.body))
-      );
+      const { text, to } = resendEmailSchema.parse(await request.json());
       const code = /\b(?<code>\d{6})\b/u.exec(text)?.groups?.["code"];
       if (code && to[0]) {
         codes.set(to[0], code);
       }
-      return Promise.resolve(Response.json({ id: crypto.randomUUID() }));
+      return Response.json({ id: crypto.randomUUID() });
     });
   });
   afterAll(() => vi.restoreAllMocks());
