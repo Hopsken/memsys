@@ -11,17 +11,22 @@ export interface WorkersAiBinding {
 const AI_TIMEOUT = 3007;
 const AI_OUT_OF_CAPACITY = 3040;
 const RETRYABLE_AI_ERROR_CODES = new Set([AI_TIMEOUT, AI_OUT_OF_CAPACITY]);
+// Workers AI reports an input over the model's context as 7003 User Input Error.
+const AI_INPUT_ERROR = 7003;
 const AI_ERROR_CODE = /(?:^|\s)(?<code>\d{4}):/u;
 const UPSTREAM_GATEWAY_ERROR = /InferenceUpstreamError/u;
 
-const isTransient = (error: Error) => {
+const statusOf = (error: Error) => {
   const code =
     z.object({ code: z.number() }).safeParse(error).data?.code ??
     Number(AI_ERROR_CODE.exec(String(error))?.groups?.["code"]);
-  return (
+  if (
     RETRYABLE_AI_ERROR_CODES.has(code) ||
     UPSTREAM_GATEWAY_ERROR.test(String(error))
-  );
+  ) {
+    return 503;
+  }
+  return code === AI_INPUT_ERROR ? 413 : 400;
 };
 
 export const workersAiErrorSchema = z.object({ error: z.string() });
@@ -49,7 +54,7 @@ export const workersAiFetch =
         z.instanceof(Error).safeParse(error).data ?? new Error(String(error));
       return Response.json(
         { error: String(cause) },
-        { status: isTransient(cause) ? 503 : 400 }
+        { status: statusOf(cause) }
       );
     }
   };
