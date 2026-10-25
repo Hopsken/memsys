@@ -114,28 +114,35 @@ describe("Recall", () => {
     expect(terms("the of and")).toStrictEqual([]);
   });
 
-  it("matches every cue word in any order or inflection", async () => {
+  it("matches cue words in any order or inflection, fuller matches first", async () => {
     const corpus = [
       item("a", "D1's primary region is in US West #d1"),
       item("b", "Evicted objects rebuild from SQLite"),
       item("c", "Region only"),
     ];
-    await expect(matched(corpus, "d1 region")).resolves.toStrictEqual(["a"]);
+    await expect(matched(corpus, "d1 region")).resolves.toStrictEqual([
+      "a",
+      "c",
+    ]);
     await expect(matched(corpus, "eviction object")).resolves.toStrictEqual([
       "b",
     ]);
     await expect(matched(corpus, "west region D1")).resolves.toStrictEqual([
       "a",
+      "c",
     ]);
   });
 
-  it("lets a cue of three or more words miss one word, and no more", async () => {
-    const corpus = [item("a", "Vite dev server returns 403")];
-    await expect(matched(corpus, "vite 403 error")).resolves.toStrictEqual([
-      "a",
+  it("matches a fragment that shares any one cue word", async () => {
+    const corpus = [
+      item("one", "Vite config", "03"),
+      item("two", "Vite error on start", "02"),
+      item("none", "Unrelated note", "01"),
+    ];
+    await expect(matched(corpus, "vite error crash")).resolves.toStrictEqual([
+      "two",
+      "one",
     ]);
-    await expect(matched(corpus, "vite error")).resolves.toStrictEqual([]);
-    await expect(matched(corpus, "vite bug error")).resolves.toStrictEqual([]);
   });
 
   it("ranks phrase matches first, then by words matched, then by BM25", async () => {
@@ -158,7 +165,7 @@ describe("Recall", () => {
         ],
         "alpha beta gamma"
       )
-    ).resolves.toStrictEqual(["rare", "common"]);
+    ).resolves.toStrictEqual(["rare", "common", "x", "y", "z"]);
   });
 
   it("finds nothing for a cue of only stopwords (RFC 0004)", async () => {
