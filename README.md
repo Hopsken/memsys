@@ -97,7 +97,7 @@ pnpm install --frozen-lockfile
 cp .dev.vars.example .dev.vars
 pnpm check       # Types, tests, production build, lint, format check
 pnpm dev         # Apply local D1 migrations, then Vite frontend and local Worker
-pnpm eval        # Score recall on eval/dataset.ts; JEV=1 adds Jev (bills Workers AI)
+pnpm eval        # Score recall with Jev on eval/dataset.ts (bills Workers AI)
 ```
 
 `pnpm dev` uses local D1 and Durable Object storage. Copy `.dev.vars.example` to the ignored `.dev.vars`: it sets a development `BETTER_AUTH_SECRET` and `PUBLIC_URL`. `pnpm invite` creates an invite code in the local database. With `RESEND_API_KEY` or `EMAIL_FROM` empty, a dev build prints sign-in codes in the dev server log instead of emailing them; a production build refuses to sign in without both. Open `/` on the development server and sign in.

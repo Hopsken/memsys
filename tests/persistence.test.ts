@@ -5,13 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { openMemory } from "../worker/memory";
 
-const recall = async (cue: string) => {
-  const result = await openMemory("persistence").recall({ cue });
-  if (!result.ok) {
-    throw new Error(result.error.reason);
-  }
-  return result.value;
-};
+const recall = (cue: string) => openMemory("persistence").recall({ cue });
 
 describe("Memory persistence", () => {
   it("preserves writes, edits, and deletion after eviction without changing memory on recall", async () => {

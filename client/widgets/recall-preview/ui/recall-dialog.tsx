@@ -5,7 +5,7 @@ import { Search, SearchX, XIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import type { FormEvent, ReactNode, RefObject } from "react";
 
-import { MemoryLength, useSettings } from "@/entities/memory";
+import { MemoryLength } from "@/entities/memory";
 import { SessionExpired } from "@/features/auth";
 import { api, failure, isExpired } from "@/shared/api";
 import type { RecallItem, RecallResult } from "@/shared/api";
@@ -117,6 +117,11 @@ const Results = ({
         </li>
       ))}
     </ul>
+    {result.warnings?.map((warning) => (
+      <p className="mt-4 text-center text-sm text-amber-700" key={warning}>
+        {warning}
+      </p>
+    ))}
     {result.truncated ? (
       <p className="text-muted-foreground mt-4 text-center text-sm">
         More memories match. Try something more specific.
@@ -162,8 +167,6 @@ const RecallPanel = ({
   const [draft, setDraft] = useState<Request>({ context: "", cue: "" });
   const [request, setRequest] = useState<Request | null>(null);
   const [opened, setOpened] = useState<string | null>(null);
-  const usesContext =
-    (useSettings().data?.settings.relevanceFilter ?? "off") !== "off";
   const query = useQuery({
     queryFn:
       request === null
@@ -186,7 +189,7 @@ const RecallPanel = ({
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const next = {
-      context: usesContext ? draft.context.trim() : "",
+      context: draft.context.trim(),
       cue: draft.cue.trim(),
     };
     if (!next.cue) {
@@ -226,19 +229,17 @@ const RecallPanel = ({
             Search
           </Button>
         </div>
-        {usesContext ? (
-          <Input
-            aria-label="What your AI is working on"
-            autoComplete="off"
-            className="h-9"
-            maxLength={1000}
-            onChange={(event) =>
-              setDraft({ ...draft, context: event.target.value })
-            }
-            placeholder="What your AI is working on (optional)"
-            value={draft.context}
-          />
-        ) : null}
+        <Input
+          aria-label="What your AI is working on"
+          autoComplete="off"
+          className="h-9"
+          maxLength={1000}
+          onChange={(event) =>
+            setDraft({ ...draft, context: event.target.value })
+          }
+          placeholder="What your AI is working on (optional)"
+          value={draft.context}
+        />
       </form>
       <section
         aria-busy={query.isFetching}

@@ -25,17 +25,25 @@ import { Textarea } from "@/shared/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/ui/toggle-group";
 
 const FILTER_LEVELS: { label: string; value: Settings["relevanceFilter"] }[] = [
-  { label: "Off", value: "off" },
-  { label: "Low", value: "low" },
-  { label: "Medium", value: "medium" },
-  { label: "High", value: "high" },
-  { label: "Max", value: "max" },
+  { label: "On", value: "low" },
+  { label: "Strict", value: "medium" },
 ];
 
 const INSTRUCTIONS_MAX = 500;
 
-const same = (a: Settings, b: Settings) =>
-  JSON.stringify(a) === JSON.stringify(b);
+const same = <T,>(a: T, b: T) => JSON.stringify(a) === JSON.stringify(b);
+
+// Saving only what changed lets untouched fields follow the defaults when
+// they change.
+const changes = (draft: Settings, saved: Settings): SettingsMergePatch => ({
+  ...(!same(draft.instructions, saved.instructions) && {
+    instructions: draft.instructions,
+  }),
+  ...(!same(draft.length, saved.length) && { length: draft.length }),
+  ...(!same(draft.relevanceFilter, saved.relevanceFilter) && {
+    relevanceFilter: draft.relevanceFilter,
+  }),
+});
 
 const describe = (error: Error) => {
   const { problem } = failure(error);
@@ -140,7 +148,7 @@ const FeaturesForm = ({ view }: { view: SettingsView }) => {
       className="space-y-4"
       onSubmit={(event) => {
         event.preventDefault();
-        mutation.mutate(draft);
+        mutation.mutate(changes(draft, view.settings));
       }}
     >
       <fieldset className="space-y-4" disabled={busy}>
@@ -189,10 +197,9 @@ const FeaturesForm = ({ view }: { view: SettingsView }) => {
           <CardHeader>
             <CardTitle id="relevance-filter">Relevance filter</CardTitle>
             <CardDescription>
-              A small AI model checks each recalled memory against what your AI
-              is doing and hides the ones that don’t help. Adds about a second
-              per recall and uses Workers AI credits. If the check fails, the
-              recall fails too.
+              Hides recalled memories that won’t help with what your AI is doing
+              right now. Recall takes a moment longer and uses a little of your
+              Workers AI credits.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -220,7 +227,7 @@ const FeaturesForm = ({ view }: { view: SettingsView }) => {
               ))}
             </ToggleGroup>
             <p className="text-muted-foreground mt-2 text-xs">
-              Low hides only clear misses; Max keeps only strong matches.
+              Strict also hides loose matches.
             </p>
           </CardContent>
         </Card>

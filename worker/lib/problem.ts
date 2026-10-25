@@ -11,15 +11,12 @@ const STATUS_BY_CODE = {
   unavailable: 503,
 } satisfies Record<Code, ContentfulStatusCode>;
 
-const statusOf = ({ code, retry }: Failure): ContentfulStatusCode =>
-  code === "unavailable" && retry === false ? 502 : STATUS_BY_CODE[code];
-
 export const unwrap = <T>(result: Result<T, Failure>): T => {
   if (result.ok) {
     return result.value;
   }
   const { issues, message, retry } = result.error;
-  const status = statusOf(result.error);
+  const status = STATUS_BY_CODE[result.error.code];
   throw new HTTPException(status, {
     res: Response.json(
       {

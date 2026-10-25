@@ -7,12 +7,12 @@ import type { Result } from "@lib/result";
 
 import type { InvalidSettings } from "../errors";
 
-export type Strictness = "low" | "medium" | "high" | "max";
+export type Strictness = "low" | "medium";
 
 export interface Settings {
   instructions: string;
   length: { warn: number; refuse: number };
-  relevanceFilter: "off" | Strictness;
+  relevanceFilter: Strictness;
 }
 
 export interface SettingsView {
@@ -39,13 +39,13 @@ const fields = {
       message: "Can’t be higher than Refuse above.",
       path: ["warn"],
     }),
-  relevanceFilter: z.enum(["off", "low", "medium", "high", "max"]),
+  relevanceFilter: z.enum(["low", "medium"]),
 } satisfies { [K in keyof Settings]: z.ZodType<Settings[K]> };
 
 export const DEFAULT_SETTINGS: Settings = {
   instructions: "",
   length: { refuse: 500, warn: 300 },
-  relevanceFilter: "off",
+  relevanceFilter: "low",
 };
 
 const settingsPatchSchema = z

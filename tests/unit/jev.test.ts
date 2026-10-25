@@ -11,6 +11,7 @@ import {
 } from "../../worker/clients/jev";
 import { workersAiFetch } from "../../worker/clients/workers-ai";
 import type { WorkersAiBinding } from "../../worker/clients/workers-ai";
+import { RELEVANCE_UNCHECKED } from "../../worker/errors";
 import {
   JUDGE_BUDGET,
   keepOnlyJudgedRelevant,
@@ -138,8 +139,6 @@ describe("Relevance filter", () => {
   it.each([
     ["low", ["f7", "f2", "f8", "fx"]],
     ["medium", ["f7", "f2", "f8"]],
-    ["high", ["f7", "f2"]],
-    ["max", ["f7"]],
   ] as const)(
     "drops more as strictness rises: %s",
     async (strictness, kept) => {
@@ -237,12 +236,15 @@ describe("Relevance filter", () => {
     expect(run).not.toHaveBeenCalled();
   });
 
-  it("fails the recall as persistent when no response parses", async () => {
-    const result = await recall(
-      inMemory(corpus, { settings: { relevanceFilter: "medium" } }),
-      input,
-      jev(workersAiFetch({ run: malformed }))
-    );
-    expect(result).toStrictEqual(failed(false));
+  it("returns every memory unchecked, with a warning, when the filter fails", async () => {
+    const memory = inMemory(corpus);
+    const [unchecked, kept] = await Promise.all([
+      recall(memory, input, jev(workersAiFetch({ run: malformed }))),
+      recall(memory, input, jev(workersAiFetch({ run: approveAll }))),
+    ]);
+    expect(unchecked).toStrictEqual({
+      ...kept,
+      warnings: [RELEVANCE_UNCHECKED],
+    });
   });
 });

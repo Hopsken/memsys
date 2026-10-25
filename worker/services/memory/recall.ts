@@ -9,9 +9,10 @@ import { z } from "zod";
 
 import { terms } from "@lib/analyzer";
 import { associationKeys, extractAnchors } from "@lib/anchor";
-import { err, ok } from "@lib/result";
+import { ok } from "@lib/result";
 import type { Result } from "@lib/result";
 
+import { RELEVANCE_UNCHECKED } from "../../errors";
 import type { RelevanceUnavailable } from "../../errors";
 import { SettingsService } from "../settings";
 import type { Strictness } from "../settings";
@@ -43,6 +44,7 @@ export type RecallItem = Fragment & { via?: string[] };
 export interface RecallResult {
   fragments: RecallItem[];
   truncated: boolean;
+  warnings?: string[];
 }
 
 const RESULT_SIZE = 10;
@@ -51,9 +53,7 @@ const MAX_ASSOCIATIONS_RANKED = 100;
 export const JUDGE_BUDGET = 40;
 
 const STRICTNESS = {
-  high: 0.5,
   low: 0.1,
-  max: 0.7,
   medium: 0.3,
 } satisfies Record<Strictness, number>;
 
@@ -166,7 +166,7 @@ export const recall = async (
   memory: RecallMemory,
   input: RecallInput,
   judge: Judge
-): Promise<Result<RecallResult, RelevanceUnavailable>> => {
+): Promise<RecallResult> => {
   const query = cueTerms(input.cue);
   const [{ relevanceFilter }, hits] = await Promise.all([
     new SettingsService(memory).read(),
@@ -182,22 +182,21 @@ export const recall = async (
           memory.count(),
         ])
       : [[], [], 0];
-  let items: RecallItem[] = [
+  const items: RecallItem[] = [
     ...matches,
     ...rankByRarestSharedAnchor(found, matches, anchors, size),
   ];
-  let truncated = false;
-  if (relevanceFilter !== "off") {
-    const filtered = await keepOnlyJudgedRelevant(
-      judge,
-      items,
-      input,
-      relevanceFilter
-    );
-    if (!filtered.ok) {
-      return err(filtered.error);
-    }
-    ({ items, truncated } = filtered.value);
+  const filtered = await keepOnlyJudgedRelevant(
+    judge,
+    items,
+    input,
+    relevanceFilter
+  );
+  if (filtered.ok) {
+    return cut(filtered.value.items, filtered.value.truncated);
   }
-  return ok(cut(items, truncated));
+  // A failing filter must not cut the agent off from its memories. The
+  // warning and the log make the failure visible so it gets fixed.
+  console.error({ event: "recall.unfiltered", retry: filtered.error.retry });
+  return { ...cut(items, false), warnings: [RELEVANCE_UNCHECKED] };
 };
