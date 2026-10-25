@@ -45,6 +45,16 @@ export type Connection = InferResponseType<
   200
 >[number];
 
+export type Persona = InferResponseType<typeof api.personas.$get, 200>[number];
+export type Assignment = InferResponseType<
+  typeof api.personas.assignments.$get,
+  200
+>[number];
+export type AuthorSummary = InferResponseType<
+  typeof api.authors.$get,
+  200
+>[number];
+
 const problemSchema = z.object({
   error: z.optional(z.string()),
   issues: z.optional(

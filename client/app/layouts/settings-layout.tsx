@@ -2,6 +2,7 @@ import { NavLink, Outlet } from "react-router";
 
 const TABS = [
   { label: "MCP", to: "mcp" },
+  { label: "Agents", to: "agents" },
   { label: "Features", to: "features" },
   { label: "Data", to: "data" },
   { label: "Account", to: "account" },
@@ -12,7 +13,10 @@ const tabClass =
 
 export const SettingsView = () => (
   <>
-    <nav aria-label="Settings" className="mb-8 flex gap-1 border-b">
+    <nav
+      aria-label="Settings"
+      className="mb-8 flex gap-1 overflow-x-auto border-b"
+    >
       {TABS.map((tab) => (
         <NavLink className={tabClass} key={tab.to} to={tab.to}>
           {tab.label}

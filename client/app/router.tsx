@@ -7,6 +7,7 @@ import { JoinView } from "@/pages/join";
 import { LoginView } from "@/pages/login";
 import { FragmentsView } from "@/pages/memories";
 import { AccountView } from "@/pages/settings/account";
+import { AgentsView } from "@/pages/settings/agents";
 import { DataView } from "@/pages/settings/data";
 import { FeaturesView } from "@/pages/settings/features";
 import { ApiKeysView } from "@/pages/settings/mcp";
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
         children: [
           { element: <Navigate replace to="mcp" />, index: true },
           { element: <ApiKeysView />, path: "mcp" },
+          { element: <AgentsView />, path: "agents" },
           { element: <FeaturesView />, path: "features" },
           {
             element: <Navigate replace to="/settings/features" />,

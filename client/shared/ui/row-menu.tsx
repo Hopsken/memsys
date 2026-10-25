@@ -1,8 +1,10 @@
 import type { UseMutationResult } from "@tanstack/react-query";
 import { Ellipsis } from "lucide-react";
 import { useRef, useState } from "react";
+import type { ReactNode } from "react";
 
 import { failure } from "@/shared/api";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,17 +14,19 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/shared/ui/alert-dialog";
-import { Button } from "@/shared/ui/button";
+} from "./alert-dialog";
+import { Button } from "./button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/shared/ui/dropdown-menu";
+} from "./dropdown-menu";
 
-interface RemoveMenuProps {
+interface RowMenuProps {
   action: string;
+  children?: ReactNode;
   description: string;
   name: string;
   pending: string;
@@ -30,14 +34,15 @@ interface RemoveMenuProps {
   title: string;
 }
 
-export const RemoveMenu = ({
+export const RowMenu = ({
   action,
+  children,
   description,
   name,
   pending,
   remove,
   title,
-}: RemoveMenuProps) => {
+}: RowMenuProps) => {
   const trigger = useRef<HTMLButtonElement>(null);
   const [confirming, setConfirming] = useState(false);
   return (
@@ -56,6 +61,12 @@ export const RemoveMenu = ({
           <Ellipsis aria-hidden="true" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {children ? (
+            <>
+              {children}
+              <DropdownMenuSeparator />
+            </>
+          ) : null}
           <DropdownMenuItem
             onClick={() => setConfirming(true)}
             variant="destructive"
