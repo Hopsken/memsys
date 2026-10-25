@@ -3,7 +3,7 @@ import { env } from "cloudflare:workers";
 import type { JSONValue } from "hono/utils/types";
 import { describe, expect, it, vi } from "vitest";
 
-import { RELEVANCE_UNCHECKED } from "../worker/errors";
+import { RELEVANCE_UNAVAILABLE } from "../worker/errors";
 import worker from "../worker/index";
 import {
   call,
@@ -210,32 +210,27 @@ describe("Stateless MCP", () => {
     });
   });
 
-  it("returns memories unchecked, with a warning, when the relevance filter fails", async () => {
+  it("fails recall, saying the owner must act, instead of returning unjudged memories", async () => {
     vi.spyOn(console, "error").mockReturnValue();
     const user = await signIn();
-    const item = content<Fragment>(
-      await call(user, "remember", { fragment: "Unjudged memory #test" })
-    );
+    await call(user, "remember", { fragment: "Judged memory #test" });
     const failure = new Error("5007: No such model");
     vi.mocked(env.AI.run)
       .mockRejectedValueOnce(failure)
       .mockRejectedValueOnce(failure);
-    const expected = {
-      fragments: [item],
-      truncated: false,
-      warnings: [RELEVANCE_UNCHECKED],
-    };
-    const viaMcp = content(
-      await call(user, "recall", { cue: "unjudged memory" })
-    );
-    const response = await post(
-      "/api/recall",
-      { cue: "unjudged memory" },
-      user
-    );
-    expect({ rest: await response.json(), viaMcp }).toStrictEqual({
-      rest: expected,
-      viaMcp: expected,
+    const failed = await call(user, "recall", { cue: "judged memory" });
+    const owner = RELEVANCE_UNAVAILABLE;
+    expect({
+      isError: failed.isError,
+      text: failed.content[0]?.text,
+    }).toStrictEqual({ isError: true, text: owner });
+    const response = await post("/api/recall", { cue: "judged memory" }, user);
+    expect({
+      body: await response.json(),
+      status: response.status,
+    }).toStrictEqual({
+      body: { error: owner, retry: false },
+      status: 502,
     });
   });
 

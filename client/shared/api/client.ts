@@ -36,7 +36,7 @@ export type RecallResult = InferResponseType<typeof api.recall.$post, 200>;
 export type RecallItem = RecallResult["fragments"][number];
 export type SettingsView = InferResponseType<typeof api.settings.$get, 200>;
 export type Settings = SettingsView["settings"];
-export type Strictness = Exclude<Settings["relevanceFilter"], "off">;
+export type Strictness = Settings["relevanceFilter"];
 export type SettingsMergePatch = {
   [K in keyof Settings]?: Settings[K] | null;
 };

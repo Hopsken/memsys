@@ -16,8 +16,17 @@ import type { Judge } from "../../worker/services/memory/recall";
 const keepAll: Judge = (candidates) =>
   Promise.resolve(ok(new Map(candidates.map((item) => [item.ref, 1]))));
 
-const recall = async (corpus: Iterable<Fragment>, raw: { cue: string }) =>
-  await recallWith(inMemory(corpus), recallInputSchema.parse(raw), keepAll);
+const recall = async (corpus: Iterable<Fragment>, raw: { cue: string }) => {
+  const result = await recallWith(
+    inMemory(corpus),
+    recallInputSchema.parse(raw),
+    keepAll
+  );
+  if (!result.ok) {
+    throw new Error(result.error.reason);
+  }
+  return result.value;
+};
 
 const item = (ref: string, fragment: string, day = "01"): Fragment => ({
   at: `2026-01-${day}T00:00:00.000Z`,

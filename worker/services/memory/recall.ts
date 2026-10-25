@@ -9,10 +9,9 @@ import { z } from "zod";
 
 import { terms } from "@lib/analyzer";
 import { associationKeys, extractAnchors } from "@lib/anchor";
-import { ok } from "@lib/result";
+import { err, ok } from "@lib/result";
 import type { Result } from "@lib/result";
 
-import { RELEVANCE_UNCHECKED } from "../../errors";
 import type { RelevanceUnavailable } from "../../errors";
 import { SettingsService } from "../settings";
 import type { Strictness } from "../settings";
@@ -44,7 +43,6 @@ export type RecallItem = Fragment & { via?: string[] };
 export interface RecallResult {
   fragments: RecallItem[];
   truncated: boolean;
-  warnings?: string[];
 }
 
 const RESULT_SIZE = 10;
@@ -166,7 +164,7 @@ export const recall = async (
   memory: RecallMemory,
   input: RecallInput,
   judge: Judge
-): Promise<RecallResult> => {
+): Promise<Result<RecallResult, RelevanceUnavailable>> => {
   const query = cueTerms(input.cue);
   const [{ relevanceFilter }, hits] = await Promise.all([
     new SettingsService(memory).read(),
@@ -192,11 +190,8 @@ export const recall = async (
     input,
     relevanceFilter
   );
-  if (filtered.ok) {
-    return cut(filtered.value.items, filtered.value.truncated);
+  if (!filtered.ok) {
+    return err(filtered.error);
   }
-  // A failing filter must not cut the agent off from its memories. The
-  // warning and the log make the failure visible so it gets fixed.
-  console.error({ event: "recall.unfiltered", retry: filtered.error.retry });
-  return { ...cut(items, false), warnings: [RELEVANCE_UNCHECKED] };
+  return ok(cut(filtered.value.items, filtered.value.truncated));
 };

@@ -58,10 +58,12 @@ const recall = async (item: EvalCase) => {
     input,
     jev(ai)
   );
-  return {
-    failed: result.warnings !== undefined,
-    refs: result.fragments.map((fragment) => fragment.ref),
-  };
+  return result.ok
+    ? {
+        failed: false,
+        refs: result.value.fragments.map((fragment) => fragment.ref),
+      }
+    : { failed: true, refs: [] };
 };
 
 const pool = async <T, R>(items: T[], task: (item: T) => Promise<R>) => {

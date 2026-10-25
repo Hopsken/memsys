@@ -74,7 +74,7 @@ Four tools, the minimal complete operation set of a memory: write, change, forge
 match → spread → rank → relevance filter → cut
 ```
 
-Each step is a typed function with its own bounds. Only the cut knows the result size. `truncated` is set when a step drops a cue match; a dropped association is not reported, since a better cue does not bring it back. A new step is a new function call here, kept if the eval shows it helps. When the relevance filter fails, recall returns the unfiltered list with a warning and logs `recall.unfiltered`: the agent keeps its memories, and the failure stays visible until it is fixed.
+Each step is a typed function with its own bounds. Only the cut knows the result size. `truncated` is set when a step drops a cue match; a dropped association is not reported, since a better cue does not bring it back. A new step is a new function call here, kept if the eval shows it helps.
 
 ## Write path
 

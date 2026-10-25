@@ -25,7 +25,7 @@ import { Textarea } from "@/shared/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/ui/toggle-group";
 
 const FILTER_LEVELS: { label: string; value: Settings["relevanceFilter"] }[] = [
-  { label: "On", value: "low" },
+  { label: "Default", value: "low" },
   { label: "Strict", value: "medium" },
 ];
 
@@ -198,8 +198,7 @@ const FeaturesForm = ({ view }: { view: SettingsView }) => {
             <CardTitle id="relevance-filter">Relevance filter</CardTitle>
             <CardDescription>
               Hides recalled memories that won’t help with what your AI is doing
-              right now. Recall takes a moment longer and uses a little of your
-              Workers AI credits.
+              right now.
             </CardDescription>
           </CardHeader>
           <CardContent>

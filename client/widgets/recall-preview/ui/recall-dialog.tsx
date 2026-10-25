@@ -117,11 +117,6 @@ const Results = ({
         </li>
       ))}
     </ul>
-    {result.warnings?.map((warning) => (
-      <p className="mt-4 text-center text-sm text-amber-700" key={warning}>
-        {warning}
-      </p>
-    ))}
     {result.truncated ? (
       <p className="text-muted-foreground mt-4 text-center text-sm">
         More memories match. Try something more specific.

@@ -11,12 +11,14 @@ export type RelevanceUnavailable = Failure<
   "relevance-unavailable"
 > & { retry: boolean };
 
-export const RELEVANCE_UNCHECKED =
-  "The relevance filter is unavailable, so these memories were not checked against your task and may include unrelated ones.";
+export const RELEVANCE_UNAVAILABLE =
+  "The relevance filter is unavailable, and retrying will not help. Tell the owner that memsys recall is down.";
+export const RELEVANCE_RETRY =
+  "The relevance filter could not check the memories. Retry this recall shortly.";
 
 export const relevanceUnavailable = (retry: boolean): RelevanceUnavailable => ({
   code: "unavailable",
-  message: RELEVANCE_UNCHECKED,
+  message: retry ? RELEVANCE_RETRY : RELEVANCE_UNAVAILABLE,
   reason: "relevance-unavailable",
   retry,
 });

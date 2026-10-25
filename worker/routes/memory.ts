@@ -84,9 +84,10 @@ export const memory = new Hono<AppEnv>()
       .remember(c.req.valid("json"), c.get("author"));
     return c.json(unwrap(result), 201);
   })
-  .post("/recall", validate("json", recallInputSchema), async (c) =>
-    c.json(await c.get("memory").recall(c.req.valid("json")))
-  )
+  .post("/recall", validate("json", recallInputSchema), async (c) => {
+    const result = await c.get("memory").recall(c.req.valid("json"));
+    return c.json(unwrap(result));
+  })
   .post("/revise", validate("json", inputSchemas.revise), async (c) => {
     const result = await c
       .get("memory")

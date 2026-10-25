@@ -68,7 +68,7 @@ const createMcpServer = (
           "Recall memories using a short textual cue. Prefer distinctive phrases, entities, concepts, or #anchors. Fragments matching the cue come first; fragments with `via` were associated through the listed shared #anchors. `truncated: true` means some matching memories were left out: recall again with a more specific cue, or with an #anchor from `via`.",
         inputSchema: recallInputSchema,
       },
-      async (input) => toolResult(ok(await memory.recall(input)))
+      async (input) => toolResult(await memory.recall(input))
     );
     server.registerTool(
       "list_tags",
