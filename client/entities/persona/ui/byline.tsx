@@ -1,14 +1,7 @@
 import type { Author } from "@/shared/api";
-import { Badge } from "@/shared/ui/badge";
 
 import { usePersonas } from "../api/personas";
 import { authorLabel } from "../lib/author";
-
-export const ArchivedBadge = () => (
-  <Badge className="h-4 px-1.5 text-[11px] font-normal" variant="secondary">
-    archived
-  </Badge>
-);
 
 export const Byline = ({
   by,
@@ -43,7 +36,6 @@ export const Byline = ({
       ) : (
         label.name
       )}
-      {label.archived ? <ArchivedBadge /> : null}
     </span>
   );
 };

@@ -1,7 +1,6 @@
 import type { Author, Persona } from "@/shared/api";
 
 export interface AuthorLabel {
-  archived: boolean;
   name: string;
 }
 
@@ -17,17 +16,15 @@ export const authorLabel = (
   personas: Persona[] | undefined
 ): AuthorLabel | null => {
   if (by === "user") {
-    return { archived: false, name: "you" };
+    return { name: "you" };
   }
   if (by.startsWith("persona:")) {
     if (!personas) {
       return null;
     }
     const persona = personas.find(({ id }) => `persona:${id}` === by);
-    return persona
-      ? { archived: persona.archivedAt !== null, name: persona.name }
-      : { archived: false, name: "an unknown agent" };
+    return { name: persona?.name ?? "an unknown agent" };
   }
   const name = by.slice("agent:".length).trim();
-  return { archived: false, name: name || "an AI tool" };
+  return { name: name || "an AI tool" };
 };
