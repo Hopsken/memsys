@@ -1,4 +1,4 @@
-import { inputSchemas } from "@core";
+import { fragmentTextSchema, inputSchemas } from "@core";
 import type { Author } from "@core";
 import {
   McpServer,
@@ -16,21 +16,18 @@ import type { Failure, Result } from "@lib/result";
 import { MEMORY_READ, MEMORY_WRITE } from "../lib/better-auth";
 import type { Scope } from "../lib/better-auth";
 import type { MemoryService } from "../services/memory";
-import { recallInputSchema } from "../services/memory";
+import {
+  recallContextSchema,
+  recallCuesSchema,
+  recallInputSchema,
+} from "../services/memory";
 import type { AppEnv } from "../types";
+import { SERVER_INSTRUCTIONS, TOOLS } from "./mcp-prompts";
 
 const toolResult = <T>(value: Result<T, Failure>): CallToolResult =>
   value.ok
     ? { content: [{ text: JSON.stringify(value.value), type: "text" }] }
     : { content: [{ text: value.error.message, type: "text" }], isError: true };
-
-const INSTRUCTIONS = `Memsys is long-term fragment memory.
-
-Store durable information as small, atomic, self-contained fragments rather than summaries, transcripts, or reasoning traces. Keep fragments concise and split independent ideas into separate memories.
-
-Use #anchors for stable entities or concepts that should link related fragments. Fragments with similar anchors are considered as associated and will be returned when recall.
-
-Recall with short textual cues such as distinctive phrases, names, projects, concepts, or #anchors. A cue is free text and may combine several words, alternatives included: a memory matches when it contains any of them, and memories with more and rarer words come first. Give every angle you need in one call, one cue per angle, such as different facets of the question or different wordings. Call recall again only if what came back is not enough.`;
 
 const createMcpServer = (
   memory: MemoryService,
@@ -43,7 +40,7 @@ const createMcpServer = (
   const server = new McpServer(
     { name: "memsys", version: "0.1.0" },
     {
-      instructions: [INSTRUCTIONS, ownerInstructions.trim()]
+      instructions: [SERVER_INSTRUCTIONS, ownerInstructions.trim()]
         .filter(Boolean)
         .join("\n\n"),
     }
@@ -52,9 +49,12 @@ const createMcpServer = (
     server.registerTool(
       "remember",
       {
-        description:
-          "Store one durable, independently recallable memory fragment. Keep it atomic, self-contained, and concise. Split multiple ideas into separate fragments. Use #anchors to link related memories.",
-        inputSchema: inputSchemas.remember,
+        description: TOOLS.remember.description,
+        inputSchema: inputSchemas.remember.extend({
+          fragment: fragmentTextSchema.describe(
+            TOOLS.remember.parameters.fragment
+          ),
+        }),
       },
       async (input) => toolResult(await memory.remember(input, author))
     );
@@ -64,9 +64,13 @@ const createMcpServer = (
       "recall",
       {
         annotations: { readOnlyHint: true },
-        description:
-          "Recall memories using short textual cues, one per angle. Prefer distinctive phrases, entities, concepts, or #anchors. Fragments matching the cues come first, and fragments matching several cues rank higher; fragments with `via` were associated through the listed shared #anchors. `truncated: true` means some matching memories were left out: recall again with more specific cues, or with an #anchor from `via`.",
-        inputSchema: recallInputSchema,
+        description: TOOLS.recall.description,
+        inputSchema: recallInputSchema.extend({
+          context: recallContextSchema.describe(
+            TOOLS.recall.parameters.context
+          ),
+          cues: recallCuesSchema.describe(TOOLS.recall.parameters.cues),
+        }),
       },
       async (input) => toolResult(await memory.recall(input))
     );
@@ -74,7 +78,7 @@ const createMcpServer = (
       "list_tags",
       {
         annotations: { readOnlyHint: true },
-        description: "List all #anchor names currently used.",
+        description: TOOLS.list_tags.description,
         inputSchema: z.object({}).strict(),
       },
       async () => toolResult(ok(await memory.listTags()))
@@ -84,9 +88,12 @@ const createMcpServer = (
     server.registerTool(
       "revise",
       {
-        description:
-          "Replace the full text of a known memory when its information has changed or needs correction. Keep the replacement atomic and self-contained.",
-        inputSchema: inputSchemas.revise,
+        description: TOOLS.revise.description,
+        inputSchema: inputSchemas.revise.extend({
+          fragment: fragmentTextSchema.describe(
+            TOOLS.revise.parameters.fragment
+          ),
+        }),
       },
       async (input) => toolResult(await memory.revise(input, author))
     );
@@ -94,8 +101,7 @@ const createMcpServer = (
       "forget",
       {
         annotations: { destructiveHint: true },
-        description:
-          "Delete a known memory that is obsolete, incorrect, duplicated, or explicitly requested to be forgotten.",
+        description: TOOLS.forget.description,
         inputSchema: inputSchemas.forget,
       },
       async (input) => toolResult(await memory.forget(input, author))

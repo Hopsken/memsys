@@ -29,6 +29,7 @@ export {
 export {
   authorSchema,
   fragmentSchema,
+  fragmentTextSchema,
   logRecordSchema,
   opSchema,
   personaIdSchema,

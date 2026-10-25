@@ -10,7 +10,11 @@ import type { Settings } from "../settings";
 import { recall } from "./recall";
 import type { Judge, RecallInput } from "./recall";
 
-export { recallInputSchema } from "./recall";
+export {
+  recallContextSchema,
+  recallCuesSchema,
+  recallInputSchema,
+} from "./recall";
 
 export type Written = Fragment & { warnings?: string[] };
 

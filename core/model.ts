@@ -16,10 +16,7 @@ export const fragmentTextSchema = z
   .refine((value) => value.trim().length > 0)
   .refine((value) => fragmentLength(value) <= FRAGMENT_MAX, {
     message: `Fragment must contain at most ${FRAGMENT_MAX} characters (Unicode grapheme clusters).`,
-  })
-  .describe(
-    "One atomic text fragment. Keep it short: a few sentences at most. Long fragments may be warned about or rejected."
-  );
+  });
 
 const atSchema = z.iso.datetime({ precision: 3 });
 
