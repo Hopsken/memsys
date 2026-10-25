@@ -3,6 +3,7 @@ import m0001 from "./20260924122507_plugin_config/migration.sql";
 import m0002 from "./20260927062704_fragment_log/migration.sql";
 import m0003 from "./20260927110735_activity_ops/migration.sql";
 import m0004 from "./20261024035713_metadata/migration.sql";
+import m0005 from "./20261025131041_personas/migration.sql";
 
 export default {
   migrations: {
@@ -11,5 +12,6 @@ export default {
     "20260927062704_fragment_log": m0002,
     "20260927110735_activity_ops": m0003,
     "20261024035713_metadata": m0004,
+    "20261025131041_personas": m0005,
   },
 };

@@ -267,6 +267,7 @@ export const verifyAccessToken = async (env: Env, token: string) => {
   });
   const granted = new Set(claims.data.scope.split(" "));
   return {
+    clientId: claims.data.azp,
     name: client?.name ?? null,
     scopes: new Set([...ALL_SCOPES].filter((scope) => granted.has(scope))),
     userId: claims.data.sub,

@@ -1,5 +1,11 @@
 import { sql } from "drizzle-orm";
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  index,
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+} from "drizzle-orm/sqlite-core";
 
 const now = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
 const createdAt = () =>
@@ -303,3 +309,17 @@ export const inviteCode = sqliteTable("inviteCode", {
   maxUses: integer().notNull(),
   uses: integer().default(0).notNull(),
 });
+
+// memsys's own table, kept apart from the tables Better Auth manages.
+// `connection` is "oauth:<clientId>" or "apiKey:<keyId>".
+export const connectionPersonas = sqliteTable(
+  "connectionPersonas",
+  {
+    connection: text().notNull(),
+    personaId: text().notNull(),
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.connection] })]
+);

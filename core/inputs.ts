@@ -2,7 +2,13 @@ import { z } from "zod";
 
 import { extractAnchors, withinTag } from "@lib/anchor";
 
-import { fragmentTextSchema, refSchema } from "./model";
+import {
+  authorSchema,
+  fragmentTextSchema,
+  personaIdSchema,
+  personaNameSchema,
+  refSchema,
+} from "./model";
 import type { Fragment } from "./model";
 
 export const PAGE_SIZE = 50;
@@ -27,13 +33,19 @@ export const listInputSchema = z
   .strict();
 
 export const activityInputSchema = z
-  .object({ cursor: cursorSchema.optional() })
+  .object({ by: authorSchema.optional(), cursor: cursorSchema.optional() })
   .strict();
 
 export const inputSchemas = {
   forget: z.object({ ref: refSchema }).strict(),
   remember: z.object({ fragment: fragmentTextSchema }).strict(),
   revise: z.object({ fragment: fragmentTextSchema, ref: refSchema }).strict(),
+};
+
+export const personaInputSchemas = {
+  archive: z.object({ archived: z.boolean(), id: personaIdSchema }).strict(),
+  create: z.object({ name: personaNameSchema }).strict(),
+  rename: z.object({ id: personaIdSchema, name: personaNameSchema }).strict(),
 };
 
 export const importInputSchema = z

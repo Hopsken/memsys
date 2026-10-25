@@ -28,3 +28,10 @@ export const metadata = sqliteTable("metadata", {
   key: text().primaryKey(),
   value: text({ mode: "json" }).$type<Metadata>().notNull(),
 });
+
+export const personas = sqliteTable("personas", {
+  archivedAt: integer(),
+  createdAt: integer().notNull(),
+  id: text().primaryKey(),
+  name: text().notNull(),
+});

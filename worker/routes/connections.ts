@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 
 import { getAuth } from "../lib/better-auth";
+import { assignPersona, oauthConnection } from "../lib/connection-personas";
 import type { AppEnv } from "../types";
 
 interface Consent {
@@ -42,6 +43,7 @@ export const connections = new Hono<AppEnv>()
       consents.map((consent) => {
         const client = byId.get(consent.clientId);
         return {
+          connection: oauthConnection(consent.clientId),
           createdAt: consent.createdAt,
           id: consent.id,
           name: client?.name ?? null,
@@ -65,6 +67,12 @@ export const connections = new Hono<AppEnv>()
       return c.json({ error: "Connection not found" }, 404);
     }
     await adapter.delete({ model: "oauthConsent", where });
+    await assignPersona(
+      c.env.DB,
+      userId,
+      oauthConnection(consent.clientId),
+      null
+    );
     await adapter.updateMany({
       model: "oauthRefreshToken",
       update: { revoked: new Date() },

@@ -1,10 +1,10 @@
 import type { Failure, Issue, Result } from "@lib/result";
 
-import type { Author, Fragment, Version } from "./model";
+import type { Author, Fragment, Persona, Version } from "./model";
 
 export type NotFound = Failure<
   "not-found",
-  "fragment-not-found" | "version-not-found"
+  "fragment-not-found" | "persona-not-found" | "version-not-found"
 >;
 export type InvalidInput = Failure<"invalid", "invalid-input"> & {
   issues: Issue[];
@@ -63,6 +63,11 @@ export interface AnchorCount {
   fragmentCount: number;
 }
 
+export interface AuthorSummary {
+  by: Author;
+  lastAt: string;
+}
+
 export interface Diagnostics {
   colo: string | null;
   fragments: number;
@@ -74,7 +79,7 @@ export interface MemoryCore {
   remember: (
     input: { fragment: string },
     by: Author
-  ) => Result<Fragment, InvalidInput>;
+  ) => Result<Fragment, InvalidInput | NotFound>;
   revise: (
     input: { fragment: string; ref: string },
     by: Author
@@ -97,7 +102,11 @@ export interface MemoryCore {
     tag?: string[] | undefined;
   }) => FragmentPage;
   history: (input: { ref: string }) => Result<History, NotFound>;
-  activity: (input: { cursor?: string | undefined }) => ActivityPage;
+  activity: (input: {
+    by?: Author | undefined;
+    cursor?: string | undefined;
+  }) => ActivityPage;
+  authors: () => AuthorSummary[];
   forgotten: () => ForgottenList;
 
   search: (terms: string[]) => SearchHit[];
@@ -105,6 +114,17 @@ export interface MemoryCore {
   anchors: () => AnchorCount[];
   count: () => number;
   snapshot: () => Fragment[];
+
+  personas: () => Persona[];
+  createPersona: (input: { name: string }) => Result<Persona, InvalidInput>;
+  renamePersona: (input: {
+    id: string;
+    name: string;
+  }) => Result<Persona, InvalidInput | NotFound>;
+  setPersonaArchived: (input: {
+    archived: boolean;
+    id: string;
+  }) => Result<Persona, NotFound>;
 
   readMetadata: (key: string) => Metadata | null;
   patchMetadata: (key: string, patch: Metadata) => Metadata;
