@@ -16,6 +16,8 @@ import type { RelevanceUnavailable } from "../../errors";
 import { SettingsService } from "../settings";
 import type { Strictness } from "../settings";
 
+const cueSchema = z.string().trim().min(1).max(256);
+
 export const recallInputSchema = z
   .object({
     context: z
@@ -25,13 +27,14 @@ export const recallInputSchema = z
       .describe(
         "What you are working on right now. Give it whenever you have a task: it helps pick the memories that matter for it."
       ),
-    cue: z
-      .string()
-      .trim()
-      .min(1)
-      .max(256)
+    // Some agents send one cue as a plain string; take it as one angle.
+    cues: z
+      .union([
+        z.array(cueSchema).min(1).max(4),
+        cueSchema.transform((cue) => [cue]),
+      ])
       .describe(
-        "What you need, as a few distinctive words, a phrase, or #anchors."
+        "What you need, from one to four angles. Each cue is a few distinctive words, a phrase, or #anchors."
       ),
   })
   .strict();
@@ -74,6 +77,24 @@ const rankMatches = (cue: string, hits: readonly SearchHit[]): Fragment[] => {
         b.score - a.score
     )
     .map((hit) => hit.fragment);
+};
+
+const RRF_K = 60;
+
+// Reciprocal rank fusion: a top hit of any one cue stays near the top, and a
+// memory that several cues match ranks above one that only one cue matches.
+const fuse = (lists: readonly Fragment[][]): Fragment[] => {
+  const scored = new Map<string, { fragment: Fragment; score: number }>();
+  for (const list of lists) {
+    for (const [rank, fragment] of list.entries()) {
+      const entry = scored.get(fragment.ref) ?? { fragment, score: 0 };
+      entry.score += 1 / (RRF_K + rank);
+      scored.set(fragment.ref, entry);
+    }
+  }
+  return [...scored.values()]
+    .toSorted((a, b) => b.score - a.score)
+    .map((entry) => entry.fragment);
 };
 
 const seedKeys = (matches: readonly Fragment[]) => [
@@ -165,12 +186,18 @@ export const recall = async (
   input: RecallInput,
   judge: Judge
 ): Promise<Result<RecallResult, RelevanceUnavailable>> => {
-  const query = cueTerms(input.cue);
-  const [{ relevanceFilter }, hits] = await Promise.all([
+  const cues = [...new Set(input.cues)];
+  const [{ relevanceFilter }, ...matchLists] = await Promise.all([
     new SettingsService(memory).read(),
-    query.length > 0 ? memory.search(query) : [],
+    ...cues.map(async (cue) => {
+      const query = cueTerms(cue);
+      return rankMatches(
+        cue,
+        query.length > 0 ? await memory.search(query) : []
+      );
+    }),
   ]);
-  const matches = rankMatches(input.cue, hits);
+  const matches = fuse(matchLists);
   const keys = seedKeys(matches);
   const [found, anchors, size] =
     keys.length > 0

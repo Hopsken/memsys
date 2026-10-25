@@ -12,7 +12,7 @@ import { WORKERS_AI_URL, workersAiErrorSchema } from "./workers-ai";
 
 interface Query {
   context?: string | undefined;
-  cue: string;
+  cues: string[];
 }
 
 export const JEV_MODEL = "typesafe/jev";
@@ -39,7 +39,7 @@ const question = (ref: string) => ({
 
 const questionsAbout = (
   candidates: readonly Fragment[],
-  { context, cue }: Query
+  { context, cues }: Query
 ) => ({
   questions: Object.fromEntries(
     candidates.map((item) => [item.ref, question(item.ref)])
@@ -49,7 +49,7 @@ const questionsAbout = (
       candidates.map((item) => [item.ref, item.fragment])
     ),
     context: context ?? "",
-    cue,
+    cue: cues.join(" | "),
   },
 });
 

@@ -17,7 +17,7 @@ describe("Development seed", () => {
     const user = await signIn();
     await post("/api/remember", { fragment: "Kept beside the seed" }, user);
     const seeded = await post("/api/dev/seed", { email: user.email }, null);
-    const recalled = await post("/api/recall", { cue: "US West" }, user);
+    const recalled = await post("/api/recall", { cues: "US West" }, user);
     const { fragments } = await recalled.json<{
       fragments: (Fragment & { via?: string[] })[];
     }>();

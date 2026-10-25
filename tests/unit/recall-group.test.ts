@@ -18,7 +18,7 @@ const keepAll: Judge = (candidates) =>
 const recall = async (corpus: Iterable<Fragment>, raw: { cue: string }) => {
   const result = await recallWith(
     inMemory(corpus),
-    recallInputSchema.parse(raw),
+    recallInputSchema.parse({ cues: raw.cue }),
     keepAll
   );
   if (!result.ok) {

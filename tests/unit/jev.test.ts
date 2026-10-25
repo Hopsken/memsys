@@ -37,7 +37,7 @@ const corpus: Fragment[] = items.map(({ at, fragment, ref }) => ({
   fragment,
   ref,
 }));
-const input = { context: "Deploying the D1 schema", cue: "migration" };
+const input = { context: "Deploying the D1 schema", cues: ["migration"] };
 const noul = (scores: Record<string, number>) => ({
   answers: Object.fromEntries(
     Object.entries(scores).map(([ref, value]) => [

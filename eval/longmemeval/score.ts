@@ -12,10 +12,13 @@ import type { SettingsMergePatch } from "./server.ts";
 const recalledSchema = z.object({
   fragments: z.array(z.looseObject({ fragment: z.string(), ref: z.string() })),
 });
-const recallArgsSchema = z.looseObject({
-  context: z.string().nullish(),
-  cue: z.string(),
-});
+const recallArgsSchema = z
+  .looseObject({
+    context: z.string().nullish(),
+    cue: z.string().optional(),
+    cues: z.array(z.string()).optional(),
+  })
+  .transform(({ cue, cues }) => cue ?? cues?.join(" | ") ?? "");
 
 export const roundSchema = z.object({
   cue: z.string(),
@@ -77,7 +80,7 @@ export const scoreRun = (
         ? []
         : recalledSchema.parse(JSON.parse(tool.result)).fragments;
       return {
-        cue: recallArgsSchema.safeParse(tool.args).data?.cue ?? "",
+        cue: recallArgsSchema.safeParse(tool.args).data ?? "",
         evidence: fragments
           .map((f) => f.ref)
           .filter((ref) => evidenceRefs.has(ref)),

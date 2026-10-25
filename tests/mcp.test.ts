@@ -196,7 +196,7 @@ describe("Stateless MCP", () => {
       fragments: [withVersions(item)],
       nextCursor: null,
     });
-    const found = await call(user, "recall", { cue: "MCP memory" });
+    const found = await call(user, "recall", { cues: ["MCP memory"] });
     expect(content(found)).toStrictEqual({
       fragments: [item],
       truncated: false,
@@ -210,6 +210,26 @@ describe("Stateless MCP", () => {
     });
   });
 
+  it("keeps the top memory of every cue when a broad cue alone would fill the page", async () => {
+    const user = await signIn();
+    for (let day = 1; day <= 12; day += 1) {
+      // oxlint-disable-next-line no-await-in-loop
+      await call(user, "remember", {
+        fragment: `Deploy step ${day} for the staging cluster`,
+      });
+    }
+    const trip = content<Fragment>(
+      await call(user, "remember", { fragment: "Booked a ryokan in Kyoto" })
+    );
+    const found = content<{ fragments: Fragment[] }>(
+      await call(user, "recall", { cues: ["deploy staging", "Kyoto ryokan"] })
+    );
+    expect({
+      returned: found.fragments.length,
+      trip: found.fragments.some((item) => item.ref === trip.ref),
+    }).toStrictEqual({ returned: 10, trip: true });
+  });
+
   it("fails recall, saying the owner must act, instead of returning unjudged memories", async () => {
     vi.spyOn(console, "error").mockReturnValue();
     const user = await signIn();
@@ -218,13 +238,13 @@ describe("Stateless MCP", () => {
     vi.mocked(env.AI.run)
       .mockRejectedValueOnce(failure)
       .mockRejectedValueOnce(failure);
-    const failed = await call(user, "recall", { cue: "judged memory" });
+    const failed = await call(user, "recall", { cues: "judged memory" });
     const owner = RELEVANCE_UNAVAILABLE;
     expect({
       isError: failed.isError,
       text: failed.content[0]?.text,
     }).toStrictEqual({ isError: true, text: owner });
-    const response = await post("/api/recall", { cue: "judged memory" }, user);
+    const response = await post("/api/recall", { cues: "judged memory" }, user);
     expect({
       body: await response.json(),
       status: response.status,
