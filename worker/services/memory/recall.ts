@@ -18,9 +18,17 @@ import type { Strictness } from "../settings";
 
 const cueSchema = z.string().trim().min(1).max(256);
 
-// Each cue costs one index search, so the limit is on the words searched,
-// not on how many angles an agent splits them into.
 const MAX_CUES_LENGTH = 1000;
+
+const cueListSchema = z
+  .array(cueSchema)
+  .min(1)
+  .refine(
+    (cues) => cues.join("").length <= MAX_CUES_LENGTH,
+    `All cues together must be at most ${MAX_CUES_LENGTH} characters.`
+  );
+
+const singleCueAsListSchema = cueSchema.transform((cue) => [cue]);
 
 export const recallInputSchema = z
   .object({
@@ -31,18 +39,8 @@ export const recallInputSchema = z
       .describe(
         "What you are working on right now. Give it whenever you have a task: it helps pick the memories that matter for it."
       ),
-    // Some agents send one cue as a plain string; take it as one angle.
     cues: z
-      .union([
-        z
-          .array(cueSchema)
-          .min(1)
-          .refine(
-            (cues) => cues.join("").length <= MAX_CUES_LENGTH,
-            `All cues together must be at most ${MAX_CUES_LENGTH} characters.`
-          ),
-        cueSchema.transform((cue) => [cue]),
-      ])
+      .union([cueListSchema, singleCueAsListSchema])
       .describe(
         "What you need, one cue per angle. Each cue is a few distinctive words, a phrase, or #anchors."
       ),
@@ -89,16 +87,15 @@ const rankMatches = (cue: string, hits: readonly SearchHit[]): Fragment[] => {
     .map((hit) => hit.fragment);
 };
 
-const RRF_K = 60;
+// https://cormack.uwaterloo.ca/cormacksigir09-rrf.pdf
+const RECIPROCAL_RANK_K = 60;
 
-// Reciprocal rank fusion: a top hit of any one cue stays near the top, and a
-// memory that several cues match ranks above one that only one cue matches.
-const fuse = (lists: readonly Fragment[][]): Fragment[] => {
+const fuseByReciprocalRank = (lists: readonly Fragment[][]): Fragment[] => {
   const scored = new Map<string, { fragment: Fragment; score: number }>();
   for (const list of lists) {
     for (const [rank, fragment] of list.entries()) {
       const entry = scored.get(fragment.ref) ?? { fragment, score: 0 };
-      entry.score += 1 / (RRF_K + rank);
+      entry.score += 1 / (RECIPROCAL_RANK_K + rank);
       scored.set(fragment.ref, entry);
     }
   }
@@ -207,7 +204,7 @@ export const recall = async (
       );
     }),
   ]);
-  const matches = fuse(matchLists);
+  const matches = fuseByReciprocalRank(matchLists);
   const keys = seedKeys(matches);
   const [found, anchors, size] =
     keys.length > 0

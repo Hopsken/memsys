@@ -212,12 +212,13 @@ describe("Stateless MCP", () => {
 
   it("keeps the top memory of every cue when a broad cue alone would fill the page", async () => {
     const user = await signIn();
-    for (let day = 1; day <= 12; day += 1) {
-      // oxlint-disable-next-line no-await-in-loop
-      await call(user, "remember", {
-        fragment: `Deploy step ${day} for the staging cluster`,
-      });
-    }
+    await Promise.all(
+      Array.from({ length: 12 }, (_, step) =>
+        call(user, "remember", {
+          fragment: `Deploy step ${step + 1} for the staging cluster`,
+        })
+      )
+    );
     const trip = content<Fragment>(
       await call(user, "remember", { fragment: "Booked a ryokan in Kyoto" })
     );
