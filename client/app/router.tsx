@@ -14,49 +14,95 @@ import { ApiKeysView } from "@/pages/settings/mcp";
 import { HistoryDialog } from "@/widgets/memory-history";
 
 import { App } from "./layouts/app-layout";
+import { RouteMeta } from "./layouts/route-meta";
 import { SettingsView } from "./layouts/settings-layout";
 
 export const router = createBrowserRouter([
-  { element: <LoginView />, path: "/login" },
-  { element: <JoinView />, path: "/join" },
-  { element: <JoinView />, path: "/join/:code" },
-  { element: <ConsentView />, path: "/consent" },
   {
     children: [
-      { element: <Navigate replace to="activity" />, index: true },
       {
-        children: [{ element: <HistoryDialog />, path: ":ref" }],
-        element: <ActivityView />,
-        path: "activity",
+        element: <LoginView />,
+        handle: { meta: { title: "Sign in" } },
+        path: "/login",
       },
       {
-        children: [{ element: <HistoryDialog />, path: ":ref" }],
-        element: <FragmentsView />,
-        path: "memories",
+        element: <JoinView />,
+        handle: { meta: { title: "Join" } },
+        path: "/join",
       },
       {
-        children: [{ element: <HistoryDialog />, path: ":ref" }],
-        element: <ForgottenView />,
-        path: "forgotten",
+        element: <JoinView />,
+        handle: { meta: { title: "Join" } },
+        path: "/join/:code",
+      },
+      {
+        element: <ConsentView />,
+        handle: { meta: { title: "Connect app" } },
+        path: "/consent",
       },
       {
         children: [
-          { element: <Navigate replace to="mcp" />, index: true },
-          { element: <ApiKeysView />, path: "mcp" },
-          { element: <AgentsView />, path: "agents" },
-          { element: <FeaturesView />, path: "features" },
+          { element: <Navigate replace to="activity" />, index: true },
           {
-            element: <Navigate replace to="/settings/features" />,
-            path: "plugins",
+            children: [{ element: <HistoryDialog />, path: ":ref" }],
+            element: <ActivityView />,
+            handle: { meta: { title: "Activity" } },
+            path: "activity",
           },
-          { element: <DataView />, path: "data" },
-          { element: <AccountView />, path: "account" },
+          {
+            children: [{ element: <HistoryDialog />, path: ":ref" }],
+            element: <FragmentsView />,
+            handle: { meta: { title: "Memories" } },
+            path: "memories",
+          },
+          {
+            children: [{ element: <HistoryDialog />, path: ":ref" }],
+            element: <ForgottenView />,
+            handle: { meta: { title: "Forgotten memories" } },
+            path: "forgotten",
+          },
+          {
+            children: [
+              { element: <Navigate replace to="mcp" />, index: true },
+              {
+                element: <ApiKeysView />,
+                handle: { meta: { title: "MCP" } },
+                path: "mcp",
+              },
+              {
+                element: <AgentsView />,
+                handle: { meta: { title: "Agents" } },
+                path: "agents",
+              },
+              {
+                element: <FeaturesView />,
+                handle: { meta: { title: "Features" } },
+                path: "features",
+              },
+              {
+                element: <Navigate replace to="/settings/features" />,
+                path: "plugins",
+              },
+              {
+                element: <DataView />,
+                handle: { meta: { title: "Data" } },
+                path: "data",
+              },
+              {
+                element: <AccountView />,
+                handle: { meta: { title: "Account" } },
+                path: "account",
+              },
+            ],
+            element: <SettingsView />,
+            handle: { meta: { title: "Settings" } },
+            path: "settings",
+          },
+          { element: <Navigate replace to="/" />, path: "*" },
         ],
-        element: <SettingsView />,
-        path: "settings",
+        element: <App />,
       },
-      { element: <Navigate replace to="/" />, path: "*" },
     ],
-    element: <App />,
+    element: <RouteMeta />,
   },
 ]);
