@@ -1,5 +1,4 @@
 import { useMutation } from "@tanstack/react-query";
-import { Check } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router";
 
@@ -15,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/shared/ui/card";
+import { Checkbox } from "@/shared/ui/checkbox";
 import { Label } from "@/shared/ui/label";
 import { Logo } from "@/shared/ui/logo";
 import {
@@ -25,18 +25,10 @@ import {
   SelectValue,
 } from "@/shared/ui/select";
 import { Skeleton } from "@/shared/ui/skeleton";
-import { Switch } from "@/shared/ui/switch";
 
 const READ = "memory:read";
 const WRITE = "memory:write";
 const NO_AGENT = "";
-
-const Granted = ({ text }: { text: string }) => (
-  <li className="flex items-center gap-3">
-    <Check aria-hidden="true" className="size-4" />
-    {text}
-  </li>
-);
 
 const AgentField = ({
   app,
@@ -95,10 +87,8 @@ export const ConsentView = () => {
   const session = authClient.useSession();
   const app = useConnectingApp();
   const requested = (params.get("scope") ?? "").split(" ");
-  const asksRead = requested.includes(READ);
   const asksWrite = requested.includes(WRITE);
   const [write, setWrite] = useState(true);
-  const grantsWrite = asksWrite && (write || !asksRead);
   const [agent, setAgent] = useState(NO_AGENT);
   const assign = useAssignPersona();
   const [unsavedAgentUrl, setUnsavedAgentUrl] = useState<string | null>(null);
@@ -121,7 +111,7 @@ export const ConsentView = () => {
         .json<{ url: string }>();
       // The app gets its code only from this redirect, so saving the agent
       // first means it can never write before its agent is set.
-      if (accept && grantsWrite && agent !== NO_AGENT && clientId !== null) {
+      if (accept && agent !== NO_AGENT && clientId !== null) {
         try {
           await assign.mutateAsync({
             connection: `oauth:${clientId}`,
@@ -159,22 +149,22 @@ export const ConsentView = () => {
         </CardHeader>
         <CardContent className="space-y-5">
           <ul className="space-y-3 text-sm">
-            {asksRead ? <Granted text="Read your memories" /> : null}
-            {asksRead && asksWrite ? (
+            <li>
+              <label className="text-muted-foreground flex items-center gap-3">
+                <Checkbox checked disabled />
+                Read your memories
+              </label>
+            </li>
+            {asksWrite ? (
               <li>
-                <label className="flex cursor-pointer items-center justify-between gap-4">
-                  Also add, change, and delete them
-                  <Switch checked={write} onCheckedChange={setWrite} />
+                <label className="flex cursor-pointer items-center gap-3">
+                  <Checkbox checked={write} onCheckedChange={setWrite} />
+                  Add, change, and delete your memories
                 </label>
               </li>
             ) : null}
-            {asksWrite && !asksRead ? (
-              <Granted text="Add, change, and delete your memories" />
-            ) : null}
           </ul>
-          {grantsWrite ? (
-            <AgentField app={app.name} onChange={setAgent} value={agent} />
-          ) : null}
+          <AgentField app={app.name} onChange={setAgent} value={agent} />
           {unsavedAgentUrl ? (
             <Alert className="bg-amber-50 text-amber-950 ring-amber-300">
               <AlertDescription className="space-y-3 text-amber-950">

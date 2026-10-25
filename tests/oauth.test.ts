@@ -205,6 +205,47 @@ describe("OAuth for MCP", () => {
     });
   });
 
+  it("always asks to read and never grants write alone", async () => {
+    const user = await signIn();
+    const clientId = await register();
+    const authorized = await request(
+      `/api/auth/oauth2/authorize?${new URLSearchParams({
+        client_id: clientId,
+        code_challenge: "x".repeat(43),
+        code_challenge_method: "S256",
+        redirect_uri: REDIRECT_URI,
+        resource: RESOURCE,
+        response_type: "code",
+        scope: "memory:write",
+      })}`,
+      { headers: { Cookie: user.cookie }, redirect: "manual" }
+    );
+    const consentPage = new URL(
+      authorized.headers.get("Location") ?? "",
+      ORIGIN
+    );
+    expect(
+      consentPage.searchParams.get("scope")?.split(" ").toSorted()
+    ).toStrictEqual(["memory:read", "memory:write", "offline_access"]);
+
+    const consented = await post(
+      "/api/auth/oauth2/consent",
+      {
+        accept: true,
+        oauth_query: consentPage.search.slice(1),
+        scope: "memory:write offline_access",
+      },
+      null,
+      { Cookie: user.cookie, Origin: ORIGIN, "cf-connecting-ip": randomIp() }
+    );
+    const next = new URL(
+      redirectSchema.parse(await consented.json()).url,
+      ORIGIN
+    );
+    expect(next.pathname).toBe("/consent");
+    expect(next.searchParams.has("code")).toBeFalsy();
+  });
+
   it("disconnects an app at once", async () => {
     const user = await signIn();
     const clientId = await register();

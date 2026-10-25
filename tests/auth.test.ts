@@ -132,6 +132,66 @@ describe("Authentication", () => {
     });
   });
 
+  it("gives an API key only the access chosen when it was created", async () => {
+    const user = await signIn();
+    const create = async (write: boolean) => {
+      const response = await post(
+        "/api/api-keys",
+        { name: write ? "writer" : "reader", write },
+        null,
+        { Cookie: user.cookie, Origin: ORIGIN }
+      );
+      expect(response.status).toBe(201);
+      return response.json<{ key: string }>();
+    };
+    const toolNames = async (key: string) => {
+      const response = await tools({ Authorization: `Bearer ${key}` });
+      const { result } = await response.json<{
+        result: { tools: { name: string }[] };
+      }>();
+      return result.tools.map(({ name }) => name).toSorted();
+    };
+    const reader = await create(false);
+    const writer = await create(true);
+    const legacy = await createToken(user, "legacy");
+    const listed = await get("/api/auth/api-key/list", { Cookie: user.cookie });
+    const { apiKeys } = await listed.json<{
+      apiKeys: { name: string; permissions: unknown }[];
+    }>();
+
+    await env.DB.prepare('UPDATE "apikey" SET "permissions" = ? WHERE "id" = ?')
+      .bind(JSON.stringify({ memory: ["write"] }), legacy.id)
+      .run();
+    const writeOnly = await tools({ Authorization: `Bearer ${legacy.key}` });
+
+    expect({
+      legacy: await toolNames(user.token),
+      listed: Object.fromEntries(
+        apiKeys.map(({ name, permissions }) => [name, permissions])
+      ),
+      reader: await toolNames(reader.key),
+      writeOnly: writeOnly.status,
+      writer: await toolNames(writer.key),
+    }).toStrictEqual({
+      legacy: ["forget", "list_tags", "recall", "remember", "revise"],
+      listed: {
+        legacy: null,
+        reader: { memory: ["read"] },
+        test: null,
+        writer: { memory: ["read", "write"] },
+      },
+      reader: ["list_tags", "recall"],
+      writeOnly: 403,
+      writer: ["forget", "list_tags", "recall", "remember", "revise"],
+    });
+    await expect(
+      post("/api/api-keys", { name: "x", write: true }, null, {
+        Authorization: `Bearer ${writer.key}`,
+        Origin: ORIGIN,
+      })
+    ).resolves.toMatchObject({ status: 401 });
+  });
+
   it("does not let one user revoke another user's token", async () => {
     const alice = await signIn();
     const bob = await signIn();
