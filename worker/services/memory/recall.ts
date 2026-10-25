@@ -31,7 +31,7 @@ export const recallInputSchema = z
       .min(1)
       .max(256)
       .describe(
-        "What you need, as a few distinctive words, a phrase, or #anchors. A memory matches when it contains any of the words; memories with more of them, and rarer ones, come first. Fragments sharing an #anchor with a match come too. Nothing useful: try other words or an #anchor."
+        "What you need, as a few distinctive words, a phrase, or #anchors."
       ),
   })
   .strict();
