@@ -65,7 +65,9 @@ const Invite = ({ code }: { code: string }) => {
         .get("/api/auth/invite-code/check", { searchParams: { code } })
         .json<{ usable: boolean }>(),
     queryKey: ["invite-code", code],
+    refetchOnWindowFocus: false,
     retry: false,
+    staleTime: Infinity,
   });
 
   if (check.isPending) {
