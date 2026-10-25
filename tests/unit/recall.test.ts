@@ -4,19 +4,23 @@ import { describe, expect, it } from "vitest";
 
 import { terms } from "@lib/analyzer";
 import { extractAnchors } from "@lib/anchor";
+import { ok } from "@lib/result";
 
 import {
   recall as recallWith,
   recallInputSchema,
 } from "../../worker/services/memory/recall";
+import type { Judge } from "../../worker/services/memory/recall";
 
-const noJudge = () => Promise.reject(new Error("The relevance filter is off"));
+// These tests cover what recall finds; the filter keeps all of it.
+const keepAll: Judge = (candidates) =>
+  Promise.resolve(ok(new Map(candidates.map((item) => [item.ref, 1]))));
 
 const recall = async (corpus: Iterable<Fragment>, raw: { cue: string }) => {
   const result = await recallWith(
     inMemory(corpus),
     recallInputSchema.parse(raw),
-    noJudge
+    keepAll
   );
   if (!result.ok) {
     throw new Error(result.error.reason);

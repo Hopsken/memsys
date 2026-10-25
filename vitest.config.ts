@@ -62,7 +62,10 @@ export default defineConfig(async (): Promise<ViteUserConfig> => {
             exclude: [unitTests],
             include: ["tests/**/*.test.ts"],
             name: "worker",
-            setupFiles: ["./tests/apply-migrations.ts"],
+            setupFiles: [
+              "./tests/apply-migrations.ts",
+              "./tests/workers-ai.ts",
+            ],
           },
         },
       ],

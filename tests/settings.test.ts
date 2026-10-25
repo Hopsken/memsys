@@ -12,7 +12,7 @@ import type { User } from "./helpers";
 const DEFAULTS = {
   instructions: "",
   length: { refuse: 500, warn: 300 },
-  relevanceFilter: "off",
+  relevanceFilter: "low",
 };
 
 const read = async (user: User) => {
@@ -34,7 +34,7 @@ const PLUGIN_ROWS = {
   jevOff: [["jev", 0, '{"strictness":"max"}', 3]],
   jevOn: [
     ["size-limit", 1, '{"hard":400,"soft":200}', 5],
-    ["jev", 1, '{"strictness":"high"}', 9],
+    ["jev", 1, '{"strictness":"medium"}', 9],
   ],
   sizeLimitOff: [["size-limit", 0, '{"hard":400,"soft":200}', 5]],
   thresholdOnly: [["jev", 1, '{"threshold":0.4}', 3]],
@@ -55,7 +55,7 @@ describe("Settings", () => {
     const invalid = await save(user, { length: { refuse: 10, warn: 20 } });
     const unknown = await save(user, { theme: "dark" });
     await save(user, { length: { refuse: 20, warn: 10 } });
-    const both = await save(user, { relevanceFilter: "low" });
+    const both = await save(user, { relevanceFilter: "medium" });
     await evictDurableObject(env.MEMORY.getByName(user.id));
     const persisted = await read(user);
     const reset = await save(user, { length: null });
@@ -70,7 +70,7 @@ describe("Settings", () => {
         body: {
           settings: {
             length: { refuse: 20, warn: 10 },
-            relevanceFilter: "low",
+            relevanceFilter: "medium",
           },
         },
         status: 200,
@@ -79,9 +79,12 @@ describe("Settings", () => {
         body: { issues: [{ path: ["length", "warn"] }] },
         status: 422,
       },
-      persisted: { length: { refuse: 20, warn: 10 }, relevanceFilter: "low" },
+      persisted: {
+        length: { refuse: 20, warn: 10 },
+        relevanceFilter: "medium",
+      },
       reset: {
-        body: { settings: { ...DEFAULTS, relevanceFilter: "low" } },
+        body: { settings: { ...DEFAULTS, relevanceFilter: "medium" } },
         status: 200,
       },
       unknown: { status: 422 },
@@ -93,17 +96,20 @@ describe("Settings", () => {
     const user = await signIn();
     await runInDurableObject(env.MEMORY.getByName(user.id), (_, state) => {
       state.storage.sql.exec(
-        `INSERT INTO metadata (key, value) VALUES ('settings', '{"length":{"refuse":"big"},"relevanceFilter":"high"}')`
+        `INSERT INTO metadata (key, value) VALUES ('settings', '{"length":{"refuse":"big"},"relevanceFilter":"medium"}')`
       );
     });
     await evictDurableObject(env.MEMORY.getByName(user.id));
     await expect(read(user)).resolves.toMatchObject({
-      settings: { ...DEFAULTS, relevanceFilter: "high" },
+      settings: { ...DEFAULTS, relevanceFilter: "medium" },
     });
     log.mockRestore();
   });
 
   it("carries plugin settings over in the migration that replaced them", async () => {
+    // A disabled jev was written as "off", which is no longer a setting; it
+    // reads as the default.
+    const log = vi.spyOn(console, "error").mockReturnValue();
     const [, insert = "", drop = ""] =
       migrations.migrations["20261024035713_metadata"]?.split(
         "--> statement-breakpoint"
@@ -139,11 +145,12 @@ describe("Settings", () => {
       {
         ...DEFAULTS,
         length: { refuse: 400, warn: 200 },
-        relevanceFilter: "high",
+        relevanceFilter: "medium",
       },
       { ...DEFAULTS, length: { refuse: 1000, warn: 1000 } },
       { ...DEFAULTS, relevanceFilter: "medium" },
     ]);
+    log.mockRestore();
   });
 
   it("guards saves like every other write", async () => {
@@ -151,7 +158,7 @@ describe("Settings", () => {
     const send = (headers: Record<string, string>) =>
       worker.fetch(
         new Request("https://memsys.test/api/settings", {
-          body: JSON.stringify({ relevanceFilter: "low" }),
+          body: JSON.stringify({ relevanceFilter: "medium" }),
           headers: { Cookie: user.cookie, ...headers },
           method: "PATCH",
         }),

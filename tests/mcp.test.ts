@@ -1,7 +1,7 @@
 import type { Fragment } from "@core";
 import { env } from "cloudflare:workers";
 import type { JSONValue } from "hono/utils/types";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { RELEVANCE_UNAVAILABLE } from "../worker/errors";
 import worker from "../worker/index";
@@ -211,9 +211,13 @@ describe("Stateless MCP", () => {
   });
 
   it("fails recall, saying the owner must act, instead of returning unjudged memories", async () => {
+    vi.spyOn(console, "error").mockReturnValue();
     const user = await signIn();
     await call(user, "remember", { fragment: "Judged memory #test" });
-    await patchSettings(user, { relevanceFilter: "medium" });
+    const failure = new Error("5007: No such model");
+    vi.mocked(env.AI.run)
+      .mockRejectedValueOnce(failure)
+      .mockRejectedValueOnce(failure);
     const failed = await call(user, "recall", { cue: "judged memory" });
     const owner = RELEVANCE_UNAVAILABLE;
     expect({

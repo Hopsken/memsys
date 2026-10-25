@@ -138,8 +138,6 @@ describe("Relevance filter", () => {
   it.each([
     ["low", ["f7", "f2", "f8", "fx"]],
     ["medium", ["f7", "f2", "f8"]],
-    ["high", ["f7", "f2"]],
-    ["max", ["f7"]],
   ] as const)(
     "drops more as strictness rises: %s",
     async (strictness, kept) => {
@@ -239,7 +237,7 @@ describe("Relevance filter", () => {
 
   it("fails the recall as persistent when no response parses", async () => {
     const result = await recall(
-      inMemory(corpus, { settings: { relevanceFilter: "medium" } }),
+      inMemory(corpus),
       input,
       jev(workersAiFetch({ run: malformed }))
     );

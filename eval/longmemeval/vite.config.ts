@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [
     cloudflare({
       inspectorPort: 0,
-      remoteBindings: process.env["JEV"] === "1",
+      remoteBindings: true,
     }),
   ],
   resolve: { tsconfigPaths: true },

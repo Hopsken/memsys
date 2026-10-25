@@ -12,7 +12,7 @@ export type RelevanceUnavailable = Failure<
 > & { retry: boolean };
 
 export const RELEVANCE_UNAVAILABLE =
-  "The relevance filter is unavailable, and retrying will not help. Recall works again once the owner turns the filter off under Settings → Features in memsys.";
+  "The relevance filter is unavailable, and retrying will not help. Tell the owner that memsys recall is down.";
 export const RELEVANCE_RETRY =
   "The relevance filter could not check the memories. Retry this recall shortly.";
 

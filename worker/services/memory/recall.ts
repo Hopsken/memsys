@@ -51,9 +51,7 @@ const MAX_ASSOCIATIONS_RANKED = 100;
 export const JUDGE_BUDGET = 40;
 
 const STRICTNESS = {
-  high: 0.5,
   low: 0.1,
-  max: 0.7,
   medium: 0.3,
 } satisfies Record<Strictness, number>;
 
@@ -182,22 +180,18 @@ export const recall = async (
           memory.count(),
         ])
       : [[], [], 0];
-  let items: RecallItem[] = [
+  const items: RecallItem[] = [
     ...matches,
     ...rankByRarestSharedAnchor(found, matches, anchors, size),
   ];
-  let truncated = false;
-  if (relevanceFilter !== "off") {
-    const filtered = await keepOnlyJudgedRelevant(
-      judge,
-      items,
-      input,
-      relevanceFilter
-    );
-    if (!filtered.ok) {
-      return err(filtered.error);
-    }
-    ({ items, truncated } = filtered.value);
+  const filtered = await keepOnlyJudgedRelevant(
+    judge,
+    items,
+    input,
+    relevanceFilter
+  );
+  if (!filtered.ok) {
+    return err(filtered.error);
   }
-  return ok(cut(items, truncated));
+  return ok(cut(filtered.value.items, filtered.value.truncated));
 };

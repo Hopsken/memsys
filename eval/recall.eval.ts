@@ -3,7 +3,7 @@ import { writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { inMemory } from "@core";
-import type { Fragment, Metadata } from "@core";
+import type { Fragment } from "@core";
 import { afterAll, it, vi } from "vitest";
 import { getPlatformProxy } from "wrangler";
 import { z } from "zod";
@@ -19,8 +19,9 @@ import type { EvalCase } from "./dataset";
 import { report } from "./metrics";
 import type { Outcome, Run } from "./metrics";
 
-const withJev = process.env["JEV"] === "1";
-const strictness = process.env["JEV_STRICTNESS"] ?? "medium";
+const strictness = z
+  .enum(["low", "medium"])
+  .parse(process.env["JEV_STRICTNESS"] ?? "low");
 const CONCURRENCY = 4;
 
 const corpus: Fragment[] = fragments.map(({ date, fragment, id }) => ({
@@ -29,54 +30,31 @@ const corpus: Fragment[] = fragments.map(({ date, fragment, id }) => ({
   ref: id,
 }));
 
-const setups: {
-  name: string;
-  settings: Metadata;
-  jev?: boolean;
-}[] = [
-  { name: "idf", settings: {} },
-  {
-    jev: true,
-    name: "idf+jev",
-    settings: {
-      relevanceFilter: z
-        .enum(["low", "medium", "high", "max"])
-        .parse(strictness),
-    },
-  },
-];
-
-const proxy = withJev
-  ? await getPlatformProxy<{ AI: Ai }>({
-      configPath: path.join(import.meta.dirname, "wrangler.jsonc"),
-      remoteBindings: true,
-    })
-  : null;
+const proxy = await getPlatformProxy<{ AI: Ai }>({
+  configPath: path.join(import.meta.dirname, "wrangler.jsonc"),
+  remoteBindings: true,
+});
 
 afterAll(async () => {
-  await proxy?.dispose();
+  await proxy.dispose();
 });
 
 const ai = workersAiFetch({
-  run: async (model, input) => {
-    if (!proxy) {
-      throw new Error("Workers AI is off; set JEV=1");
-    }
-    // SAFETY: the binding's model union has no entry for Jev; the output is
-    // parsed as JSON before Jev sees it, as in MemoryDO.
-    return z.json().parse(await proxy.env.AI.run(model as never, input));
-  },
+  // SAFETY: the binding's model union has no entry for Jev; the output is
+  // parsed as JSON before Jev sees it, as in MemoryDO.
+  run: async (model, input) =>
+    z.json().parse(await proxy.env.AI.run(model as never, input)),
 });
 
 vi.spyOn(console, "error").mockReturnValue();
 
-const recall = async (settings: Metadata, item: EvalCase) => {
+const recall = async (item: EvalCase) => {
   const input = recallInputSchema.parse({
     cue: item.cue,
     ...(item.context && { context: item.context }),
   });
   const result = await recallWith(
-    inMemory(corpus, { settings }),
+    inMemory(corpus, { settings: { relevanceFilter: strictness } }),
     input,
     jev(ai)
   );
@@ -102,29 +80,25 @@ const pool = async <T, R>(items: T[], task: (item: T) => Promise<R>) => {
 };
 
 it("scores recall on the evaluation set", async () => {
-  const runs: Run[] = [];
-  for (const setup of setups.filter((item) => withJev || !item.jev)) {
-    // oxlint-disable-next-line no-await-in-loop
-    const results = await pool(cases, async (item) => ({
-      ...(await recall(setup.settings, item)),
+  const results = await pool(cases, async (item) => ({
+    ...(await recall(item)),
+    case: item,
+  }));
+  const run: Run = {
+    failures: results.filter((result) => result.failed).length,
+    name: `jev ${strictness}`,
+    outcomes: results.map(({ case: item, refs }): Outcome => ({
       case: item,
-    }));
-    runs.push({
-      failures: results.filter((result) => result.failed).length,
-      name: setup.name,
-      outcomes: results.map(({ case: item, refs }): Outcome => ({
-        case: item,
-        refs,
-      })),
-    });
-  }
+      refs,
+    })),
+  };
   const commit = execFileSync("git", ["rev-parse", "--short", "HEAD"], {
     encoding: "utf-8",
   }).trim();
   const header = `# Recall evaluation
 
-${fragments.length} fragments, ${cases.length} cues, at most 10 results. Commit \`${commit}\`${withJev ? `; Jev strictness \`${strictness}\`` : "; Jev not run"}. Regenerate with \`pnpm eval\` (\`JEV=1 pnpm eval\` for Jev; it bills Workers AI).`;
-  const markdown = report(runs, header);
+${fragments.length} fragments, ${cases.length} cues, at most 10 results. Commit \`${commit}\`; Jev strictness \`${strictness}\`. Regenerate with \`pnpm eval\` (it bills Workers AI).`;
+  const markdown = report([run], header);
   writeFileSync(path.join(import.meta.dirname, "results.md"), markdown);
   process.stdout.write(`${markdown}\n`);
 });
