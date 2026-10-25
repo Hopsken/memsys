@@ -21,6 +21,23 @@ export const ALL_SCOPES: ReadonlySet<Scope> = new Set([
 ]);
 export const OAUTH_SCOPES = [MEMORY_READ, MEMORY_WRITE, "offline_access"];
 
+const actionOf = (scope: Scope) => scope.slice("memory:".length);
+export const apiKeyPermissions = (scopes: readonly Scope[]) => ({
+  memory: scopes.map(actionOf),
+});
+export const apiKeyScopes = (
+  permissions: Record<string, string[]> | null | undefined
+): ReadonlySet<Scope> => {
+  const createdBeforeAccessLevels = !permissions;
+  if (createdBeforeAccessLevels) {
+    return ALL_SCOPES;
+  }
+  const actions = permissions["memory"] ?? [];
+  return new Set(
+    [...ALL_SCOPES].filter((scope) => actions.includes(actionOf(scope)))
+  );
+};
+
 export const mcpResource = (env: Env) => `${env.PUBLIC_URL}/mcp`;
 export const resourceMetadataUrl = (env: Env) =>
   `${env.PUBLIC_URL}/.well-known/oauth-protected-resource/mcp`;
@@ -65,22 +82,25 @@ const registerLoopbackOnlyAppsAsNative = (
   return { context: { body: { ...client, application_type: "native" } } };
 };
 
-const requestRefreshTokensForEveryApp = (
+const requestReadAndRefreshTokensForEveryApp = (
   path: string,
   authorization: z.output<typeof authorizationRequestSchema> | undefined
 ): BeforeHookOverride | null => {
-  if (
-    path !== "/oauth2/authorize" ||
-    !authorization ||
-    authorization.scope.split(" ").includes("offline_access")
-  ) {
+  if (path !== "/oauth2/authorize" || !authorization) {
+    return null;
+  }
+  const requested = authorization.scope.split(" ");
+  const missing = [MEMORY_READ, "offline_access"].filter(
+    (scope) => !requested.includes(scope)
+  );
+  if (missing.length === 0) {
     return null;
   }
   return {
     context: {
       query: {
         ...authorization,
-        scope: `${authorization.scope} offline_access`,
+        scope: [authorization.scope, ...missing].join(" "),
       },
     },
   };
@@ -134,7 +154,7 @@ const createAuth = (env: Env) =>
             ctx.path,
             clientRegistrationSchema.safeParse(ctx.body).data
           ) ??
-            requestRefreshTokensForEveryApp(
+            requestReadAndRefreshTokensForEveryApp(
               ctx.path,
               authorizationRequestSchema.safeParse(ctx.query).data
             )

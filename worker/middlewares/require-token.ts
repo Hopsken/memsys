@@ -4,7 +4,9 @@ import { createMiddleware } from "hono/factory";
 
 import {
   ALL_SCOPES,
+  MEMORY_READ,
   OAUTH_SCOPES,
+  apiKeyScopes,
   getAuth,
   resourceMetadataUrl,
   verifyAccessToken,
@@ -23,6 +25,14 @@ const pointToOAuthSignIn = (c: Context<AppEnv>) => {
     `Bearer resource_metadata="${resourceMetadataUrl(c.env)}", scope="${OAUTH_SCOPES.join(" ")}"`
   );
   return c.json({ error: "Authentication required" }, 401);
+};
+
+const insufficientScope = (c: Context<AppEnv>) => {
+  c.header(
+    "WWW-Authenticate",
+    `Bearer error="insufficient_scope", scope="${[...ALL_SCOPES].join(" ")}", resource_metadata="${resourceMetadataUrl(c.env)}"`
+  );
+  return c.json({ error: "Insufficient scope" }, 403);
 };
 
 const authorOf = async (
@@ -47,6 +57,10 @@ export const requireToken = createMiddleware<AppEnv>(async (c, next) => {
     if (!verified.valid || !verified.key) {
       return pointToOAuthSignIn(c);
     }
+    const scopes = apiKeyScopes(verified.key.permissions);
+    if (!scopes.has(MEMORY_READ)) {
+      return insufficientScope(c);
+    }
     const userId = verified.key.referenceId;
     c.set(
       "author",
@@ -57,7 +71,7 @@ export const requireToken = createMiddleware<AppEnv>(async (c, next) => {
         verified.key.name
       )
     );
-    c.set("scopes", ALL_SCOPES);
+    c.set("scopes", scopes);
     c.set("userId", userId);
     return next();
   }
@@ -65,12 +79,8 @@ export const requireToken = createMiddleware<AppEnv>(async (c, next) => {
   if (!verified) {
     return pointToOAuthSignIn(c);
   }
-  if (verified.scopes.size === 0) {
-    c.header(
-      "WWW-Authenticate",
-      `Bearer error="insufficient_scope", scope="${[...ALL_SCOPES].join(" ")}", resource_metadata="${resourceMetadataUrl(c.env)}"`
-    );
-    return c.json({ error: "Insufficient scope" }, 403);
+  if (!verified.scopes.has(MEMORY_READ)) {
+    return insufficientScope(c);
   }
   c.set(
     "author",
