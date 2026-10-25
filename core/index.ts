@@ -41,6 +41,7 @@ export type {
   LogRecord,
   Op,
   Persona,
+  PersonaRecord,
   Version,
 } from "./model";
 export { FragmentIndex, inMemory } from "./search";

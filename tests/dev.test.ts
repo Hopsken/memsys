@@ -71,6 +71,17 @@ describe("Development sign-in", () => {
     expect(fragments.map(({ fragment }) => fragment).toSorted()).toStrictEqual(
       corpus.map(({ fragment }) => fragment).toSorted()
     );
+    const personas = await worker.fetch(
+      new Request(`${ORIGIN}/api/personas`, {
+        headers: { Cookie: user.cookie },
+      }),
+      env
+    );
+    await expect(personas.json()).resolves.toMatchObject([
+      { archivedAt: null, connections: 0, name: "Work assistant" },
+      { archivedAt: null, name: "Home Muse" },
+      { archivedAt: "2026-09-19T12:00:00.000Z", name: "Old bot" },
+    ]);
   });
 
   it("signs an existing user in again without replacing their memory", async () => {
