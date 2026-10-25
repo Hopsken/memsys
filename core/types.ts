@@ -13,7 +13,10 @@ export type InvalidInput = Failure<"invalid", "invalid-input"> & {
 // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
 export type Metadata = Record<string, unknown>;
 
-export type ListedFragment = Fragment & { versions: number };
+export type ListedFragment = Fragment & {
+  by: Author | null;
+  versions: number;
+};
 
 export interface FragmentPage {
   fragments: ListedFragment[];
@@ -98,6 +101,7 @@ export interface MemoryCore {
 
   get: (refs: string[]) => Fragment[];
   list: (input: {
+    by?: Author | undefined;
     cursor?: string | undefined;
     tag?: string[] | undefined;
   }) => FragmentPage;

@@ -199,20 +199,24 @@ export const serializeLog = (
     .join("");
 
 export const replay = (
-  rows: Iterable<Pick<Row, "at" | "fragment" | "ref">>
+  rows: Iterable<
+    Pick<Row, "at" | "fragment" | "ref"> & Partial<Pick<Row, "by">>
+  >
 ) => {
   const corpus = new Map<string, Fragment>();
   const latestAtByRef = new Map<string, number>();
-  for (const { at, fragment: text, ref } of rows) {
+  const authorByRef = new Map<string, Author | null>();
+  for (const { at, by = null, fragment: text, ref } of rows) {
     if (at <= (latestAtByRef.get(ref) ?? Number.NEGATIVE_INFINITY)) {
       continue;
     }
     latestAtByRef.set(ref, at);
+    authorByRef.set(ref, by);
     if (text === null) {
       corpus.delete(ref);
     } else {
       corpus.set(ref, { at: new Date(at).toISOString(), fragment: text, ref });
     }
   }
-  return { corpus, latestAtByRef };
+  return { authorByRef, corpus, latestAtByRef };
 };

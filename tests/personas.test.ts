@@ -1,4 +1,4 @@
-import type { ActivityPage, Fragment, Persona } from "@core";
+import type { ActivityPage, Fragment, FragmentPage, Persona } from "@core";
 import { env } from "cloudflare:workers";
 import type { JSONValue } from "hono/utils/types";
 import { describe, expect, it } from "vitest";
@@ -139,6 +139,38 @@ describe("Personas", () => {
     ]);
     await expect(authors(user, by("agent:test"))).resolves.toStrictEqual([
       { by: "agent:test", fragment: "Two" },
+    ]);
+  });
+
+  it("lists memories by the author of their current version", async () => {
+    const user = await signIn();
+    const laptop = await keyOf(user, "Laptop script");
+    const work = await createPersona(user, "Work assistant");
+    await assign(user, laptop.connection, work.id);
+    const revised = await remember(laptop.user, "Deploys use npm");
+    await post(
+      "/api/revise",
+      { fragment: "Deploys use pnpm", ref: revised.ref },
+      user
+    );
+    await remember(laptop.user, "Tests run in workerd");
+    const fragments = async (query = "") => {
+      const response = await api(user, `/api/fragments${query}`);
+      const page = await response.json<FragmentPage>();
+      return page.fragments.map((item) => ({
+        by: item.by,
+        fragment: item.fragment,
+      }));
+    };
+    await expect(fragments()).resolves.toStrictEqual([
+      { by: `persona:${work.id}`, fragment: "Tests run in workerd" },
+      { by: "user", fragment: "Deploys use pnpm" },
+    ]);
+    await expect(fragments(by(`persona:${work.id}`))).resolves.toStrictEqual([
+      { by: `persona:${work.id}`, fragment: "Tests run in workerd" },
+    ]);
+    await expect(fragments(by("user"))).resolves.toStrictEqual([
+      { by: "user", fragment: "Deploys use pnpm" },
     ]);
   });
 

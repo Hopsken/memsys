@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { cn } from "cn";
 import { parseResponse } from "hono/client";
 import { ChevronDown, XIcon } from "lucide-react";
 
@@ -40,9 +41,11 @@ const AuthorGroup = ({
 
 export const AuthorFilter = ({
   by,
+  className,
   onChange,
 }: {
   by: Author | null;
+  className?: string;
   onChange: (by: Author | null) => void;
 }) => {
   const personas = usePersonas();
@@ -65,7 +68,7 @@ export const AuthorFilter = ({
   const selectedName = selected?.name === "you" ? "You" : selected?.name;
 
   return (
-    <div className="mb-1 flex items-center gap-1">
+    <div className={cn("-ml-2.75 flex items-center gap-1", className)}>
       <DropdownMenu>
         <DropdownMenuTrigger
           render={

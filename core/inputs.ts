@@ -9,7 +9,7 @@ import {
   personaNameSchema,
   refSchema,
 } from "./model";
-import type { Fragment } from "./model";
+import type { Author, Fragment } from "./model";
 
 export const PAGE_SIZE = 50;
 
@@ -27,6 +27,7 @@ const tagSchema = z
 
 export const listInputSchema = z
   .object({
+    by: authorSchema.optional(),
     cursor: cursorSchema.optional(),
     tag: z.array(tagSchema).max(10).optional(),
   })
@@ -56,12 +57,13 @@ export const restoreInputSchema = z
   .object({ at: z.iso.datetime({ precision: 3 }) })
   .strict();
 
-export const listFragments = <T extends Fragment>(
+export const listFragments = <T extends Fragment & { by?: Author | null }>(
   corpus: Iterable<T>,
   input: z.input<typeof listInputSchema>
 ) => {
-  const { cursor: after, tag: tags = [] } = listInputSchema.parse(input);
+  const { by, cursor: after, tag: tags = [] } = listInputSchema.parse(input);
   const ordered = [...corpus]
+    .filter((item) => !by || item.by === by)
     .filter(
       (item) =>
         !after ||

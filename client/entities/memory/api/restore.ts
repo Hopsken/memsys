@@ -47,17 +47,21 @@ const showInList = (
   restored: Restored,
   positions: Positions
 ) => {
-  const { at, fragment, ref, versions } = restored;
+  const { at, by, fragment, ref, versions } = restored;
   if (fragment === null) {
     return;
   }
-  const item = { at, fragment, ref, versions };
+  const item = { at, by, fragment, ref, versions };
   for (const [key, data] of lists(queryClient)) {
     const position = positions.get(hashKey(key));
     const listed = data?.pages.some(({ fragments }) =>
       fragments.some((each) => each.ref === ref)
     );
-    if (!listed && !(position && data?.pages[position.page])) {
+    const [, filteredBy] = key;
+    if (
+      (filteredBy !== null && filteredBy !== by) ||
+      (!listed && !(position && data?.pages[position.page]))
+    ) {
       void queryClient.invalidateQueries({ exact: true, queryKey: key });
       continue;
     }

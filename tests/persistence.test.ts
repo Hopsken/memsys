@@ -52,7 +52,7 @@ describe("Memory persistence", () => {
       truncated: false,
     });
     await expect(memory.list({})).resolves.toStrictEqual({
-      fragments: [{ ...revised.value, versions: 2 }],
+      fragments: [{ ...revised.value, by: "user", versions: 2 }],
       nextCursor: null,
     });
   });
@@ -86,12 +86,14 @@ describe("Memory persistence", () => {
       fragments: [
         {
           at: "2026-02-01T00:00:00.000Z",
+          by: null,
           fragment: "Revised",
           ref: "hjkmnpq",
           versions: 1,
         },
         {
           at: "2026-01-01T00:00:00.000Z",
+          by: null,
           fragment: "Old #memsys",
           ref: "abcdefg",
           versions: 1,

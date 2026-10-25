@@ -3,11 +3,12 @@ import type { InfiniteData } from "@tanstack/react-query";
 import { cn } from "cn";
 import { parseResponse } from "hono/client";
 import { Activity, ArrowDown } from "lucide-react";
-import { Link, Outlet, useSearchParams } from "react-router";
+import { Link, Outlet } from "react-router";
 
 import { MemoryLength, OpBadge } from "@/entities/memory";
-import { authorLabel, Byline, isAuthor, usePersonas } from "@/entities/persona";
+import { authorLabel, Byline, usePersonas } from "@/entities/persona";
 import { SessionExpired } from "@/features/auth";
+import { AuthorFilter, useAuthorParam } from "@/features/author-filter";
 import { api, isExpired } from "@/shared/api";
 import type { ActivityEntry, ActivityPage, Author } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
@@ -21,8 +22,6 @@ import {
   useReturnFocus,
 } from "@/widgets/memory-history";
 import { formatRelativeDate } from "@lib/date";
-
-import { AuthorFilter } from "./author-filter";
 
 const linkClass =
   "text-foreground underline underline-offset-4 hover:text-foreground/80";
@@ -95,24 +94,6 @@ const EntryRow = ({
   );
 };
 
-const useAuthorParam = () => {
-  const [params, setParams] = useSearchParams();
-  const value = params.get("by");
-  const by = isAuthor(value) ? value : null;
-  const setBy = (next: Author | null) => {
-    setParams((current) => {
-      if (next === null) {
-        current.delete("by");
-      } else {
-        current.set("by", next);
-      }
-      return current;
-    });
-    window.scrollTo({ top: 0 });
-  };
-  return [by, setBy] as const;
-};
-
 export const ActivityView = () => {
   const [by, setBy] = useAuthorParam();
   const personas = usePersonas();
@@ -163,7 +144,7 @@ export const ActivityView = () => {
         </Alert>
       ) : null}
 
-      <AuthorFilter by={by} onChange={setBy} />
+      <AuthorFilter by={by} className="mb-1" onChange={setBy} />
       {by?.startsWith("persona:") ? (
         <p className="text-muted-foreground mt-2 mb-1 text-xs">
           Earlier changes from its apps show under the app’s name.
