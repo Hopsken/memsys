@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from "react-router";
 import { ActivityView } from "@/pages/activity";
 import { ConsentView } from "@/pages/consent";
 import { ForgottenView } from "@/pages/forgotten";
+import { JoinView } from "@/pages/join";
 import { LoginView } from "@/pages/login";
 import { FragmentsView } from "@/pages/memories";
 import { AccountView } from "@/pages/settings/account";
@@ -16,6 +17,8 @@ import { SettingsView } from "./layouts/settings-layout";
 
 export const router = createBrowserRouter([
   { element: <LoginView />, path: "/login" },
+  { element: <JoinView />, path: "/join" },
+  { element: <JoinView />, path: "/join/:code" },
   { element: <ConsentView />, path: "/consent" },
   {
     children: [

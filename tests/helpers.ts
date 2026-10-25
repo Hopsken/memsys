@@ -55,6 +55,23 @@ const resendEmailSchema = z.object({
 
 const codes = new Map<string, string>();
 
+export const createInvite = async ({
+  expiresAt = Date.now() + 60_000,
+  maxUses = 1,
+} = {}) => {
+  const code = crypto
+    .randomUUID()
+    .replaceAll("-", "")
+    .slice(0, 8)
+    .toUpperCase();
+  await env.DB.prepare(
+    'INSERT INTO "inviteCode" ("code", "maxUses", "expiresAt") VALUES (?, ?, ?)'
+  )
+    .bind(code, maxUses, expiresAt)
+    .run();
+  return code;
+};
+
 export const useAuth = () => {
   beforeAll(() => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
@@ -73,18 +90,20 @@ export const useAuth = () => {
   afterAll(() => vi.restoreAllMocks());
 
   return async (
-    email = `${crypto.randomUUID()}@memsys.test`
+    email = `${crypto.randomUUID()}@memsys.test`,
+    inviteCode?: string
   ): Promise<User> => {
     const client = { "cf-connecting-ip": randomIp() };
+    const invite = { inviteCode: inviteCode ?? (await createInvite()) };
     await post(
       "/api/auth/email-otp/send-verification-otp",
-      { email, type: "sign-in" },
+      { email, type: "sign-in", ...invite },
       null,
       client
     );
     const signedIn = await post(
       "/api/auth/sign-in/email-otp",
-      { email, otp: codes.get(email) ?? "" },
+      { email, otp: codes.get(email) ?? "", ...invite },
       null,
       client
     );

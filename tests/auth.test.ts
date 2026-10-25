@@ -5,10 +5,12 @@ import { describe, expect, it } from "vitest";
 import worker from "../worker/index";
 import {
   call,
+  createInvite,
   getList,
   list,
   ORIGIN,
   post,
+  randomIp,
   sentCode,
   useAuth,
   withVersions,
@@ -45,34 +47,6 @@ describe("Authentication", () => {
     await expect(
       tools({ Authorization: "Bearer memsys_forged" })
     ).resolves.toMatchObject({ status: 401 });
-  });
-
-  it("refuses codes for other addresses and never creates their users", async () => {
-    const email = `${crypto.randomUUID()}@elsewhere.test`;
-    const sent = await post(
-      "/api/auth/email-otp/send-verification-otp",
-      { email, type: "sign-in" },
-      null
-    );
-    const signedIn = await post(
-      "/api/auth/sign-in/email-otp",
-      { email, otp: "000000" },
-      null
-    );
-    const row = await env.DB.prepare('SELECT 1 FROM "user" WHERE "email" = ?')
-      .bind(email)
-      .first();
-    expect({
-      code: sentCode(email),
-      row,
-      sent: sent.status,
-      signedIn: signedIn.ok,
-    }).toStrictEqual({
-      code: undefined,
-      row: null,
-      sent: 403,
-      signedIn: false,
-    });
   });
 
   it("rejects a wrong code and signs the same address into the same memory", async () => {
@@ -200,6 +174,133 @@ describe("Authentication", () => {
     await expect(list(alice)).resolves.toStrictEqual({
       fragments: [withVersions(item)],
       nextCursor: null,
+    });
+  });
+});
+
+const requestCode = (email: string, invite: { inviteCode?: string } = {}) =>
+  post(
+    "/api/auth/email-otp/send-verification-otp",
+    {
+      email,
+      type: "sign-in",
+      ...invite,
+    },
+    null,
+    { "cf-connecting-ip": randomIp() }
+  );
+
+const signInWithCode = (email: string, inviteCode: string) =>
+  post(
+    "/api/auth/sign-in/email-otp",
+    { email, inviteCode, otp: sentCode(email) ?? "" },
+    null,
+    { "cf-connecting-ip": randomIp() }
+  );
+
+const accountExists = async (email: string) =>
+  (await env.DB.prepare('SELECT 1 FROM "user" WHERE "email" = ?')
+    .bind(email)
+    .first()) !== null;
+
+const usesOf = (code: string) =>
+  env.DB.prepare('SELECT "uses" FROM "inviteCode" WHERE "code" = ?')
+    .bind(code)
+    .first<number>("uses");
+
+const newEmail = () => `${crypto.randomUUID()}@memsys.test`;
+
+describe("Invite codes", () => {
+  const signIn = useAuth();
+
+  it("sends no code to a new address without an invite and creates no account", async () => {
+    const email = newEmail();
+    const sent = await requestCode(email);
+    const signedIn = await post(
+      "/api/auth/sign-in/email-otp",
+      { email, otp: "000000" },
+      null
+    );
+    expect({
+      code: sentCode(email),
+      error: await sent.json(),
+      exists: await accountExists(email),
+      signedIn: signedIn.ok,
+    }).toStrictEqual({
+      code: undefined,
+      error: expect.objectContaining({ code: "NO_ACCOUNT" }),
+      exists: false,
+      signedIn: false,
+    });
+  });
+
+  it("lets an invite create as many accounts as it has uses, and existing users sign in without using it", async () => {
+    const invite = await createInvite({ maxUses: 2 });
+    const first = await signIn(newEmail(), invite);
+    await signIn(first.email, invite);
+    await signIn(
+      newEmail(),
+      `${invite.slice(0, 4)}-${invite.slice(4)}`.toLowerCase()
+    );
+    const third = newEmail();
+    const refused = await requestCode(third, { inviteCode: invite });
+    expect({
+      code: sentCode(third),
+      error: await refused.json(),
+      uses: await usesOf(invite),
+    }).toStrictEqual({
+      code: undefined,
+      error: expect.objectContaining({ code: "INVITE_CODE_UNUSABLE" }),
+      uses: 2,
+    });
+  });
+
+  it("refuses an expired invite", async () => {
+    const invite = await createInvite({ expiresAt: Date.now() - 1 });
+    const email = newEmail();
+    const refused = await requestCode(email, { inviteCode: invite });
+    expect(refused.status).toBe(403);
+    expect(sentCode(email)).toBeUndefined();
+  });
+
+  it("creates no account when the invite runs out after the code was sent", async () => {
+    const invite = await createInvite();
+    const [winner, loser] = [newEmail(), newEmail()];
+    await requestCode(winner, { inviteCode: invite });
+    await requestCode(loser, { inviteCode: invite });
+    const won = await signInWithCode(winner, invite);
+    const lost = await signInWithCode(loser, invite);
+    expect({
+      loserExists: await accountExists(loser),
+      lost: lost.status,
+      won: won.status,
+    }).toStrictEqual({ loserExists: false, lost: 403, won: 200 });
+  });
+
+  it("tells the join page whether an invite still works", async () => {
+    const usable = await createInvite();
+    const usedUp = await createInvite({ maxUses: 1 });
+    await signIn(newEmail(), usedUp);
+    const expired = await createInvite({ expiresAt: Date.now() - 1 });
+    const check = async (code: string) => {
+      const response = await get(
+        `/api/auth/invite-code/check?code=${encodeURIComponent(code)}`
+      );
+      const { usable: isUsable } = await response.json<{ usable: boolean }>();
+      return isUsable;
+    };
+    expect({
+      dashedLowercase: await check(
+        `${usable.slice(0, 4)}-${usable.slice(4)}`.toLowerCase()
+      ),
+      expired: await check(expired),
+      unknown: await check("ZZZZ-ZZZZ"),
+      usedUp: await check(usedUp),
+    }).toStrictEqual({
+      dashedLowercase: true,
+      expired: false,
+      unknown: false,
+      usedUp: false,
     });
   });
 });

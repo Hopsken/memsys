@@ -104,10 +104,4 @@ describe("Development sign-in", () => {
     );
     expect(location).toBe("/");
   });
-
-  it("refuses an address outside the allowlist", async () => {
-    const { response, user } = await logMeIn("dev@example.com");
-    expect(response.status).toBe(403);
-    expect(user.cookie).toBe("");
-  });
 });

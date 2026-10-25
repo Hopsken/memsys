@@ -44,7 +44,6 @@ export default defineConfig(async (): Promise<ViteUserConfig> => {
             cloudflareTest({
               miniflare: {
                 bindings: {
-                  AUTH_ALLOWED_EMAILS: "@memsys.test",
                   BETTER_AUTH_SECRET:
                     "test-secret-with-enough-entropy-0123456789",
                   EMAIL_FROM: "memsys <memsys@memsys.test>",
