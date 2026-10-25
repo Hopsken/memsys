@@ -245,6 +245,18 @@ describe("Recall", () => {
     });
   });
 
+  it("ranks an old association through a rare anchor above many newer ones through a common anchor", async () => {
+    const corpus = [
+      item("seed", "cue #rare #common", "01"),
+      item("old-rare", "old #rare", "01"),
+      ...Array.from({ length: 150 }, (_, index) =>
+        item(`new-${index}`, "new #common", "02")
+      ),
+    ];
+    const [first] = await associated(corpus, "cue");
+    expect(first?.ref).toBe("old-rare");
+  });
+
   it.each([
     [10, 0, false],
     [11, 0, true],

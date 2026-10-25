@@ -58,8 +58,16 @@ export interface RecallResult {
 
 const RESULT_SIZE = 10;
 const MAX_SEED_MATCHES = 10;
-const MAX_ASSOCIATIONS_RANKED = 100;
-export const JUDGE_BUDGET = 40;
+
+interface Budget {
+  count: number;
+  tokens: number;
+}
+
+// Jev reads all candidates in one state, which must fit in 32k tokens, and
+// each candidate adds a question to a request capped at 64k tokens.
+export const JUDGE_BUDGET: Budget = { count: 300, tokens: 28_000 };
+const ASSOCIATION_SHARE = 0.3;
 
 const STRICTNESS = {
   low: 0.1,
@@ -124,7 +132,6 @@ const rankByRarestSharedAnchor = (
     Math.log((corpusSize + 1) / ((df.get(anchor) ?? 0) + 1));
   return found
     .filter((item) => !matched.has(item.fragment.ref))
-    .slice(0, MAX_ASSOCIATIONS_RANKED)
     .map(({ fragment, via }) => ({
       item: { ...fragment, via },
       score: via.reduce(
@@ -162,6 +169,54 @@ type RecallMemory = Pick<
   | "search"
 >;
 
+const encoder = new TextEncoder();
+const UTF8_BYTES_PER_TOKEN_AT_MOST = 3;
+
+const estimatedTokens = (item: Fragment) =>
+  Math.ceil(
+    encoder.encode(item.fragment).length / UTF8_BYTES_PER_TOKEN_AT_MOST
+  );
+
+const tokensOf = (items: readonly Fragment[]) =>
+  items.reduce((sum, item) => sum + estimatedTokens(item), 0);
+
+const leadingItemsWithin = (
+  items: readonly RecallItem[],
+  budget: Budget
+): RecallItem[] => {
+  const taken: RecallItem[] = [];
+  let tokens = 0;
+  for (const item of items) {
+    tokens += estimatedTokens(item);
+    if (taken.length >= budget.count || tokens > budget.tokens) {
+      break;
+    }
+    taken.push(item);
+  }
+  return taken;
+};
+
+const candidatesWithin = (items: readonly RecallItem[], budget: Budget) => {
+  const matches = items.filter((item) => !item.via);
+  const associations = items.filter((item) => item.via);
+  const reserved = leadingItemsWithin(associations, {
+    count: Math.floor(budget.count * ASSOCIATION_SHARE),
+    tokens: budget.tokens * ASSOCIATION_SHARE,
+  });
+  const keptMatches = leadingItemsWithin(matches, {
+    count: budget.count - reserved.length,
+    tokens: budget.tokens - tokensOf(reserved),
+  });
+  const keptAssociations = leadingItemsWithin(associations, {
+    count: budget.count - keptMatches.length,
+    tokens: budget.tokens - tokensOf(keptMatches),
+  });
+  return {
+    candidates: [...keptMatches, ...keptAssociations],
+    truncated: keptMatches.length < matches.length,
+  };
+};
+
 export const keepOnlyJudgedRelevant = async (
   judge: Judge,
   items: readonly RecallItem[],
@@ -170,20 +225,23 @@ export const keepOnlyJudgedRelevant = async (
 ): Promise<
   Result<{ items: RecallItem[]; truncated: boolean }, RelevanceUnavailable>
 > => {
-  const judged = items.slice(0, JUDGE_BUDGET);
-  const truncated = droppedMatch(items.slice(JUDGE_BUDGET));
-  if (judged.length === 0) {
+  const { candidates, truncated } = candidatesWithin(items, JUDGE_BUDGET);
+  if (candidates.length === 0) {
     return ok({ items: [], truncated });
   }
-  const scores = await judge(judged, input);
+  const scores = await judge(candidates, input);
   if (!scores.ok) {
     return scores;
   }
   const threshold = STRICTNESS[strictness];
+  const score = (item: RecallItem) => scores.value.get(item.ref) ?? 0;
   return ok({
-    items: judged.filter(
-      (item) => (scores.value.get(item.ref) ?? 0) >= threshold
-    ),
+    items: candidates
+      .filter((item) => score(item) >= threshold)
+      .toSorted(
+        (a, b) =>
+          Number(Boolean(a.via)) - Number(Boolean(b.via)) || score(b) - score(a)
+      ),
     truncated,
   });
 };
