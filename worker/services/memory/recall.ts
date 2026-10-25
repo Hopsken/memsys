@@ -30,21 +30,12 @@ const cueListSchema = z
 
 const singleCueAsListSchema = cueSchema.transform((cue) => [cue]);
 
+export const recallContextSchema = z.string().max(1000).optional();
+
+export const recallCuesSchema = z.union([cueListSchema, singleCueAsListSchema]);
+
 export const recallInputSchema = z
-  .object({
-    context: z
-      .string()
-      .max(1000)
-      .optional()
-      .describe(
-        "What you are working on right now. Give it whenever you have a task: it helps pick the memories that matter for it."
-      ),
-    cues: z
-      .union([cueListSchema, singleCueAsListSchema])
-      .describe(
-        "What you need, one cue per angle. Each cue is a few distinctive words, a phrase, or #anchors."
-      ),
-  })
+  .object({ context: recallContextSchema, cues: recallCuesSchema })
   .strict();
 
 export type RecallInput = z.infer<typeof recallInputSchema>;
