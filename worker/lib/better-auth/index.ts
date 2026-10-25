@@ -3,13 +3,14 @@ import { cimd } from "@better-auth/cimd";
 import { mcp } from "@better-auth/mcp";
 import type { ClientMetadataResourceFetch } from "@better-auth/oauth-provider";
 import { betterAuth } from "better-auth";
-import { APIError, createAuthMiddleware } from "better-auth/api";
+import { createAuthMiddleware } from "better-auth/api";
 import { verifyJwsAccessToken } from "better-auth/oauth2";
 import { jwt } from "better-auth/plugins";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { z } from "zod";
 
 import { sendSignInCode } from "../../clients/resend";
+import { inviteCodes } from "./invite-codes";
 
 export const MEMORY_READ = "memory:read";
 export const MEMORY_WRITE = "memory:write";
@@ -24,23 +25,6 @@ export const mcpResource = (env: Env) => `${env.PUBLIC_URL}/mcp`;
 export const resourceMetadataUrl = (env: Env) =>
   `${env.PUBLIC_URL}/.well-known/oauth-protected-resource/mcp`;
 const issuer = (env: Env) => `${env.PUBLIC_URL}/api/auth`;
-
-export const isAllowedEmail = (env: Env, email: string) => {
-  const address = email.trim().toLowerCase();
-  return (env.AUTH_ALLOWED_EMAILS ?? "")
-    .toLowerCase()
-    .split(/[\s,]+/u)
-    .some(
-      (entry) =>
-        entry !== "" &&
-        (entry.startsWith("@") ? address.endsWith(entry) : address === entry)
-    );
-};
-
-const signInCodeRequestSchema = z.object({
-  email: z.string(),
-  type: z.literal("sign-in"),
-});
 
 const clientRegistrationSchema = z.looseObject({
   application_type: z.string().optional(),
@@ -102,22 +86,6 @@ const requestRefreshTokensForEveryApp = (
   };
 };
 
-const refuseSignInCodesToUnlistedEmails = (
-  env: Env,
-  path: string,
-  request: z.output<typeof signInCodeRequestSchema> | undefined
-) => {
-  if (
-    path === "/email-otp/send-verification-otp" &&
-    request &&
-    !isAllowedEmail(env, request.email)
-  ) {
-    throw new APIError("FORBIDDEN", {
-      message: "This email is not allowed to sign in.",
-    });
-  }
-};
-
 const isPublicHttpsHost = ({ hostname, protocol }: URL) =>
   protocol === "https:" &&
   hostname !== "localhost" &&
@@ -159,45 +127,24 @@ const createAuth = (env: Env) =>
     basePath: "/api/auth",
     baseURL: env.PUBLIC_URL,
     database: env.DB,
-    databaseHooks: {
-      user: {
-        create: {
-          before: (user) => {
-            if (!isAllowedEmail(env, user.email)) {
-              throw new APIError("FORBIDDEN", {
-                message: "Sign-in not allowed",
-              });
-            }
-            return Promise.resolve();
-          },
-        },
-      },
-    },
     hooks: {
-      before: createAuthMiddleware(
-        (ctx): Promise<BeforeHookOverride | null> => {
-          refuseSignInCodesToUnlistedEmails(
-            env,
+      before: createAuthMiddleware((ctx): Promise<BeforeHookOverride | null> =>
+        Promise.resolve(
+          registerLoopbackOnlyAppsAsNative(
             ctx.path,
-            signInCodeRequestSchema.safeParse(ctx.body).data
-          );
-          return Promise.resolve(
-            registerLoopbackOnlyAppsAsNative(
+            clientRegistrationSchema.safeParse(ctx.body).data
+          ) ??
+            requestRefreshTokensForEveryApp(
               ctx.path,
-              clientRegistrationSchema.safeParse(ctx.body).data
-            ) ??
-              requestRefreshTokensForEveryApp(
-                ctx.path,
-                authorizationRequestSchema.safeParse(ctx.query).data
-              )
-          );
-        }
+              authorizationRequestSchema.safeParse(ctx.query).data
+            )
+        )
       ),
     },
     plugins: [
       emailOTP({
         sendVerificationOTP: async ({ email, otp, type }) => {
-          if (type === "sign-in" && isAllowedEmail(env, email)) {
+          if (type === "sign-in") {
             await sendSignInCode(email, otp);
           }
         },
@@ -211,6 +158,7 @@ const createAuth = (env: Env) =>
         requireName: true,
         startingCharactersConfig: { charactersLength: 11 },
       }),
+      inviteCodes(env.DB),
       jwt({ disableSettingJwtHeader: true }),
       mcpPlugin(env),
       cimd({

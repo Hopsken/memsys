@@ -1,13 +1,9 @@
+import type { User } from "better-auth";
 import { Hono } from "hono";
 import { setSignedCookie } from "hono/cookie";
 import { z } from "zod";
 
-import {
-  MEMORY_READ,
-  MEMORY_WRITE,
-  getAuth,
-  isAllowedEmail,
-} from "../lib/better-auth";
+import { MEMORY_READ, MEMORY_WRITE, getAuth } from "../lib/better-auth";
 import { corpusLog } from "../lib/dev-corpus";
 import { unwrap } from "../lib/problem";
 import { defaultSpace, openMemory } from "../memory";
@@ -54,21 +50,23 @@ export const dev =
       if (!email.success) {
         return c.json({ error: "Invalid email" }, 400);
       }
-      if (!isAllowedEmail(c.env, email.data)) {
-        return c.json(
-          { error: "Add this email to AUTH_ALLOWED_EMAILS in .dev.vars." },
-          403
-        );
-      }
-      const { authCookies, internalAdapter, secret } = await getAuth(c.env)
-        .$context;
+      const { adapter, authCookies, internalAdapter, secret } = await getAuth(
+        c.env
+      ).$context;
       const found = await internalAdapter.findUserByEmail(email.data);
       let user = found?.user;
       if (!user) {
-        user = await internalAdapter.createUser(
-          { email: email.data, emailVerified: true, name: "" },
-          { method: "email-otp" }
-        );
+        // The raw adapter skips database hooks, so no invite code is needed.
+        user = await adapter.create<User>({
+          data: {
+            createdAt: new Date(),
+            email: email.data.toLowerCase(),
+            emailVerified: true,
+            name: "",
+            updatedAt: new Date(),
+          },
+          model: "user",
+        });
         unwrap(await seed(defaultSpace(user.id)));
       }
       const session = await internalAdapter.createSession(user.id);

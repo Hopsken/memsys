@@ -61,7 +61,7 @@ Neither agent credential stands in for a session, so an agent cannot change sett
 
 **API keys** are for agents that cannot sign in. They are stored hashed; the web UI shows each one once, when it is created. Revoking a key takes effect on the next request.
 
-Sign-in codes go out through [Resend](https://resend.com/) and only to addresses in `AUTH_ALLOWED_EMAILS` (comma-separated; `@example.com` allows a domain). Other addresses are refused with an error, get no email, and cannot create an account. Sign-in routes are rate limited per client address, with counters in D1.
+Sign-in codes go out through [Resend](https://resend.com/). memsys is invite-only: an address without an account gets a code only with a usable invite code, and creating the account uses up one use of that invite. New users open an invite link (`/join/<code>`) or enter the code at `/join`; existing users sign in at `/login` and never need one. `pnpm invite --remote` creates a code in the production database and prints its link (`--uses` and `--days` set how many accounts it can create and when it expires, by default 1 and 7); `pnpm invite --remote --list` shows every code and how much of it is used. Both use your Wrangler login, as `pnpm deploy` does; set `PUBLIC_URL` to print full links. Sign-in routes and invite checks are rate limited per client address, with counters in D1.
 
 Connect an agent with the URL alone and sign in when it asks, for example in Claude Code:
 
@@ -81,7 +81,7 @@ Before the first deployment:
 1. After the first deploy, add a custom domain to the Worker in the Cloudflare dashboard (**Settings → Domains & Routes**). `wrangler.jsonc` names no domain, and deploys leave the one you add in place.
 2. Create the database with `pnpm exec wrangler d1 create memsys` and add its `database_id` to `wrangler.jsonc`.
 3. Verify a sending domain in Resend.
-4. Set the Worker's variables in the Cloudflare dashboard (**Workers & Pages → memsys → Settings → Variables and Secrets**); `.dev.vars.example` lists them all. `PUBLIC_URL` is that custom domain's origin (e.g. `https://memsys.example.com`), and `EMAIL_FROM` an address on the Resend domain. Store `BETTER_AUTH_SECRET` (at least 32 random characters, e.g. `openssl rand -base64 32`), `RESEND_API_KEY`, and `AUTH_ALLOWED_EMAILS` as secrets. `wrangler.jsonc` sets `keep_vars`, so deploys leave them alone; nothing instance-specific lives in the repository.
+4. Set the Worker's variables in the Cloudflare dashboard (**Workers & Pages → memsys → Settings → Variables and Secrets**); `.dev.vars.example` lists them all. `PUBLIC_URL` is that custom domain's origin (e.g. `https://memsys.example.com`), and `EMAIL_FROM` an address on the Resend domain. Store `BETTER_AUTH_SECRET` (at least 32 random characters, e.g. `openssl rand -base64 32`) and `RESEND_API_KEY` as secrets. `wrangler.jsonc` sets `keep_vars`, so deploys leave them alone; nothing instance-specific lives in the repository.
 5. Run `pnpm check`, then deploy when approved with `pnpm deploy`.
 6. Connect an MCP client by signing in, and another with an API key. Check every tool, that a read-only grant sees only read tools, and that `/api/*` rejects both credentials.
 
@@ -100,9 +100,9 @@ pnpm dev         # Apply local D1 migrations, then Vite frontend and local Worke
 pnpm eval        # Score recall on eval/dataset.ts; JEV=1 adds Jev (bills Workers AI)
 ```
 
-`pnpm dev` uses local D1 and Durable Object storage. Copy `.dev.vars.example` to the ignored `.dev.vars`: it sets a development `BETTER_AUTH_SECRET` and `PUBLIC_URL`, and allows `dev@memsys.test` plus an address you replace with yours in `AUTH_ALLOWED_EMAILS`. With `RESEND_API_KEY` or `EMAIL_FROM` empty, a dev build prints sign-in codes in the dev server log instead of emailing them; a production build refuses to sign in without both. Open `/` on the development server and sign in.
+`pnpm dev` uses local D1 and Durable Object storage. Copy `.dev.vars.example` to the ignored `.dev.vars`: it sets a development `BETTER_AUTH_SECRET` and `PUBLIC_URL`. `pnpm invite` creates an invite code in the local database. With `RESEND_API_KEY` or `EMAIL_FROM` empty, a dev build prints sign-in codes in the dev server log instead of emailing them; a production build refuses to sign in without both. Open `/` on the development server and sign in.
 
-The sign-in page on the dev server also offers **Sign in as dev@memsys.test**, which opens `/__dev/log-me-in/<email>?returnTo=<path>`. That route signs the browser in as any allowed address without a code, creating the account the first time, and returns to `returnTo` when it is a path on the same origin, otherwise to `/`. A new account starts with a fixed eight-fragment corpus (`worker/lib/dev-corpus.ts`) so the UI and recall have something to show.
+The sign-in page on the dev server also offers **Sign in as dev@memsys.test**, which opens `/__dev/log-me-in/<email>?returnTo=<path>`. That route signs the browser in as any address without a sign-in code or invite, creating the account the first time, and returns to `returnTo` when it is a path on the same origin, otherwise to `/`. A new account starts with a fixed eight-fragment corpus (`worker/lib/dev-corpus.ts`) so the UI and recall have something to show.
 
 With the dev server running, `pnpm db:seed` adds that corpus to `dev@memsys.test`'s memory again (memories already there are skipped); set `SEED_EMAIL` for another user who has signed in, and `SEED_URL` if the server is not on `http://localhost:5173`. These routes skip sign-in, so anyone with access to the dev server can use them; do not store sensitive data there.
 

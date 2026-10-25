@@ -295,3 +295,11 @@ export const oauthClientAssertion = sqliteTable("oauthClientAssertion", {
   expiresAt: integer({ mode: "timestamp_ms" }).notNull(),
   id: text().primaryKey(),
 });
+
+export const inviteCode = sqliteTable("inviteCode", {
+  code: text().primaryKey(),
+  createdAt: createdAt(),
+  expiresAt: integer({ mode: "timestamp_ms" }).notNull(),
+  maxUses: integer().notNull(),
+  uses: integer().default(0).notNull(),
+});
