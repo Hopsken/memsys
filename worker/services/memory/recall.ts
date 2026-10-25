@@ -31,7 +31,7 @@ export const recallInputSchema = z
       .min(1)
       .max(256)
       .describe(
-        "What you need, as a few distinctive words, a phrase, or #anchors. Matches contain every word; a cue of three or more words may miss one. Fragments sharing an #anchor with a match come too. Too few results: use fewer or other words, or an #anchor. `truncated`: add a distinctive word."
+        "What you need, as a few distinctive words, a phrase, or #anchors."
       ),
   })
   .strict();
@@ -62,19 +62,13 @@ const normalize = (text: string): string =>
 
 const cueTerms = (cue: string) => [...new Set(terms(cue))];
 
-const selectMatches = (
-  cue: string,
-  query: readonly string[],
-  hits: readonly SearchHit[]
-): Fragment[] => {
-  const required = query.length >= 3 ? query.length - 1 : query.length;
+const rankMatches = (cue: string, hits: readonly SearchHit[]): Fragment[] => {
   const phrase = normalize(cue);
   return hits
     .map((hit) => ({
       ...hit,
       phrase: normalize(hit.fragment.fragment).includes(phrase),
     }))
-    .filter((hit) => hit.phrase || hit.matchedTerms.length >= required)
     .toSorted(
       (a, b) =>
         Number(b.phrase) - Number(a.phrase) ||
@@ -178,7 +172,7 @@ export const recall = async (
     new SettingsService(memory).read(),
     query.length > 0 ? memory.search(query) : [],
   ]);
-  const matches = selectMatches(input.cue, query, hits);
+  const matches = rankMatches(input.cue, hits);
   const keys = seedKeys(matches);
   const [found, anchors, size] =
     keys.length > 0

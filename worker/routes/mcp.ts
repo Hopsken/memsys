@@ -30,7 +30,7 @@ Store durable information as small, atomic, self-contained fragments rather than
 
 Use #anchors for stable entities or concepts that should link related fragments. Fragments with similar anchors are considered as associated and will be returned when recall.
 
-Recall with short textual cues such as distinctive phrases, names, projects, concepts, or #anchors. A cue is free text and may combine several words, but every word must appear in a match, so extra words narrow the results. To search more broadly, call recall again with a different cue.`;
+Recall with short textual cues such as distinctive phrases, names, projects, concepts, or #anchors. A cue is free text and may combine several words, alternatives included: a memory matches when it contains any of them, and memories with more and rarer words come first. To search from another angle, call recall again with a different cue.`;
 
 const createMcpServer = (
   memory: MemoryService,
