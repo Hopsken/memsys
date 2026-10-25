@@ -50,7 +50,7 @@ vi.spyOn(console, "error").mockReturnValue();
 
 const recall = async (item: EvalCase) => {
   const input = recallInputSchema.parse({
-    cue: item.cue,
+    cues: [item.cue],
     ...(item.context && { context: item.context }),
   });
   const result = await recallWith(

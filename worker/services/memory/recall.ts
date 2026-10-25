@@ -16,6 +16,20 @@ import type { RelevanceUnavailable } from "../../errors";
 import { SettingsService } from "../settings";
 import type { Strictness } from "../settings";
 
+const cueSchema = z.string().trim().min(1).max(256);
+
+const MAX_CUES_LENGTH = 1000;
+
+const cueListSchema = z
+  .array(cueSchema)
+  .min(1)
+  .refine(
+    (cues) => cues.join("").length <= MAX_CUES_LENGTH,
+    `All cues together must be at most ${MAX_CUES_LENGTH} characters.`
+  );
+
+const singleCueAsListSchema = cueSchema.transform((cue) => [cue]);
+
 export const recallInputSchema = z
   .object({
     context: z
@@ -25,13 +39,10 @@ export const recallInputSchema = z
       .describe(
         "What you are working on right now. Give it whenever you have a task: it helps pick the memories that matter for it."
       ),
-    cue: z
-      .string()
-      .trim()
-      .min(1)
-      .max(256)
+    cues: z
+      .union([cueListSchema, singleCueAsListSchema])
       .describe(
-        "What you need, as a few distinctive words, a phrase, or #anchors."
+        "What you need, one cue per angle. Each cue is a few distinctive words, a phrase, or #anchors."
       ),
   })
   .strict();
@@ -74,6 +85,23 @@ const rankMatches = (cue: string, hits: readonly SearchHit[]): Fragment[] => {
         b.score - a.score
     )
     .map((hit) => hit.fragment);
+};
+
+// https://cormack.uwaterloo.ca/cormacksigir09-rrf.pdf
+const RECIPROCAL_RANK_K = 60;
+
+const fuseByReciprocalRank = (lists: readonly Fragment[][]): Fragment[] => {
+  const scored = new Map<string, { fragment: Fragment; score: number }>();
+  for (const list of lists) {
+    for (const [rank, fragment] of list.entries()) {
+      const entry = scored.get(fragment.ref) ?? { fragment, score: 0 };
+      entry.score += 1 / (RECIPROCAL_RANK_K + rank);
+      scored.set(fragment.ref, entry);
+    }
+  }
+  return [...scored.values()]
+    .toSorted((a, b) => b.score - a.score)
+    .map((entry) => entry.fragment);
 };
 
 const seedKeys = (matches: readonly Fragment[]) => [
@@ -165,12 +193,18 @@ export const recall = async (
   input: RecallInput,
   judge: Judge
 ): Promise<Result<RecallResult, RelevanceUnavailable>> => {
-  const query = cueTerms(input.cue);
-  const [{ relevanceFilter }, hits] = await Promise.all([
+  const cues = [...new Set(input.cues)];
+  const [{ relevanceFilter }, ...matchLists] = await Promise.all([
     new SettingsService(memory).read(),
-    query.length > 0 ? memory.search(query) : [],
+    ...cues.map(async (cue) => {
+      const query = cueTerms(cue);
+      return rankMatches(
+        cue,
+        query.length > 0 ? await memory.search(query) : []
+      );
+    }),
   ]);
-  const matches = rankMatches(input.cue, hits);
+  const matches = fuseByReciprocalRank(matchLists);
   const keys = seedKeys(matches);
   const [found, anchors, size] =
     keys.length > 0

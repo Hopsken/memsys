@@ -154,7 +154,7 @@ describe("Authentication", () => {
       alice
     );
     const item = await saved.json<Fragment>();
-    const found = await post("/api/recall", { cue: "Private" }, bob);
+    const found = await post("/api/recall", { cues: "Private" }, bob);
     await expect(found.json()).resolves.toStrictEqual({
       fragments: [],
       truncated: false,

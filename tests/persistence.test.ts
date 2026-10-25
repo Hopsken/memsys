@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { openMemory } from "../worker/memory";
 
 const recall = async (cue: string) => {
-  const result = await openMemory("persistence").recall({ cue });
+  const result = await openMemory("persistence").recall({ cues: [cue] });
   if (!result.ok) {
     throw new Error(result.error.reason);
   }

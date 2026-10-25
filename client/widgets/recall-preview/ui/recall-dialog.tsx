@@ -171,7 +171,7 @@ const RecallPanel = ({
               api.recall.$post(
                 {
                   json: {
-                    cue: request.cue,
+                    cues: [request.cue],
                     ...(request.context && { context: request.context }),
                   },
                 },
