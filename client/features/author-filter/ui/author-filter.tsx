@@ -32,7 +32,11 @@ const AuthorGroup = ({
       <DropdownMenuSeparator />
       <DropdownMenuLabel>{label}</DropdownMenuLabel>
       {authors.map((author) => (
-        <DropdownMenuRadioItem key={author.value} value={author.value}>
+        <DropdownMenuRadioItem
+          closeOnClick
+          key={author.value}
+          value={author.value}
+        >
           {author.label}
         </DropdownMenuRadioItem>
       ))}
@@ -89,10 +93,12 @@ export const AuthorFilter = ({
             }
             value={by ?? EVERYONE}
           >
-            <DropdownMenuRadioItem value={EVERYONE}>
+            <DropdownMenuRadioItem closeOnClick value={EVERYONE}>
               Everyone
             </DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="user">You</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem closeOnClick value="user">
+              You
+            </DropdownMenuRadioItem>
             <AuthorGroup
               authors={(active ?? []).map(({ id, name }) => ({
                 label: name,

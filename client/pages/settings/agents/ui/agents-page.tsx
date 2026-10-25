@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { parseResponse } from "hono/client";
 import { ChevronRight, Plus } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 import { PERSONAS, useCreatePersona, usePersonas } from "@/entities/persona";
 import { SessionExpired } from "@/features/auth";
@@ -146,6 +146,8 @@ const RenameDialog = ({
 const PersonaRow = ({ persona }: { persona: Persona }) => {
   const queryClient = useQueryClient();
   const [renaming, setRenaming] = useState(false);
+  const navigate = useNavigate();
+  const activity = `/activity?${new URLSearchParams({ by: `persona:${persona.id}` })}`;
   const archived = persona.archivedAt !== null;
   const archive = useMutation({
     mutationFn: () =>
@@ -174,19 +176,6 @@ const PersonaRow = ({ persona }: { persona: Persona }) => {
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        {persona.lastChangeAt ? (
-          <Button
-            render={
-              <Link
-                to={`/activity?${new URLSearchParams({ by: `persona:${persona.id}` })}`}
-              />
-            }
-            size="sm"
-            variant="ghost"
-          >
-            Activity
-          </Button>
-        ) : null}
         {archived ? (
           <Button
             disabled={archive.isPending}
@@ -205,6 +194,11 @@ const PersonaRow = ({ persona }: { persona: Persona }) => {
             remove={archive}
             title={`Archive ${persona.name}?`}
           >
+            {persona.lastChangeAt ? (
+              <DropdownMenuItem onClick={() => navigate(activity)}>
+                View activity
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuItem onClick={() => setRenaming(true)}>
               Rename
             </DropdownMenuItem>
