@@ -18,6 +18,10 @@ import type { Strictness } from "../settings";
 
 const cueSchema = z.string().trim().min(1).max(256);
 
+// Each cue costs one index search, so the limit is on the words searched,
+// not on how many angles an agent splits them into.
+const MAX_CUES_LENGTH = 1000;
+
 export const recallInputSchema = z
   .object({
     context: z
@@ -30,11 +34,17 @@ export const recallInputSchema = z
     // Some agents send one cue as a plain string; take it as one angle.
     cues: z
       .union([
-        z.array(cueSchema).min(1).max(4),
+        z
+          .array(cueSchema)
+          .min(1)
+          .refine(
+            (cues) => cues.join("").length <= MAX_CUES_LENGTH,
+            `All cues together must be at most ${MAX_CUES_LENGTH} characters.`
+          ),
         cueSchema.transform((cue) => [cue]),
       ])
       .describe(
-        "What you need, from one to four angles. Each cue is a few distinctive words, a phrase, or #anchors."
+        "What you need, one cue per angle. Each cue is a few distinctive words, a phrase, or #anchors."
       ),
   })
   .strict();

@@ -30,7 +30,7 @@ Store durable information as small, atomic, self-contained fragments rather than
 
 Use #anchors for stable entities or concepts that should link related fragments. Fragments with similar anchors are considered as associated and will be returned when recall.
 
-Recall with short textual cues such as distinctive phrases, names, projects, concepts, or #anchors. A cue is free text and may combine several words, alternatives included: a memory matches when it contains any of them, and memories with more and rarer words come first. Give every angle you need in one call: pass up to four cues, one per angle, such as different facets of the question or different wordings. Call recall again only if what came back is not enough.`;
+Recall with short textual cues such as distinctive phrases, names, projects, concepts, or #anchors. A cue is free text and may combine several words, alternatives included: a memory matches when it contains any of them, and memories with more and rarer words come first. Give every angle you need in one call, one cue per angle, such as different facets of the question or different wordings. Call recall again only if what came back is not enough.`;
 
 const createMcpServer = (
   memory: MemoryService,
@@ -65,7 +65,7 @@ const createMcpServer = (
       {
         annotations: { readOnlyHint: true },
         description:
-          "Recall memories using one to four short textual cues, one per angle. Prefer distinctive phrases, entities, concepts, or #anchors. Fragments matching the cues come first, and fragments matching several cues rank higher; fragments with `via` were associated through the listed shared #anchors. `truncated: true` means some matching memories were left out: recall again with more specific cues, or with an #anchor from `via`.",
+          "Recall memories using short textual cues, one per angle. Prefer distinctive phrases, entities, concepts, or #anchors. Fragments matching the cues come first, and fragments matching several cues rank higher; fragments with `via` were associated through the listed shared #anchors. `truncated: true` means some matching memories were left out: recall again with more specific cues, or with an #anchor from `via`.",
         inputSchema: recallInputSchema,
       },
       async (input) => toolResult(await memory.recall(input))

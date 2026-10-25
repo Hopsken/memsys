@@ -157,6 +157,11 @@ describe("Fragment HTTP API", () => {
     ["/api/remember", { fragment: "x", space: "another-user" }, 400],
     ["/api/revise", { fragment: "", ref: "7x9c2pa" }, 400],
     ["/api/recall", { cues: " " }, 400],
+    [
+      "/api/recall",
+      { cues: Array.from({ length: 5 }, () => "x".repeat(201)) },
+      400,
+    ],
     ["/api/recall", { cues: "x", limit: 10 }, 400],
     ["/api/recall", { associate: false, cues: "x" }, 400],
     ["/api/forget", { ref: "invalid!" }, 400],
