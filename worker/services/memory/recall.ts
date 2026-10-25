@@ -58,7 +58,6 @@ export interface RecallResult {
 
 const RESULT_SIZE = 10;
 const MAX_SEED_MATCHES = 10;
-const MAX_ASSOCIATIONS_RANKED = 100;
 export const JUDGE_BUDGET = 40;
 
 const STRICTNESS = {
@@ -124,7 +123,6 @@ const rankByRarestSharedAnchor = (
     Math.log((corpusSize + 1) / ((df.get(anchor) ?? 0) + 1));
   return found
     .filter((item) => !matched.has(item.fragment.ref))
-    .slice(0, MAX_ASSOCIATIONS_RANKED)
     .map(({ fragment, via }) => ({
       item: { ...fragment, via },
       score: via.reduce(
