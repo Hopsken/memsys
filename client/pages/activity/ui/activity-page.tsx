@@ -5,10 +5,12 @@ import { parseResponse } from "hono/client";
 import { Activity, ArrowDown } from "lucide-react";
 import { Link, Outlet } from "react-router";
 
-import { byline, MemoryLength, OpBadge } from "@/entities/memory";
+import { MemoryLength, OpBadge } from "@/entities/memory";
+import { authorLabel, Byline, usePersonas } from "@/entities/persona";
 import { SessionExpired } from "@/features/auth";
+import { AuthorFilter, useAuthorParam } from "@/features/author-filter";
 import { api, isExpired } from "@/shared/api";
-import type { ActivityEntry, ActivityPage } from "@/shared/api";
+import type { ActivityEntry, ActivityPage, Author } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
 import { listCard, listCardLink } from "@/shared/ui/list-card";
@@ -50,7 +52,13 @@ const EntryText = ({ entry }: { entry: ActivityEntry }) => {
   return <MemoryText before={entry.previous} text={entry.fragment} />;
 };
 
-const EntryRow = ({ entry }: { entry: ActivityEntry }) => {
+const EntryRow = ({
+  entry,
+  onSelectAuthor,
+}: {
+  entry: ActivityEntry;
+  onSelectAuthor: (by: Author) => void;
+}) => {
   const open = useOpenHistory();
   const to = `${entry.ref}?${new URLSearchParams({ at: entry.at })}`;
   const text = entry.fragment ?? entry.previous;
@@ -60,7 +68,7 @@ const EntryRow = ({ entry }: { entry: ActivityEntry }) => {
         <div className="text-muted-foreground flex min-h-7 flex-wrap items-center justify-between gap-x-4 text-xs">
           <span className="flex flex-wrap items-center gap-x-1.5">
             <OpBadge op={entry.op} />
-            {byline(entry.by)}
+            <Byline by={entry.by} onSelect={onSelectAuthor} />
             <span aria-hidden="true">·</span>
             <time
               dateTime={entry.at}
@@ -87,11 +95,14 @@ const EntryRow = ({ entry }: { entry: ActivityEntry }) => {
 };
 
 export const ActivityView = () => {
+  const [by, setBy] = useAuthorParam();
+  const personas = usePersonas();
+  const filteredName = by === null ? null : authorLabel(by, personas.data);
   const query = useInfiniteQuery<
     ActivityPage,
     Error,
     InfiniteData<ActivityPage>,
-    string[],
+    (string | null)[],
     string | null
   >({
     getNextPageParam: (page) => page.nextCursor,
@@ -99,11 +110,11 @@ export const ActivityView = () => {
     queryFn: ({ pageParam, signal }) =>
       parseResponse(
         api.activity.$get(
-          { query: { cursor: pageParam ?? undefined } },
+          { query: { by: by ?? undefined, cursor: pageParam ?? undefined } },
           { init: { signal } }
         )
       ),
-    queryKey: ["activity"],
+    queryKey: ["activity", by],
   });
   const days = byDay(query.data?.pages.flatMap((page) => page.entries) ?? []);
   useReturnFocus();
@@ -133,6 +144,13 @@ export const ActivityView = () => {
         </Alert>
       ) : null}
 
+      <AuthorFilter by={by} className="mb-1" onChange={setBy} />
+      {by?.startsWith("persona:") ? (
+        <p className="text-muted-foreground mt-2 mb-1 text-xs">
+          Earlier changes from its apps show under the app’s name.
+        </p>
+      ) : null}
+
       <section aria-busy={query.isFetching} aria-label="Activity">
         {query.isPending ? (
           <div className="space-y-2" role="status">
@@ -145,7 +163,14 @@ export const ActivityView = () => {
             ))}
           </div>
         ) : null}
-        {query.isSuccess && days.length === 0 ? (
+        {query.isSuccess && days.length === 0 && by !== null ? (
+          <p className="text-muted-foreground rounded-xl border border-dashed px-6 py-12 text-center text-sm">
+            {filteredName?.name === "you"
+              ? "You haven’t changed anything yet."
+              : `No changes by ${filteredName?.name ?? "this agent"} yet.`}
+          </p>
+        ) : null}
+        {query.isSuccess && days.length === 0 && by === null ? (
           <div className="rounded-xl border border-dashed px-6 py-16 text-center">
             <Activity
               aria-hidden="true"
@@ -172,7 +197,11 @@ export const ActivityView = () => {
             </h2>
             <ul className="space-y-2">
               {entries.map((entry) => (
-                <EntryRow entry={entry} key={`${entry.ref}-${entry.at}`} />
+                <EntryRow
+                  entry={entry}
+                  key={`${entry.ref}-${entry.at}`}
+                  onSelectAuthor={setBy}
+                />
               ))}
             </ul>
           </section>

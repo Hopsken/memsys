@@ -2,6 +2,7 @@ export type {
   ActivityEntry,
   ActivityPage,
   AnchorCount,
+  AuthorSummary,
   Association,
   Diagnostics,
   ForgottenFragment,
@@ -22,6 +23,7 @@ export {
   activityInputSchema,
   inputSchemas,
   listInputSchema,
+  personaInputSchemas,
   restoreInputSchema,
 } from "./inputs";
 export {
@@ -29,7 +31,17 @@ export {
   fragmentSchema,
   logRecordSchema,
   opSchema,
+  personaIdSchema,
+  personaNameSchema,
   versionSchema,
 } from "./model";
-export type { Author, Fragment, LogRecord, Op, Version } from "./model";
+export type {
+  Author,
+  Fragment,
+  LogRecord,
+  Op,
+  Persona,
+  PersonaRecord,
+  Version,
+} from "./model";
 export { FragmentIndex, inMemory } from "./search";

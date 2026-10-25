@@ -11,13 +11,13 @@ import {
 } from "react-router";
 
 import {
-  byline,
   MemoryLength,
   OpBadge,
   removeFromList,
   restoreVersion,
   useRestore,
 } from "@/entities/memory";
+import { Byline } from "@/entities/persona";
 import { SessionExpired } from "@/features/auth";
 import { api, failure, isExpired } from "@/shared/api";
 import type { ForgottenList, Version } from "@/shared/api";
@@ -216,7 +216,7 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
                 <div className="text-muted-foreground flex min-h-7 items-center justify-between gap-3 text-xs">
                   <span className="flex flex-wrap items-center gap-x-1.5">
                     <OpBadge op={op} />
-                    {byline(by)}
+                    <Byline by={by} />
                     <span aria-hidden="true">·</span>
                     <time dateTime={at} title={new Date(at).toLocaleString()}>
                       {stamp(at)}

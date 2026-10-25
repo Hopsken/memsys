@@ -9,6 +9,12 @@ import {
   resourceMetadataUrl,
   verifyAccessToken,
 } from "../lib/better-auth";
+import {
+  apiKeyConnection,
+  oauthConnection,
+  personaOf,
+} from "../lib/connection-personas";
+import type { ConnectionKey } from "../lib/connection-personas";
 import type { AppEnv } from "../types";
 
 const pointToOAuthSignIn = (c: Context<AppEnv>) => {
@@ -19,8 +25,15 @@ const pointToOAuthSignIn = (c: Context<AppEnv>) => {
   return c.json({ error: "Authentication required" }, 401);
 };
 
-const agent = (name: string | null | undefined): Author =>
-  `agent:${name ?? ""}`;
+const authorOf = async (
+  c: Context<AppEnv>,
+  userId: string,
+  connection: ConnectionKey,
+  name: string | null | undefined
+): Promise<Author> => {
+  const personaId = await personaOf(c.env.DB, userId, connection);
+  return personaId === null ? `agent:${name ?? ""}` : `persona:${personaId}`;
+};
 
 export const requireToken = createMiddleware<AppEnv>(async (c, next) => {
   const key = /^Bearer\s+(?<key>\S+)$/iu.exec(
@@ -34,9 +47,18 @@ export const requireToken = createMiddleware<AppEnv>(async (c, next) => {
     if (!verified.valid || !verified.key) {
       return pointToOAuthSignIn(c);
     }
-    c.set("author", agent(verified.key.name));
+    const userId = verified.key.referenceId;
+    c.set(
+      "author",
+      await authorOf(
+        c,
+        userId,
+        apiKeyConnection(verified.key.id),
+        verified.key.name
+      )
+    );
     c.set("scopes", ALL_SCOPES);
-    c.set("userId", verified.key.referenceId);
+    c.set("userId", userId);
     return next();
   }
   const verified = await verifyAccessToken(c.env, key);
@@ -50,7 +72,15 @@ export const requireToken = createMiddleware<AppEnv>(async (c, next) => {
     );
     return c.json({ error: "Insufficient scope" }, 403);
   }
-  c.set("author", agent(verified.name));
+  c.set(
+    "author",
+    await authorOf(
+      c,
+      verified.userId,
+      oauthConnection(verified.clientId),
+      verified.name
+    )
+  );
   c.set("scopes", verified.scopes);
   c.set("userId", verified.userId);
   return next();

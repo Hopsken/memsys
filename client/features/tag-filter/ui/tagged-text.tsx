@@ -4,7 +4,7 @@ import { Link } from "react-router";
 
 import { findAnchors } from "@lib/anchor";
 
-import { filteredList, useTags } from "../lib/tags";
+import { useFilteredList, useTags } from "../lib/tags";
 
 export const selectedTag =
   "bg-[color-mix(in_oklab,var(--background),var(--color-blue-500)_12%)] font-medium text-blue-700 hover:bg-[color-mix(in_oklab,var(--background),var(--color-blue-500)_24%)]";
@@ -19,6 +19,7 @@ export const TaggedText = ({
   text: string;
 }) => {
   const tags = useTags();
+  const filteredList = useFilteredList();
   const stop = end ?? text.length;
   const nodes: ReactNode[] = [];
   let at = start;

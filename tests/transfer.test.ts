@@ -89,7 +89,11 @@ describe("Fragment export and import", () => {
     const [before, after] = await Promise.all([list(source), list(target)]);
     expect(after).toStrictEqual({
       ...before,
-      fragments: before.fragments.map((item) => ({ ...item, versions: 1 })),
+      fragments: before.fragments.map((item) => ({
+        ...item,
+        by: null,
+        versions: 1,
+      })),
     });
   });
 

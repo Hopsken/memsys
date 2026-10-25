@@ -144,6 +144,7 @@ export default defineConfig({
     "client/shared/ui/**",
     "!client/shared/ui/logo.tsx",
     "!client/shared/ui/toaster.tsx",
+    "!client/shared/ui/row-menu.tsx",
   ],
   overrides: [
     {

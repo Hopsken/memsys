@@ -1,20 +1,20 @@
 import { cn } from "cn";
 import { XIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { Link } from "react-router";
 
-import { filteredList, selectedTag, useTags } from "@/features/tag-filter";
+import { selectedTag, useFilteredList, useTags } from "@/features/tag-filter";
 
-export const TagFilterBar = () => {
+export const FilterBar = ({ children }: { children: ReactNode }) => {
   const tags = useTags();
-  if (tags.length === 0) {
-    return null;
-  }
+  const filteredList = useFilteredList();
   return (
     <nav
-      aria-label="Tag filter"
+      aria-label="Filters"
       className="bg-background sticky top-(--header-height) z-10 -mx-3 -mt-2 mb-1 px-3 pt-2"
     >
       <div className="flex flex-wrap items-center gap-1.5 pb-3">
+        {children}
         {tags.map((tag) => (
           <Link
             aria-label={`Remove #${tag}`}

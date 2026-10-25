@@ -193,7 +193,7 @@ describe("Stateless MCP", () => {
     );
     expect(item.fragment).toBe("MCP memory #test");
     await expect(list(user)).resolves.toStrictEqual({
-      fragments: [withVersions(item)],
+      fragments: [withVersions(item, 1, "agent:test")],
       nextCursor: null,
     });
     const found = await call(user, "recall", { cues: ["MCP memory"] });

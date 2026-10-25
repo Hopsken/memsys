@@ -31,7 +31,9 @@ describe("Revise", () => {
       });
       expect(Date.parse(revised.at)).toBeGreaterThan(Date.parse(item.at));
       await expect(list(user)).resolves.toStrictEqual({
-        fragments: [withVersions(revised, 2)],
+        fragments: [
+          withVersions(revised, 2, transport === "MCP" ? "agent:test" : "user"),
+        ],
         nextCursor: null,
       });
     }

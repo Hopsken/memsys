@@ -3,6 +3,7 @@ import { Check } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router";
 
+import { useAssignPersona, usePersonas } from "@/entities/persona";
 import { useConnectingApp } from "@/features/auth";
 import { authClient, http } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
@@ -14,12 +15,21 @@ import {
   CardHeader,
   CardTitle,
 } from "@/shared/ui/card";
+import { Label } from "@/shared/ui/label";
 import { Logo } from "@/shared/ui/logo";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/ui/select";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { Switch } from "@/shared/ui/switch";
 
 const READ = "memory:read";
 const WRITE = "memory:write";
+const NO_AGENT = "";
 
 const Granted = ({ text }: { text: string }) => (
   <li className="flex items-center gap-3">
@@ -27,6 +37,58 @@ const Granted = ({ text }: { text: string }) => (
     {text}
   </li>
 );
+
+const AgentField = ({
+  app,
+  onChange,
+  value,
+}: {
+  app: string;
+  onChange: (value: string) => void;
+  value: string;
+}) => {
+  const personas = usePersonas();
+  const agents =
+    personas.data?.filter(({ archivedAt }) => archivedAt === null) ?? [];
+  if (agents.length === 0) {
+    return null;
+  }
+  return (
+    <div className="space-y-2 border-t pt-5">
+      <Label htmlFor="consent-agent">Which agent is this?</Label>
+      <p className="text-muted-foreground text-xs">
+        Optional. Its changes will show under this name.
+      </p>
+      <Select
+        items={[
+          { label: "No agent", value: NO_AGENT },
+          ...agents.map(({ id, name }) => ({ label: name, value: id })),
+        ]}
+        onValueChange={(next) => onChange(next ?? NO_AGENT)}
+        value={value}
+      >
+        <SelectTrigger className="w-full" id="consent-agent">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={NO_AGENT}>
+            <span className="flex flex-col">
+              No agent
+              <span className="text-muted-foreground text-xs">
+                Show as {app}
+              </span>
+            </span>
+          </SelectItem>
+          {agents.map(({ id, name }) => (
+            <SelectItem key={id} value={id}>
+              {name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+};
 
 export const ConsentView = () => {
   const [params] = useSearchParams();
@@ -36,6 +98,11 @@ export const ConsentView = () => {
   const asksRead = requested.includes(READ);
   const asksWrite = requested.includes(WRITE);
   const [write, setWrite] = useState(true);
+  const grantsWrite = asksWrite && (write || !asksRead);
+  const [agent, setAgent] = useState(NO_AGENT);
+  const assign = useAssignPersona();
+  const [unsavedAgentUrl, setUnsavedAgentUrl] = useState<string | null>(null);
+  const clientId = params.get("client_id");
   const answer = useMutation({
     mutationFn: async (accept: boolean) => {
       const granted = [READ, "offline_access", ...(write ? [WRITE] : [])];
@@ -52,6 +119,19 @@ export const ConsentView = () => {
           },
         })
         .json<{ url: string }>();
+      // The app gets its code only from this redirect, so saving the agent
+      // first means it can never write before its agent is set.
+      if (accept && grantsWrite && agent !== NO_AGENT && clientId !== null) {
+        try {
+          await assign.mutateAsync({
+            connection: `oauth:${clientId}`,
+            personaId: agent,
+          });
+        } catch {
+          setUnsavedAgentUrl(url);
+          return;
+        }
+      }
       window.location.assign(url);
     },
   });
@@ -92,6 +172,25 @@ export const ConsentView = () => {
               <Granted text="Add, change, and delete your memories" />
             ) : null}
           </ul>
+          {grantsWrite ? (
+            <AgentField app={app.name} onChange={setAgent} value={agent} />
+          ) : null}
+          {unsavedAgentUrl ? (
+            <Alert className="bg-amber-50 text-amber-950 ring-amber-300">
+              <AlertDescription className="space-y-3 text-amber-950">
+                <p>
+                  {app.name} is connected, but its agent wasn’t saved. You can
+                  pick it later in Settings → MCP.
+                </p>
+                <Button
+                  onClick={() => window.location.assign(unsavedAgentUrl)}
+                  size="sm"
+                >
+                  Continue
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : null}
           {app.isError || answer.isError ? (
             <Alert className="bg-amber-50 text-amber-950 ring-amber-300">
               <AlertDescription className="text-amber-950">
@@ -101,14 +200,16 @@ export const ConsentView = () => {
           ) : null}
           <div className="flex justify-end gap-2">
             <Button
-              disabled={answer.isPending}
+              disabled={answer.isPending || unsavedAgentUrl !== null}
               onClick={() => answer.mutate(false)}
               variant="ghost"
             >
               Cancel
             </Button>
             <Button
-              disabled={answer.isPending || app.isPending}
+              disabled={
+                answer.isPending || app.isPending || unsavedAgentUrl !== null
+              }
               onClick={() => answer.mutate(true)}
             >
               {answer.isPending ? "Connecting…" : "Allow"}

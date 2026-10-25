@@ -25,7 +25,7 @@ describe("Fragment log", () => {
       },
       { at: at(23), by: "user", fragment: null, op: "forget", ref: "hjkmnpq" },
     ];
-    const text = serializeLog(rows);
+    const text = serializeLog([], rows);
     expect(text).toMatch(/\n$/u);
     expect(text.split("\n")).toHaveLength(4);
     expect(text.split("\n")[0]).toBe(
@@ -35,6 +35,7 @@ describe("Fragment log", () => {
       '{"v":1,"ref":"hjkmnpq","fragment":null,"at":"2026-09-23T08:00:00.000Z","op":"forget","by":"user"}'
     );
     expect(parseLog(text)).toStrictEqual({
+      personas: [],
       rows: rows.toSorted((a, b) => a.at - b.at),
     });
   });
@@ -45,6 +46,7 @@ describe("Fragment log", () => {
         '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","note":"x"}'
       )
     ).toStrictEqual({
+      personas: [],
       rows: [
         {
           at: at(21),

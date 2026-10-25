@@ -56,7 +56,7 @@ Any future "let's add X" starts here. Features are code in this repo, not plugin
 - The durable state is an append-only log of fragment snapshots; `forget` appends a record with no text. The current corpus is its replay. Only the user can delete records, by purging a fragment.
 - Tags are derived from the text at read time and never stored.
 - Every index — tag counts, IDF tables, virtual directories — is a cache computed from the corpus. Deleting it loses nothing.
-- Export and import move the log verbatim — ref, text, time — between instances. Import is a user migrating memory, not an agent writing: it runs core validation but not the owner's length limits, only adds, and is not exposed over MCP.
+- Export and import move the log verbatim — ref, text, time, and the personas its authors refer to — between instances. Import is a user migrating memory, not an agent writing: it runs core validation but not the owner's length limits, only adds, and is not exposed over MCP.
 
 ## Core
 
@@ -100,7 +100,7 @@ Each type belongs to the module that owns its meaning. `lib/` holds rules both s
 
 The client infers the Worker API's types from the Worker and runs none of its code; it never imports the core.
 
-`core/` is the memory core: the fragment log, its search and anchor indexes, and untyped metadata by key, in one Durable Object per memory space. It knows nothing of recall policy, settings, models, or HTTP, and apps reach it only through its entry point ([RFC 0004](rfcs/0004-memory-core.md)).
+`core/` is the memory core: the fragment log, its search and anchor indexes, the personas the log's authors refer to ([RFC 0005](rfcs/0005-personas.md)), and untyped metadata by key, in one Durable Object per memory space. It knows nothing of recall policy, settings, models, or HTTP, and apps reach it only through its entry point ([RFC 0004](rfcs/0004-memory-core.md)).
 
 `worker/` is laid out as routes, services, and clients. Routes speak HTTP and MCP; services hold the rules and import no HTTP or platform API; clients call outside services; middlewares sign the caller in, then open the caller's memory space. Every call to a memory space goes through one service per request, so none skips the Worker's rules, and only one module touches the memory binding and puts services together with their clients. Only per-request values, who is calling and what they may do, travel with the request; routes pass the caller to each write, so the memory service is about a memory space, not a caller.
 

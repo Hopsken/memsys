@@ -4,7 +4,7 @@ import {
   listInputSchema,
   restoreInputSchema,
 } from "@core";
-import type { ImportFormat } from "@core";
+import type { Author, ImportFormat } from "@core";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
 
@@ -31,7 +31,8 @@ export const memory = new Hono<AppEnv>()
   .get(
     "/activity",
     validator("query", (value, c) => {
-      const query: { cursor?: string | undefined } = toRpcObject(value);
+      const query: { by?: Author | undefined; cursor?: string | undefined } =
+        toRpcObject(value);
       if (!activityInputSchema.safeParse(query).success) {
         return c.json({ error: "Invalid activity query" }, 400);
       }
@@ -42,11 +43,18 @@ export const memory = new Hono<AppEnv>()
       return c.json(await c.get("memory").activity(c.req.valid("query")));
     }
   )
+  .get("/authors", async (c) => {
+    c.header("Cache-Control", "no-store");
+    return c.json(await c.get("memory").authors());
+  })
   .get(
     "/fragments",
     validator("query", (value, c) => {
-      const query: { cursor?: string | undefined; tag?: string[] | undefined } =
-        toRpcObject({ ...value, tag: c.req.queries("tag") });
+      const query: {
+        by?: Author | undefined;
+        cursor?: string | undefined;
+        tag?: string[] | undefined;
+      } = toRpcObject({ ...value, tag: c.req.queries("tag") });
       if (!listInputSchema.safeParse(query).success) {
         return c.json({ error: "Invalid list query" }, 400);
       }

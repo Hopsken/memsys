@@ -25,10 +25,38 @@ const atSchema = z.iso.datetime({ precision: 3 });
 
 export const opSchema = z.enum(["remember", "revise", "forget", "restore"]);
 
+export const PERSONA_ID_LENGTH = 10;
+
+export const personaIdSchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^[23456789abcdefghjkmnpqrstuvwxyz]+$/u);
+
+export const personaNameSchema = z.string().trim().min(1).max(64);
+
 export const authorSchema = z.union([
   z.literal("user"),
   z.templateLiteral(["agent:", z.string().max(256)]),
+  z.templateLiteral(["persona:", personaIdSchema]),
 ]);
+
+export const personaSchema = z.object({
+  archivedAt: atSchema.nullable(),
+  createdAt: atSchema,
+  id: personaIdSchema,
+  name: personaNameSchema,
+});
+
+export const personaRecordSchema = z
+  .object({
+    archivedAt: atSchema.optional(),
+    createdAt: atSchema,
+    name: personaNameSchema,
+    persona: personaIdSchema,
+    v: z.literal(1),
+  })
+  .strict();
 
 export const fragmentSchema = z.object({
   at: atSchema,
@@ -62,6 +90,8 @@ export const logRecordSchema = z
 
 export type Op = z.infer<typeof opSchema>;
 export type Author = z.infer<typeof authorSchema>;
+export type Persona = z.infer<typeof personaSchema>;
+export type PersonaRecord = z.infer<typeof personaRecordSchema>;
 export type Fragment = z.infer<typeof fragmentSchema>;
 export type Version = z.infer<typeof versionSchema>;
 export type LogRecord = z.input<typeof logRecordSchema>;

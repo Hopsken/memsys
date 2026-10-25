@@ -2,8 +2,19 @@ import { z } from "zod";
 
 import type { Issue } from "@lib/result";
 
-import { fragmentTextSchema, logRecordSchema } from "./model";
-import type { Author, Fragment, LogRecord, Op } from "./model";
+import {
+  fragmentTextSchema,
+  logRecordSchema,
+  personaRecordSchema,
+} from "./model";
+import type {
+  Author,
+  Fragment,
+  LogRecord,
+  Op,
+  Persona,
+  PersonaRecord,
+} from "./model";
 
 export interface Row {
   at: number;
@@ -35,22 +46,34 @@ const lines = (content: string) => {
   return all;
 };
 
-const logLineSchema = z
-  .string()
-  .transform((line, ctx) => {
-    try {
-      return JSON.parse(line);
-    } catch {
-      ctx.addIssue({ code: "custom", message: "Not a JSON record" });
-      return z.NEVER;
-    }
-  })
-  .pipe(logRecordSchema);
+const jsonLineSchema = z.string().transform((line, ctx) => {
+  try {
+    return JSON.parse(line);
+  } catch {
+    ctx.addIssue({ code: "custom", message: "Not a JSON record" });
+    return z.NEVER;
+  }
+});
+
+const hasPersonaKeySchema = z.looseObject({ persona: z.string() });
+
+const toPersona = ({
+  archivedAt,
+  createdAt,
+  name,
+  persona,
+}: PersonaRecord): Persona => ({
+  archivedAt: archivedAt ?? null,
+  createdAt,
+  id: persona,
+  name,
+});
 
 export const parseLog = (
   content: string
-): { rows: Row[] } | { issues: Issue[] } => {
+): { personas: Persona[]; rows: Row[] } | { issues: Issue[] } => {
   const parsed: z.output<typeof logRecordSchema>[] = [];
+  const personas = new Map<string, Persona>();
   const issues: Issue[] = [];
   const seen = new Set<string>();
   for (const [index, line] of lines(content).entries()) {
@@ -58,7 +81,13 @@ export const parseLog = (
       break;
     }
     const number = String(index + 1);
-    const result = logLineSchema.safeParse(line);
+    const json = jsonLineSchema.safeParse(line);
+    const result = json.success
+      ? (hasPersonaKeySchema.safeParse(json.data).success
+          ? personaRecordSchema
+          : logRecordSchema
+        ).safeParse(json.data)
+      : json;
     if (!result.success) {
       issues.push(
         ...result.error.issues.map(({ message, path }) => ({
@@ -69,6 +98,10 @@ export const parseLog = (
       continue;
     }
     const { data: record } = result;
+    if ("persona" in record) {
+      personas.set(record.persona, toPersona(record));
+      continue;
+    }
     const key = `${record.ref} ${record.at}`;
     if (seen.has(key)) {
       issues.push({
@@ -97,7 +130,7 @@ export const parseLog = (
         ref,
       };
     });
-  return { rows };
+  return { personas: [...personas.values()], rows };
 };
 
 export const parseText = (
@@ -127,7 +160,28 @@ export const parseText = (
   return issues.length > 0 ? { issues } : { texts };
 };
 
-export const serializeLog = (rows: Iterable<Snapshot>): string =>
+const serializePersona = ({
+  archivedAt,
+  createdAt,
+  id,
+  name,
+}: Persona): string => {
+  // oxlint-disable-next-line sort-keys
+  const record: PersonaRecord = {
+    v: 1,
+    persona: id,
+    name,
+    createdAt,
+    ...(archivedAt !== null && { archivedAt }),
+  };
+  return `${JSON.stringify(record)}\n`;
+};
+
+export const serializeLog = (
+  personas: Persona[],
+  rows: Iterable<Snapshot>
+): string =>
+  personas.map(serializePersona).join("") +
   [...rows]
     .toSorted((a, b) => a.at - b.at || a.ref.localeCompare(b.ref))
     .map(({ at, by, fragment: text, op, ref }) => {
@@ -145,20 +199,24 @@ export const serializeLog = (rows: Iterable<Snapshot>): string =>
     .join("");
 
 export const replay = (
-  rows: Iterable<Pick<Row, "at" | "fragment" | "ref">>
+  rows: Iterable<
+    Pick<Row, "at" | "fragment" | "ref"> & Partial<Pick<Row, "by">>
+  >
 ) => {
   const corpus = new Map<string, Fragment>();
   const latestAtByRef = new Map<string, number>();
-  for (const { at, fragment: text, ref } of rows) {
+  const authorByRef = new Map<string, Author | null>();
+  for (const { at, by = null, fragment: text, ref } of rows) {
     if (at <= (latestAtByRef.get(ref) ?? Number.NEGATIVE_INFINITY)) {
       continue;
     }
     latestAtByRef.set(ref, at);
+    authorByRef.set(ref, by);
     if (text === null) {
       corpus.delete(ref);
     } else {
       corpus.set(ref, { at: new Date(at).toISOString(), fragment: text, ref });
     }
   }
-  return { corpus, latestAtByRef };
+  return { authorByRef, corpus, latestAtByRef };
 };

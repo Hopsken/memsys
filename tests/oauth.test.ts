@@ -236,6 +236,56 @@ describe("OAuth for MCP", () => {
     expect(refreshed.ok).toBeFalsy();
   });
 
+  it("writes as the app's persona until the app is disconnected", async () => {
+    const user = await signIn();
+    const clientId = await register();
+    const session = { "Content-Type": "application/json", Cookie: user.cookie };
+    const created = await request("/api/personas", {
+      body: JSON.stringify({ name: "Work assistant" }),
+      headers: session,
+      method: "POST",
+    });
+    const { id: personaId } = z
+      .object({ id: z.string() })
+      .parse(await created.json());
+    const write = async (accessToken: string, fragment: string) => {
+      const response = await mcp(accessToken, "tools/call", {
+        arguments: { fragment },
+        name: "remember",
+      });
+      expect(response.status).toBe(200);
+    };
+
+    const first = await authorize(user, clientId, "memory:read memory:write");
+    const assigned = await request("/api/personas/assignments", {
+      body: JSON.stringify({ connection: `oauth:${clientId}`, personaId }),
+      headers: session,
+      method: "PUT",
+    });
+    expect(assigned.status).toBe(200);
+    await write(first.access_token, "As the persona");
+
+    const listed = await request("/api/connections", { headers: session });
+    const [connection] = z
+      .array(z.object({ connection: z.string(), id: z.string() }))
+      .parse(await listed.json());
+    expect(connection?.connection).toBe(`oauth:${clientId}`);
+    await request(`/api/connections/${connection?.id}`, {
+      headers: session,
+      method: "DELETE",
+    });
+
+    const second = await authorize(user, clientId, "memory:read memory:write");
+    await write(second.access_token, "After reconnecting");
+    const activity = await request("/api/activity", { headers: session });
+    await expect(activity.json()).resolves.toMatchObject({
+      entries: [
+        { by: "agent:Test agent", fragment: "After reconnecting" },
+        { by: `persona:${personaId}`, fragment: "As the persona" },
+      ],
+    });
+  });
+
   it("keeps each user's connections to themselves", async () => {
     const owner = await signIn();
     const other = await signIn();

@@ -7,6 +7,7 @@ import {
 import { Check, Copy, Plus } from "lucide-react";
 import { useState } from "react";
 
+import { ASSIGNMENTS } from "@/entities/persona";
 import { SessionExpired } from "@/features/auth";
 import { failure, http, isExpired } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
@@ -18,13 +19,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/shared/ui/card";
+import { DropdownMenuItem } from "@/shared/ui/dropdown-menu";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { RowMenu } from "@/shared/ui/row-menu";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { formatRelativeDateInline } from "@lib/date";
 
+import { AgentDialog, AgentName } from "./agent-dialog";
 import { ConnectedApps } from "./connected-apps";
-import { RemoveMenu } from "./remove-menu";
 
 interface ApiKey {
   createdAt: string;
@@ -134,8 +137,15 @@ const ApiKeyRow = ({ apiKey }: { apiKey: ApiKey }) => {
     mutationFn: () =>
       http.post("/api/auth/api-key/delete", { json: { keyId: apiKey.id } }),
     mutationKey: [...API_KEYS, apiKey.id],
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: API_KEYS }),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: API_KEYS }),
+        queryClient.invalidateQueries({ queryKey: ASSIGNMENTS }),
+      ]),
   });
+  const [picking, setPicking] = useState(false);
+  const connection = `apiKey:${apiKey.id}` as const;
+  const name = apiKey.name ?? "API key";
   return (
     <li className="flex items-center justify-between gap-4 py-3.5">
       <div className="min-w-0 space-y-1">
@@ -148,15 +158,26 @@ const ApiKeyRow = ({ apiKey }: { apiKey: ApiKey }) => {
               ? `Last used ${formatRelativeDateInline(apiKey.lastRequest)}`
               : "Never used"}
           </span>
+          <AgentName connection={connection} />
         </p>
       </div>
-      <RemoveMenu
+      <RowMenu
         action="Revoke"
         description="Tools using it lose access to your memories right away, and you can’t undo this."
-        name={apiKey.name ?? "API key"}
+        name={name}
         pending="Revoking…"
         remove={revoke}
         title={`Revoke ${apiKey.name ?? "this API key"}?`}
+      >
+        <DropdownMenuItem onClick={() => setPicking(true)}>
+          Agent…
+        </DropdownMenuItem>
+      </RowMenu>
+      <AgentDialog
+        connection={connection}
+        name={name}
+        onOpenChange={setPicking}
+        open={picking}
       />
     </li>
   );

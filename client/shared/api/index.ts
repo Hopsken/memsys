@@ -3,7 +3,9 @@ export { api, failure, http, isExpired, isRetryable } from "./client";
 export type {
   ActivityEntry,
   ActivityPage,
+  Assignment,
   Author,
+  AuthorSummary,
   Connection,
   ForgottenFragment,
   ForgottenList,
@@ -12,6 +14,7 @@ export type {
   ImportResult,
   ListedFragment,
   Op,
+  Persona,
   RecallItem,
   RecallResult,
   Restored,

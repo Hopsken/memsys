@@ -85,8 +85,28 @@ export class MemoryService {
     return await this.#memory.history(input);
   }
 
-  async activity(input: { cursor?: string | undefined }) {
+  async activity(input: Parameters<Memory["activity"]>[0]) {
     return await this.#memory.activity(input);
+  }
+
+  async authors() {
+    return await this.#memory.authors();
+  }
+
+  async personas() {
+    return await this.#memory.personas();
+  }
+
+  async createPersona(input: { name: string }) {
+    return await this.#memory.createPersona(input);
+  }
+
+  async renamePersona(input: { id: string; name: string }) {
+    return await this.#memory.renamePersona(input);
+  }
+
+  async setPersonaArchived(input: { archived: boolean; id: string }) {
+    return await this.#memory.setPersonaArchived(input);
   }
 
   async forgotten() {
