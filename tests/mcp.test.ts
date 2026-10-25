@@ -97,6 +97,49 @@ describe("Stateless MCP", () => {
     ).toStrictEqual(["list_tags", "recall"]);
   });
 
+  it("adds the owner's instructions after the built-in ones, up to 500 characters", async () => {
+    const user = await signIn();
+    const instructions = async () => {
+      const response = await post(
+        "/mcp",
+        {
+          id: 1,
+          jsonrpc: "2.0",
+          method: "initialize",
+          params: {
+            capabilities: {},
+            clientInfo: { name: "test", version: "1" },
+            protocolVersion: "2025-03-26",
+          },
+        },
+        user
+      );
+      const { result } = await response.json<{
+        result: { instructions: string };
+      }>();
+      return result.instructions;
+    };
+    const builtIn = await instructions();
+    await patchSettings(user, { instructions: "  \n " });
+    const blank = await instructions();
+    const owner = `Recall #must-read first.${" ".repeat(476)}`;
+    const atLimit = await patchSettings(user, { instructions: owner });
+    const overLimit = await patchSettings(user, { instructions: `${owner}x` });
+    const added = await instructions();
+    expect({
+      added,
+      atLimit: atLimit.status,
+      blank,
+      overLimit: overLimit.status,
+    }).toStrictEqual({
+      added: `${builtIn}\n\nRecall #must-read first.`,
+      atLimit: 200,
+      blank: builtIn,
+      overLimit: 422,
+    });
+    expect(builtIn).toMatch(/^Memsys is long-term fragment memory\./u);
+  });
+
   it("serves the 2026-07-28 protocol without a handshake", async () => {
     const user = await signIn();
     const discover = await withoutInitialize(user, "server/discover");

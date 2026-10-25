@@ -10,6 +10,7 @@ import { patchSettings, useAuth } from "./helpers";
 import type { User } from "./helpers";
 
 const DEFAULTS = {
+  instructions: "",
   length: { refuse: 500, warn: 300 },
   relevanceFilter: "off",
 };
@@ -135,7 +136,11 @@ describe("Settings", () => {
     );
     expect(migrated).toStrictEqual([
       DEFAULTS,
-      { length: { refuse: 400, warn: 200 }, relevanceFilter: "high" },
+      {
+        ...DEFAULTS,
+        length: { refuse: 400, warn: 200 },
+        relevanceFilter: "high",
+      },
       { ...DEFAULTS, length: { refuse: 1000, warn: 1000 } },
       { ...DEFAULTS, relevanceFilter: "medium" },
     ]);
