@@ -1,6 +1,6 @@
 ---
 name: using-memsys
-description: "Writes and recalls memories in memsys, one person's long-term memory shared by all their agents, through remember, recall, revise, forget, and list_tags. Use whenever a memsys MCP server is connected, including when the user says, chooses, or prefers something, when a conversation produces a decision or a lesson, before work that depends on the user, when your host saves to its own memory, when a write is refused or warned, and when a recalled memory is wrong or outdated."
+description: "Writes and recalls memories in memsys, one person's long-term memory shared by all their agents. Use whenever a memsys MCP server is connected, including when the user says, chooses, or prefers something, when a conversation produces a decision or a lesson, before work that depends on the user, when your host saves to its own memory, when a write is refused or warned, and when a recalled memory is wrong or outdated."
 ---
 
 # Using memsys
