@@ -214,25 +214,26 @@ describe("Stateless MCP", () => {
     });
   });
 
-  it("keeps the top memory of every cue when a broad cue alone would fill the page", async () => {
+  it("keeps the top memory of every cue when a broad cue alone would fill the result", async () => {
     const user = await signIn();
+    const details = "Wait for the health checks to pass. ".repeat(12);
     await Promise.all(
-      Array.from({ length: 12 }, (_, step) =>
+      Array.from({ length: 20 }, (_, step) =>
         call(user, "remember", {
-          fragment: `Deploy step ${step + 1} for the staging cluster`,
+          fragment: `Deploy step ${step + 1} for the staging cluster. ${details}`,
         })
       )
     );
     const trip = content<Fragment>(
       await call(user, "remember", { fragment: "Booked a ryokan in Kyoto" })
     );
-    const found = content<{ fragments: Fragment[] }>(
+    const found = content<{ fragments: Fragment[]; truncated: boolean }>(
       await call(user, "recall", { cues: ["deploy staging", "Kyoto ryokan"] })
     );
     expect({
-      returned: found.fragments.length,
       trip: found.fragments.some((item) => item.ref === trip.ref),
-    }).toStrictEqual({ returned: 10, trip: true });
+      truncated: found.truncated,
+    }).toStrictEqual({ trip: true, truncated: true });
   });
 
   it("fails recall, saying the owner must act, instead of returning unjudged memories", async () => {

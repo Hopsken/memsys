@@ -34,6 +34,9 @@ const item = (ref: string, fragment: string, day = "01"): Fragment => ({
   ref,
 });
 
+// 900 ASCII bytes estimate to 300 tokens, so ten fill the 3000-token result.
+const long = (text: string) => `${text} ${"x".repeat(899 - text.length)}`;
+
 const associated = async (corpus: Fragment[], cue: string) => {
   const { fragments } = await recall(corpus, { cue });
   return fragments.filter((row) => row.via);
@@ -258,28 +261,27 @@ describe("Recall", () => {
   });
 
   it.each([
-    [10, 0, false],
-    [11, 0, true],
-    [9, 2, false],
+    ["40 short matches", 40, 0, "short", 40, false],
+    ["10 long matches", 10, 0, "long", 10, false],
+    ["11 long matches", 11, 0, "long", 10, true],
+    ["9 long matches and 2 long associations", 9, 2, "long", 10, true],
   ])(
-    "returns ten of %i matches and %i associations, truncated: %s",
-    async (matches, neighbors, truncated) => {
+    "fits %s into the result budget",
+    async (_name, matches, neighbors, size, returned, truncated) => {
+      const text = (base: string) => (size === "long" ? long(base) : base);
       const corpus = [
         ...Array.from({ length: matches }, (_, index) =>
-          item(`m-${index}`, "cue #shared")
+          item(`m-${index}`, text("cue #shared"))
         ),
         ...Array.from({ length: neighbors }, (_, index) =>
-          item(`n-${index}`, "neighbor #shared")
+          item(`n-${index}`, text("neighbor #shared"))
         ),
       ];
       const result = await recall(corpus, { cue: "cue" });
       expect({
         returned: result.fragments.length,
         truncated: result.truncated,
-      }).toStrictEqual({
-        returned: Math.min(matches + neighbors, 10),
-        truncated,
-      });
+      }).toStrictEqual({ returned, truncated });
     }
   );
 });
