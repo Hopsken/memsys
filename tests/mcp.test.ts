@@ -140,8 +140,12 @@ describe("Stateless MCP", () => {
     expect(builtIn).toMatch(
       /^Memsys is one person's long-term memory, shared by all their agents\./u
     );
-    // ChatGPT reads at most 512 characters of server instructions.
-    expect(builtIn.length).toBeLessThanOrEqual(512);
+    // Claude Code cuts server instructions at 2048 characters. ChatGPT
+    // suggests 512, so the rule for what to store comes first.
+    expect(builtIn.length).toBeLessThanOrEqual(2048);
+    expect(builtIn.slice(0, 512)).toContain("Store what no other source keeps");
+    // Pi, and Codex with deferred tools, show only the first line, cut at 250.
+    expect(builtIn.split("\n", 1)[0]?.length).toBeLessThanOrEqual(250);
   });
 
   it("serves the 2026-07-28 protocol without a handshake", async () => {
