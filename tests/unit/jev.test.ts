@@ -7,6 +7,7 @@ import {
   JEV_ATTEMPTS,
   JEV_MODEL,
   JEV_TIMEOUT_MS,
+  USEFUL,
   jev,
 } from "../../worker/clients/jev";
 import { workersAiFetch } from "../../worker/clients/workers-ai";
@@ -116,6 +117,7 @@ describe("Relevance filter", () => {
         ),
         context: "Deploying the D1 schema",
         cue: "migration",
+        useful: USEFUL,
       },
     });
   });

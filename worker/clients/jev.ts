@@ -27,13 +27,13 @@ const answersSchema = z.object({
   answers: z.record(z.string(), z.object({ noul: z.number().min(0).max(1) })),
 });
 
+// Jev bills the state once and every question separately, so the rubric lives
+// in the state and each question only points at it.
+export const USEFUL =
+  "A fragment is useful when it states something the agent would want in front of it right now; not when it is unrelated or only shares a broad topic tag.";
+
 const question = (ref: string) => ({
-  criteria: {
-    false:
-      "The fragment is unrelated, or related only by sharing a broad topic tag.",
-    true: "The fragment states something the agent would want in front of it right now.",
-  },
-  instructions: `Would candidates.${ref} be useful to an agent whose current cue is \`cue\` and whose current task is \`context\`?`,
+  instructions: `Is \`candidates.${ref}\` \`useful\` for the agent's \`cue\` and \`context\`?`,
   type: "noul",
 });
 
@@ -50,6 +50,7 @@ const questionsAbout = (
     ),
     context: context ?? "",
     cue: cues.join(" | "),
+    useful: USEFUL,
   },
 });
 
