@@ -1,6 +1,6 @@
 ---
 name: using-memsys
-description: "Writes and recalls memories in memsys, one person's long-term memory shared by all their agents, through its MCP tools: remember, recall, revise, forget, list_tags. Use whenever a memsys MCP server is connected: before starting a task, when the user says something worth keeping, when a conversation produces a decision or lesson, when a write is refused, or when a recalled memory turns out wrong."
+description: "Writes and recalls memories in memsys, one person's long-term memory shared by all their agents, through its MCP tools: remember, recall, revise, forget, list_tags. Use whenever a memsys MCP server is connected: before starting a task, when the user says something worth keeping, when a conversation produces a decision or lesson, when your host saves to its own memory, when a write is refused, or when a recalled memory turns out wrong."
 ---
 
 # Using memsys
@@ -21,7 +21,7 @@ Durable means reachable later: commits, docs, checked-in files. Chat logs, termi
 
 Do not copy what you read from a queryable system such as a calendar, an inbox, or an issue tracker. If the user needs that state later, the fix is to connect that tool, not to cache it in memory. What the user tells you is always storable: "the dentist appointment is Thursday" from the user is a memory; the same entry read from their calendar is not.
 
-Store as the conversation produces it, and always when the user says remember, note, or record. Before you finish a task, ask what another agent picking it up would need, and store that.
+Store as the conversation produces it, and always when the user says remember, note, or record. If your host has a memory of its own, a write you make there is one the user's other agents never see: in the same turn, store in memsys the part of it these rules keep. Memory your host changes in the background, without you, you cannot mirror; do not claim to. Before you finish a task, ask what another agent picking it up would need, and store that.
 
 ## How to write a fragment
 
