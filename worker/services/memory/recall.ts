@@ -171,7 +171,7 @@ const leadingItemsWithin = (
   let used = 0;
   for (const item of items) {
     used += tokens(item);
-    if (used > budget) {
+    if (used > budget && taken.length > 0) {
       break;
     }
     taken.push(item);
