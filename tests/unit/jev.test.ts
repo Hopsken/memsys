@@ -147,6 +147,17 @@ describe("Relevance filter", () => {
     }
   );
 
+  it("ranks by score, so a relevant association comes before a weak cue match", async () => {
+    const run = () =>
+      Promise.resolve(noul({ f2: 0.9, f7: 0.4, f8: 0.4, fx: 0.4 }));
+    await expect(stage(run).then(refs)).resolves.toStrictEqual([
+      "f2",
+      "f7",
+      "f8",
+      "fx",
+    ]);
+  });
+
   it.each([
     [
       "a capacity error",
@@ -298,17 +309,6 @@ describe("Relevance filter", () => {
       failed(false)
     );
     expect(run).toHaveBeenCalledTimes(1 + 2 + 4);
-  });
-
-  it("orders kept candidates by score, cue matches still first", async () => {
-    const run: Run = () =>
-      Promise.resolve(noul({ a0: 0.9, a1: 0.5, m0: 0.4, m1: 0.8 }));
-    await expect(stage(run, rows(2, 2)).then(refs)).resolves.toStrictEqual([
-      "m1",
-      "m0",
-      "a0",
-      "a1",
-    ]);
   });
 
   it("skips the model when there is nothing to judge", async () => {

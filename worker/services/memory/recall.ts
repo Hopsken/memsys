@@ -47,13 +47,15 @@ export interface RecallResult {
   truncated: boolean;
 }
 
-const RESULT_SIZE = 10;
 const MAX_SEED_MATCHES = 10;
 
 interface Budget {
   count: number;
   tokens: number;
 }
+
+// Holds three fragments at the longest length, so a result is never empty.
+const RESULT_BUDGET: Budget = { count: Infinity, tokens: 3000 };
 
 // Jev reads all candidates in one state, which must fit in 32k tokens, and
 // each candidate adds a question to a request capped at 64k tokens.
@@ -133,17 +135,6 @@ const rankByRarestSharedAnchor = (
     .toSorted((a, b) => b.score - a.score)
     .map(({ item }) => item);
 };
-
-const droppedMatch = (items: readonly RecallItem[]) =>
-  items.some((item) => !item.via);
-
-const cut = (
-  items: readonly RecallItem[],
-  truncated: boolean
-): RecallResult => ({
-  fragments: items.slice(0, RESULT_SIZE),
-  truncated: truncated || droppedMatch(items.slice(RESULT_SIZE)),
-});
 
 export type Judge = (
   candidates: readonly Fragment[],
@@ -231,7 +222,7 @@ export const keepOnlyJudgedRelevant = async (
       .filter((item) => score(item) >= threshold)
       .toSorted(
         (a, b) =>
-          Number(Boolean(a.via)) - Number(Boolean(b.via)) || score(b) - score(a)
+          score(b) - score(a) || Number(Boolean(a.via)) - Number(Boolean(b.via))
       ),
     truncated,
   });
@@ -276,5 +267,11 @@ export const recall = async (
   if (!filtered.ok) {
     return err(filtered.error);
   }
-  return ok(cut(filtered.value.items, filtered.value.truncated));
+  const fragments = leadingItemsWithin(filtered.value.items, RESULT_BUDGET);
+  return ok({
+    fragments,
+    truncated:
+      filtered.value.truncated ||
+      fragments.length < filtered.value.items.length,
+  });
 };
