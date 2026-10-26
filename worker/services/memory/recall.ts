@@ -57,7 +57,7 @@ interface Budget {
 
 // Jev reads all candidates in one state, which must fit in 32k tokens, and
 // each candidate adds a question to a request capped at 64k tokens.
-export const JUDGE_BUDGET: Budget = { count: 300, tokens: 28_000 };
+export const JUDGE_BUDGET: Budget = { count: 50, tokens: 28_000 };
 const ASSOCIATION_SHARE = 0.3;
 
 const STRICTNESS = {
