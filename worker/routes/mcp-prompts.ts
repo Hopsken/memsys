@@ -18,7 +18,7 @@ export const TOOLS = {
 
   recall: {
     description:
-      "Recall memories with short cues, one per angle. `via` lists the #anchors a memory was associated through. `truncated: true` means some matches were left out: recall again with narrower cues or an #anchor from `via`.",
+      "Recall memories with short cues, one per angle. `by` is who wrote it down: `user` or one of their agents. `via` lists the #anchors a memory was associated through. `truncated: true` means some matches were left out: recall again with narrower cues or an #anchor from `via`.",
     parameters: {
       context:
         "What you are working on right now. Give it whenever you have a task: it helps pick the memories that matter for it.",

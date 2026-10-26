@@ -174,6 +174,51 @@ describe("Personas", () => {
     ]);
   });
 
+  it("tells agents who wrote each memory, by name, and only when the user vouches for it", async () => {
+    const user = await signIn();
+    const laptop = await keyOf(user, "Laptop script");
+    const retired = await keyOf(user, "Retired script");
+    const work = await createPersona(user, "Wrok assistant");
+    const old = await createPersona(user, "Old bot");
+    await assign(user, laptop.connection, work.id);
+    await assign(user, retired.connection, old.id);
+    await remember(laptop.user, "Kyoto trip uses the JR pass");
+    await post("/api/remember", { fragment: "Kyoto ryokan is booked" }, user);
+    const unvouched = await remember(user, "Kyoto flights leave from PVG");
+    await remember(retired.user, "Kyoto budget is 3000 USD");
+    const revised = await remember(user, "Kyoto hotel near Gion");
+    const revision = content<{ by?: string }>(
+      await call(laptop.user, "revise", {
+        fragment: "Kyoto hotel near Kyoto Station",
+        ref: revised.ref,
+      })
+    );
+    expect({
+      remembered: "by" in unvouched,
+      revised: revision.by,
+    }).toStrictEqual({ remembered: false, revised: "Wrok assistant" });
+    await api(user, `/api/personas/${work.id}`, "PATCH", {
+      name: "Work assistant",
+    });
+    await api(user, `/api/personas/${old.id}/archived`, "PUT", {
+      archived: true,
+    });
+    const found = content<{ fragments: { by?: string; fragment: string }[] }>(
+      await call(user, "recall", { cues: "Kyoto" })
+    );
+    expect(
+      Object.fromEntries(
+        found.fragments.map((item) => [item.fragment, item.by ?? null])
+      )
+    ).toStrictEqual({
+      "Kyoto budget is 3000 USD": "Old bot",
+      "Kyoto flights leave from PVG": null,
+      "Kyoto hotel near Kyoto Station": "Work assistant",
+      "Kyoto ryokan is booked": "user",
+      "Kyoto trip uses the JR pass": "Work assistant",
+    });
+  });
+
   it("keeps the persona id on old records when the persona is renamed", async () => {
     const user = await signIn();
     const laptop = await keyOf(user, "Laptop script");

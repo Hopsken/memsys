@@ -6,7 +6,7 @@ const item = (
   ref: string,
   at = "2026-01-02T00:00:00.000Z",
   fragment = `Fragment ${ref}`
-): Fragment => ({ at, fragment, ref });
+): Fragment => ({ at, by: null, fragment, ref });
 
 const tied = Array.from({ length: 50 }, (_, index) =>
   item(

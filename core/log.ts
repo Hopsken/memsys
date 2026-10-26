@@ -205,18 +205,21 @@ export const replay = (
 ) => {
   const corpus = new Map<string, Fragment>();
   const latestAtByRef = new Map<string, number>();
-  const authorByRef = new Map<string, Author | null>();
   for (const { at, by = null, fragment: text, ref } of rows) {
     if (at <= (latestAtByRef.get(ref) ?? Number.NEGATIVE_INFINITY)) {
       continue;
     }
     latestAtByRef.set(ref, at);
-    authorByRef.set(ref, by);
     if (text === null) {
       corpus.delete(ref);
     } else {
-      corpus.set(ref, { at: new Date(at).toISOString(), fragment: text, ref });
+      corpus.set(ref, {
+        at: new Date(at).toISOString(),
+        by,
+        fragment: text,
+        ref,
+      });
     }
   }
-  return { authorByRef, corpus, latestAtByRef };
+  return { corpus, latestAtByRef };
 };

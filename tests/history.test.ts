@@ -86,7 +86,7 @@ describe("History and restore", () => {
     await expect(list(user)).resolves.toStrictEqual({
       fragments: [
         withVersions(
-          { at: restored.at, fragment: "Original", ref: saved.ref },
+          { at: restored.at, by: "user", fragment: "Original", ref: saved.ref },
           3
         ),
       ],

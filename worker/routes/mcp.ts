@@ -1,5 +1,5 @@
 import { fragmentTextSchema, inputSchemas } from "@core";
-import type { Author } from "@core";
+import type { Author, Fragment } from "@core";
 import {
   McpServer,
   WebStandardStreamableHTTPServerTransport,
@@ -29,6 +29,25 @@ const toolResult = <T>(value: Result<T, Failure>): CallToolResult =>
     ? { content: [{ text: JSON.stringify(value.value), type: "text" }] }
     : { content: [{ text: value.error.message, type: "text" }], isError: true };
 
+const vouchedAuthorNames = async (memory: MemoryService) => {
+  const personas = await memory.personas();
+  return new Map<Author, string>([
+    ["user", "user"],
+    ...personas.map((persona): [Author, string] => [
+      `persona:${persona.id}`,
+      persona.name,
+    ]),
+  ]);
+};
+
+const withVouchedAuthor = <T extends Fragment>(
+  { by, ...fragment }: T,
+  names: ReadonlyMap<Author, string>
+) => {
+  const name = by === null ? undefined : names.get(by);
+  return name === undefined ? fragment : { ...fragment, by: name };
+};
+
 const createMcpServer = (
   memory: MemoryService,
   author: Author,
@@ -56,7 +75,13 @@ const createMcpServer = (
           ),
         }),
       },
-      async (input) => toolResult(await memory.remember(input, author))
+      async (input) => {
+        const written = await memory.remember(input, author);
+        const names = await vouchedAuthorNames(memory);
+        return toolResult(
+          written.ok ? ok(withVouchedAuthor(written.value, names)) : written
+        );
+      }
     );
   }
   if (canRead) {
@@ -72,7 +97,22 @@ const createMcpServer = (
           cues: recallCuesSchema.describe(TOOLS.recall.parameters.cues),
         }),
       },
-      async (input) => toolResult(await memory.recall(input))
+      async (input) => {
+        const [recalled, names] = await Promise.all([
+          memory.recall(input),
+          vouchedAuthorNames(memory),
+        ]);
+        return toolResult(
+          recalled.ok
+            ? ok({
+                ...recalled.value,
+                fragments: recalled.value.fragments.map((item) =>
+                  withVouchedAuthor(item, names)
+                ),
+              })
+            : recalled
+        );
+      }
     );
     server.registerTool(
       "list_tags",
@@ -95,7 +135,13 @@ const createMcpServer = (
           ),
         }),
       },
-      async (input) => toolResult(await memory.revise(input, author))
+      async (input) => {
+        const written = await memory.revise(input, author);
+        const names = await vouchedAuthorNames(memory);
+        return toolResult(
+          written.ok ? ok(withVouchedAuthor(written.value, names)) : written
+        );
+      }
     );
     server.registerTool(
       "forget",

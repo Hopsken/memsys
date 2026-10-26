@@ -144,7 +144,6 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   private readonly db;
   private readonly index = new FragmentIndex();
   private latestAtByRef = new Map<string, number>();
-  private authorByRef = new Map<string, Author | null>();
   private readonly versions = new Map<string, number>();
   private readonly metadata = new Map<string, Metadata>();
   private readonly personaById = new Map<string, Persona>();
@@ -163,13 +162,12 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
 
   private load() {
     const rows = this.db.select().from(records).all();
-    const { authorByRef, corpus, latestAtByRef } = replay(rows);
+    const { corpus, latestAtByRef } = replay(rows);
     this.index.clear();
     for (const item of corpus.values()) {
       this.index.set(item);
     }
     this.latestAtByRef = latestAtByRef;
-    this.authorByRef = authorByRef;
     this.versions.clear();
     this.countVersions(rows);
     this.metadata.clear();
@@ -235,14 +233,13 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     const at = this.nextAt(ref);
     this.db.insert(records).values({ at, by, fragment, op, ref }).run();
     this.latestAtByRef.set(ref, at);
-    this.authorByRef.set(ref, by);
     this.versions.set(ref, (this.versions.get(ref) ?? 0) + 1);
     return at;
   }
 
   private write(ref: string, fragment: string, op: Op, by: Author): Fragment {
     const at = this.append(ref, fragment, op, by);
-    const item = { at: new Date(at).toISOString(), fragment, ref };
+    const item = { at: new Date(at).toISOString(), by, fragment, ref };
     this.index.set(item);
     return item;
   }
@@ -344,7 +341,6 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     }
     this.db.delete(records).where(eq(records.ref, ref)).run();
     this.latestAtByRef.delete(ref);
-    this.authorByRef.delete(ref);
     this.versions.delete(ref);
     this.index.delete(ref);
     return ok({ ref });
@@ -417,11 +413,10 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
       }
     });
     this.countVersions(rows);
-    const { authorByRef, corpus, latestAtByRef } = replay(rows);
+    const { corpus, latestAtByRef } = replay(rows);
     for (const [ref, at] of latestAtByRef) {
       this.latestAtByRef.set(ref, at);
     }
-    this.authorByRef = new Map([...this.authorByRef, ...authorByRef]);
     for (const item of corpus.values()) {
       this.index.set(item);
     }
@@ -433,8 +428,9 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
       this.personas(),
       history
         ? this.db.select().from(records).all()
-        : [...this.index.values()].map(({ at, fragment, ref }) => ({
+        : [...this.index.values()].map(({ at, by, fragment, ref }) => ({
             at: Date.parse(at),
+            by,
             fragment,
             ref,
           }))
@@ -456,7 +452,6 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     return listFragments(
       [...this.index.values()].map((item) => ({
         ...item,
-        by: this.authorByRef.get(item.ref) ?? null,
         versions: this.versions.get(item.ref) ?? 1,
       })),
       input
@@ -552,6 +547,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
       if (last?.fragment) {
         fragments.push({
           at: new Date(last.at).toISOString(),
+          by: last.by,
           forgottenAt: new Date(forgottenAt).toISOString(),
           fragment: last.fragment,
           ref,

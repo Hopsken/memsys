@@ -21,6 +21,7 @@ import type { Strictness } from "../../worker/services/settings";
 
 const item = (ref: string, fragment: string, via?: string[]): RecallItem => ({
   at: "",
+  by: null,
   fragment,
   ref,
   ...(via && { via }),
@@ -32,8 +33,9 @@ const items = [
   item("f8", "Bird migration season is autumn", ["migration"]),
   item("fx", "Sometimes unanswered by the model", ["d1"]),
 ];
-const corpus: Fragment[] = items.map(({ at, fragment, ref }) => ({
+const corpus: Fragment[] = items.map(({ at, by, fragment, ref }) => ({
   at,
+  by,
   fragment,
   ref,
 }));
