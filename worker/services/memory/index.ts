@@ -26,13 +26,13 @@ const checkOwnerLengthLimits = (
   if (length > refuse) {
     return err({
       code: "invalid",
-      message: `Fragment contains ${length} characters, above the limit of ${refuse}. Split it into smaller fragments.`,
+      message: `Fragment contains ${length} characters, above the limit of ${refuse}. Store a conclusion, or store nothing.`,
       reason: "too-long",
     });
   }
   if (length > warn) {
     return ok(
-      `Fragment contains ${length} characters, above the recommended ${warn}. Consider splitting it into smaller fragments.`
+      `Fragment contains ${length} characters, above the recommended ${warn}.`
     );
   }
   return ok(null);
