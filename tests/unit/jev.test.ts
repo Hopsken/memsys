@@ -210,7 +210,7 @@ describe("Relevance filter", () => {
       item(`a${index}`, fragment, ["d1"])
     ),
   ];
-  const THOUSAND_CHARACTER_CANDIDATES_JEV_ACCEPTS = 120;
+  const THREE_THOUSAND_CHARACTER_CANDIDATES_JEV_ACCEPTS = 40;
   const askedRefs = (run: ReturnType<typeof vi.fn<Run>>, call = 0) =>
     asked(run.mock.calls[call]?.[1]);
 
@@ -239,14 +239,14 @@ describe("Relevance filter", () => {
     expect(askedRefs(manyAssociations)).toHaveLength(JUDGE_BUDGET.count);
   });
 
-  it("asks no more 1000-character candidates than fit in Jev's context, in rank order", async () => {
+  it("asks no more 3000-character candidates than fit in Jev's context, in rank order", async () => {
     const run = vi.fn<Run>(approveAll);
-    await stage(run, rows(200, 0, "x".repeat(1000)));
+    await stage(run, rows(200, 0, "x".repeat(3000)));
     const judged = askedRefs(run);
     expect(judged.length).toBeLessThanOrEqual(
-      THOUSAND_CHARACTER_CANDIDATES_JEV_ACCEPTS
+      THREE_THOUSAND_CHARACTER_CANDIDATES_JEV_ACCEPTS
     );
-    expect(judged.length).toBeGreaterThanOrEqual(60);
+    expect(judged.length).toBeGreaterThanOrEqual(20);
     expect(judged).toStrictEqual(
       Array.from({ length: judged.length }, (_, index) => `m${index}`)
     );
@@ -259,7 +259,7 @@ describe("Relevance filter", () => {
       .fn<Run>()
       .mockRejectedValueOnce(tooLarge)
       .mockImplementation(approveAll);
-    const result = await stage(run, rows(51, 20));
+    const result = await stage(run, rows(31, 19));
     const all = askedRefs(run, 0);
     const [first, second] = [askedRefs(run, 1), askedRefs(run, 2)];
     expect(run).toHaveBeenCalledTimes(3);
@@ -276,19 +276,19 @@ describe("Relevance filter", () => {
 
   it("keeps splitting while a part is still too large", async () => {
     const run = vi.fn<Run>((model, request) =>
-      asked(request).length > 30
+      asked(request).length > 15
         ? Promise.reject(tooLarge)
         : approveAll(model, request)
     );
-    const result = await stage(run, rows(100, 0));
+    const result = await stage(run, rows(50, 0));
     const judged = run.mock.results
       .map((_, call) => askedRefs(run, call))
-      .filter((part) => part.length <= 30)
+      .filter((part) => part.length <= 15)
       .flat();
     expect(judged.toSorted()).toStrictEqual(askedRefs(run, 0).toSorted());
     expect(result).toMatchObject({
       ok: true,
-      value: { items: { length: 100 }, truncated: false },
+      value: { items: { length: 50 }, truncated: false },
     });
   });
 
