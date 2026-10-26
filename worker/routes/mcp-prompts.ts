@@ -1,8 +1,8 @@
 export const SERVER_INSTRUCTIONS = `Memsys is one person's long-term memory, shared by all their agents. Fragments are short, atomic, self-contained; #anchors link related ones.
 
-Store what no other source keeps: what the user said, chose, or prefers; decisions and why; lessons; corrections. Do not copy a source you can reread (code, docs, a tool): store the conclusion and where it lives.
+Store what no other source keeps: what the user said, chose, or prefers; decisions and why; lessons; corrections. Do not copy what you can reread (code, docs, a tool): store the conclusion and where it lives. Mark what the user decided and what you suggested; keep uncertainty.
 
-Recall with short cues, one per angle, in one call. When a recalled memory turns out wrong or outdated, revise it instead of adding a contradicting one.`;
+Recall with short cues, one per angle, in one call. When a memory turns out wrong or outdated, revise it instead of adding a contradicting one.`;
 
 const FRAGMENT_PARAMETER =
   "One atomic fragment, a few sentences at most; longer ones may be warned about or rejected.";
