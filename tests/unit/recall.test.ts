@@ -30,6 +30,7 @@ const recall = async (corpus: Iterable<Fragment>, raw: { cue: string }) => {
 
 const item = (ref: string, fragment: string, day = "01"): Fragment => ({
   at: `2026-01-${day}T00:00:00.000Z`,
+  by: null,
   fragment,
   ref,
 });

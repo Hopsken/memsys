@@ -131,8 +131,13 @@ describe("Fragment log", () => {
 
   it("replays the latest record of each ref in any order", () => {
     const rows = [
-      { at: at(24), fragment: "Back again", ref: "abcdefg" },
-      { at: at(21), fragment: "First", ref: "abcdefg" },
+      {
+        at: at(24),
+        by: "user" as const,
+        fragment: "Back again",
+        ref: "abcdefg",
+      },
+      { at: at(21), by: "agent:a" as const, fragment: "First", ref: "abcdefg" },
       { at: at(23), fragment: null, ref: "abcdefg" },
       { at: at(22), fragment: "Second", ref: "abcdefg" },
       { at: at(21), fragment: "Gone", ref: "hjkmnpq" },
@@ -142,6 +147,7 @@ describe("Fragment log", () => {
     expect([...corpus.values()]).toStrictEqual([
       {
         at: "2026-09-24T08:00:00.000Z",
+        by: "user",
         fragment: "Back again",
         ref: "abcdefg",
       },

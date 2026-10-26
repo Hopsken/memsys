@@ -57,6 +57,7 @@ export const personaRecordSchema = z
 
 export const fragmentSchema = z.object({
   at: atSchema,
+  by: authorSchema.nullable(),
   fragment: fragmentTextSchema,
   ref: refSchema,
 });
