@@ -1,6 +1,6 @@
 ---
 name: using-memsys
-description: "Writes and recalls memories in memsys, one person's long-term memory shared by all their agents, through remember, recall, revise, forget, and list_tags. Use whenever a memsys MCP server is connected, including when the user says, chooses, or prefers something, when a conversation produces a decision or a lesson, before work that depends on the user, when a write is refused or warned, and when a recalled memory is wrong or outdated."
+description: "Writes and recalls memories in memsys, one person's long-term memory shared by all their agents, through remember, recall, revise, forget, and list_tags. Use whenever a memsys MCP server is connected, including when the user says, chooses, or prefers something, when a conversation produces a decision or a lesson, before work that depends on the user, when your host saves to its own memory, when a write is refused or warned, and when a recalled memory is wrong or outdated."
 ---
 
 # Using memsys
@@ -21,7 +21,7 @@ Durable means a future agent can open it. Commits, docs, and checked-in files ar
 
 Do not copy what you read from a queryable system such as a calendar, an inbox, or an issue tracker. Connect that tool when the user needs that state. What the user tells you is storable. "The dentist appointment is on 29 October 2026" from the user is a memory. The same entry read from their calendar is not.
 
-Store a memory as the conversation produces it, and whenever the user says remember, note, or record. Before you finish a task, store what another agent would need to pick the task up.
+Store a memory as the conversation produces it, and whenever the user says remember, note, or record. If your host has a memory of its own, a write you make there stays inside that product. In the same turn, store in memsys the part these rules keep. When your host changes memory in the background, without you, you cannot mirror it. Do not claim that you did. Before you finish a task, store what another agent would need to pick the task up.
 
 ## How to write a fragment
 
