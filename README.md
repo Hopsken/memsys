@@ -20,10 +20,7 @@ The app uses Vite, React, Tailwind CSS 4, and shadcn/ui in `client/`. The memory
 
 Agents connect over MCP at `/mcp` (stateless Streamable HTTP) with an OAuth access token or an API key. The tools are `remember`, `recall`, `revise`, `forget`, and `list_tags`. The web UI uses the same operations through a JSON API under `/api/`. Input schemas live in `core/inputs.ts` (writes) and `worker/services/memory/recall.ts` (recall).
 
-- **Recall** matches fragments that contain every word of the cue, in any order; English words are stemmed, and a cue of three or more words may miss one. Fragments containing the whole cue as a phrase come first, the rest rank by words matched and BM25. Recall then follows one hop through shared `#anchors`. Associated results list those anchors in `via`. Association splits anchors on `-` and stems English words; `/` namespaces match exactly.
-- **Recall size** is 10 fragments; the first 10 cue matches seed association. `truncated` is set when a cue match was left out.
-- **Length** is counted in grapheme clusters. Core rejects anything over 1000; your limits under **Settings → Features** set the everyday ones.
-- **Features** the owner can change, such as the length limits and the relevance filter, are under **Settings → Features**; [Architecture](docs/Architecture.md) covers where behavior lives, failure rules, and per-instance settings.
+Recall takes one or more cues, ranks the fragments whose words match them, then follows one hop through shared `#anchors`. Associated results name those anchors in `via`; `truncated` is set when a more specific cue would bring back matches that were left out. Length limits and the relevance filter are set by the owner under **Settings → Features**; the core itself rejects fragments over 1000 characters. [Architecture](docs/Architecture.md) covers where behavior lives, how recall ranks and associates, failure rules, and per-instance settings.
 
 ## Storage
 
