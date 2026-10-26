@@ -4,7 +4,7 @@ A tiny associative memory system for agents. Fragments are plain text; shared ha
 
 Store one durable idea per fragment. Recall starts from a textual cue and follows explicit anchors, not inferred relationships. Fragments are the source of truth; tags and associations are derived. Vector search, automatic summaries, and memory reinforcement are outside the current scope.
 
-To connect an agent, add `https://<hostname>/mcp` as an MCP server and sign in when it asks. Agents that cannot sign in use an API key from **Settings → MCP** instead (see [Sign-in and MCP access](#sign-in-and-mcp-access)). The server's instructions tell an agent what to store and when to recall; some harnesses cut them short, so [`skills/using-memsys`](skills/using-memsys/SKILL.md) carries the same rules in full as a skill an agent can install (`amp skill add Hopsken/memsys/skills/using-memsys`).
+To connect an agent, add `https://<hostname>/mcp` as an MCP server and sign in when it asks. Agents that cannot sign in use an API key from **Settings → MCP** instead (see [Sign-in and MCP access](#sign-in-and-mcp-access)). The server's instructions tell an agent what to store and when to recall; some harnesses cut them short, so [`skills/using-memsys`](skills/using-memsys/SKILL.md) carries the same rules in full as a skill an agent can install.
 
 [Project Vision](docs/VISION.md) [Architecture](docs/Architecture.md)
 
