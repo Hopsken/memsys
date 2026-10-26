@@ -34,8 +34,9 @@ const item = (ref: string, fragment: string, day = "01"): Fragment => ({
   ref,
 });
 
-// 900 ASCII bytes estimate to 300 tokens, so ten fill the 3000-token result.
+const short = (text: string) => text;
 const long = (text: string) => `${text} ${"x".repeat(899 - text.length)}`;
+const huge = (text: string) => `${text} ${"👨‍👩‍👧‍👦".repeat(200)}`;
 
 const associated = async (corpus: Fragment[], cue: string) => {
   const { fragments } = await recall(corpus, { cue });
@@ -261,14 +262,15 @@ describe("Recall", () => {
   });
 
   it.each([
-    ["40 short matches", 40, 0, "short", 40, false],
-    ["10 long matches", 10, 0, "long", 10, false],
-    ["11 long matches", 11, 0, "long", 10, true],
-    ["9 long matches and 2 long associations", 9, 2, "long", 10, true],
+    ["40 short matches", 40, 0, short, 40, false],
+    ["4 long matches", 4, 0, long, 4, false],
+    ["5 long matches", 5, 0, long, 4, true],
+    ["3 long matches and 2 long associations", 3, 2, long, 4, true],
+    ["1 match larger than the budget", 1, 0, huge, 1, false],
+    ["2 matches larger than the budget", 2, 0, huge, 1, true],
   ])(
     "fits %s into the result budget",
-    async (_name, matches, neighbors, size, returned, truncated) => {
-      const text = (base: string) => (size === "long" ? long(base) : base);
+    async (_name, matches, neighbors, text, returned, truncated) => {
       const corpus = [
         ...Array.from({ length: matches }, (_, index) =>
           item(`m-${index}`, text("cue #shared"))

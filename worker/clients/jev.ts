@@ -27,13 +27,11 @@ const answersSchema = z.object({
   answers: z.record(z.string(), z.object({ noul: z.number().min(0).max(1) })),
 });
 
+export const USEFUL =
+  "A fragment is useful when it states something the agent would want in front of it right now; not when it is unrelated or only shares a broad topic tag.";
+
 const question = (ref: string) => ({
-  criteria: {
-    false:
-      "The fragment is unrelated, or related only by sharing a broad topic tag.",
-    true: "The fragment states something the agent would want in front of it right now.",
-  },
-  instructions: `Would candidates.${ref} be useful to an agent whose current cue is \`cue\` and whose current task is \`context\`?`,
+  instructions: `Is \`candidates.${ref}\` \`useful\` for the agent's \`cue\` and \`context\`?`,
   type: "noul",
 });
 
@@ -50,6 +48,7 @@ const questionsAbout = (
     ),
     context: context ?? "",
     cue: cues.join(" | "),
+    useful: USEFUL,
   },
 });
 
@@ -122,8 +121,8 @@ const score = async (
   }
 };
 
-// A token spans at least one byte, so the bytes / 3 estimate is off by at most
-// 3x and two splits fit. Two splits also stay at 7 Jev calls with 4 at once,
+// A token spans at least one byte, so the bytes / 4 estimate is off by at most
+// 4x and two splits fit. Two splits also stay at 7 Jev calls with 4 at once,
 // under the Workers limits of 50 subrequests (free plan) and 6 open
 // connections, and stop a 7003 that is not about size.
 const MAX_SPLITS = 2;

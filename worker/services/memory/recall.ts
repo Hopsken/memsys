@@ -49,17 +49,8 @@ export interface RecallResult {
 
 const MAX_SEED_MATCHES = 10;
 
-interface Budget {
-  count: number;
-  tokens: number;
-}
-
-// Holds three fragments at the longest length, so a result is never empty.
-const RESULT_BUDGET: Budget = { count: Infinity, tokens: 3000 };
-
-// Jev reads all candidates in one state, which must fit in 32k tokens, and
-// each candidate adds a question to a request capped at 64k tokens.
-export const JUDGE_BUDGET: Budget = { count: 50, tokens: 28_000 };
+const RESULT_TOKEN_BUDGET = 1000;
+const JEV_STATE_LIMIT_TOKENS = 32_000;
 const ASSOCIATION_SHARE = 0.3;
 
 const STRICTNESS = {
@@ -152,25 +143,35 @@ type RecallMemory = Pick<
 >;
 
 const encoder = new TextEncoder();
-const UTF8_BYTES_PER_TOKEN_AT_MOST = 3;
+const UTF8_BYTES_PER_TOKEN = 4;
+const CJK_BYTES_PER_TOKEN = 2.5;
 
-const estimatedTokens = (item: Fragment) =>
-  Math.ceil(
-    encoder.encode(item.fragment).length / UTF8_BYTES_PER_TOKEN_AT_MOST
-  );
+const textTokens = (item: Fragment) =>
+  Math.ceil(encoder.encode(item.fragment).length / UTF8_BYTES_PER_TOKEN);
 
-const tokensOf = (items: readonly Fragment[]) =>
-  items.reduce((sum, item) => sum + estimatedTokens(item), 0);
+const JUDGE_TOKEN_BUDGET =
+  JEV_STATE_LIMIT_TOKENS * (CJK_BYTES_PER_TOKEN / UTF8_BYTES_PER_TOKEN);
+
+const CANDIDATE_OVERHEAD_TOKENS = 50;
+
+const judgeTokens = (item: Fragment) =>
+  CANDIDATE_OVERHEAD_TOKENS + textTokens(item);
+
+type Tokens = (item: Fragment) => number;
+
+const tokensOf = (items: readonly Fragment[], tokens: Tokens) =>
+  items.reduce((sum, item) => sum + tokens(item), 0);
 
 const leadingItemsWithin = (
   items: readonly RecallItem[],
-  budget: Budget
+  budget: number,
+  tokens: Tokens
 ): RecallItem[] => {
   const taken: RecallItem[] = [];
-  let tokens = 0;
+  let used = 0;
   for (const item of items) {
-    tokens += estimatedTokens(item);
-    if (taken.length >= budget.count || tokens > budget.tokens) {
+    used += tokens(item);
+    if (used > budget && taken.length > 0) {
       break;
     }
     taken.push(item);
@@ -178,21 +179,24 @@ const leadingItemsWithin = (
   return taken;
 };
 
-const candidatesWithin = (items: readonly RecallItem[], budget: Budget) => {
+const candidatesWithin = (items: readonly RecallItem[], budget: number) => {
   const matches = items.filter((item) => !item.via);
   const associations = items.filter((item) => item.via);
-  const reserved = leadingItemsWithin(associations, {
-    count: Math.floor(budget.count * ASSOCIATION_SHARE),
-    tokens: budget.tokens * ASSOCIATION_SHARE,
-  });
-  const keptMatches = leadingItemsWithin(matches, {
-    count: budget.count - reserved.length,
-    tokens: budget.tokens - tokensOf(reserved),
-  });
-  const keptAssociations = leadingItemsWithin(associations, {
-    count: budget.count - keptMatches.length,
-    tokens: budget.tokens - tokensOf(keptMatches),
-  });
+  const reserved = leadingItemsWithin(
+    associations,
+    budget * ASSOCIATION_SHARE,
+    judgeTokens
+  );
+  const keptMatches = leadingItemsWithin(
+    matches,
+    budget - tokensOf(reserved, judgeTokens),
+    judgeTokens
+  );
+  const keptAssociations = leadingItemsWithin(
+    associations,
+    budget - tokensOf(keptMatches, judgeTokens),
+    judgeTokens
+  );
   return {
     candidates: [...keptMatches, ...keptAssociations],
     truncated: keptMatches.length < matches.length,
@@ -207,7 +211,7 @@ export const keepOnlyJudgedRelevant = async (
 ): Promise<
   Result<{ items: RecallItem[]; truncated: boolean }, RelevanceUnavailable>
 > => {
-  const { candidates, truncated } = candidatesWithin(items, JUDGE_BUDGET);
+  const { candidates, truncated } = candidatesWithin(items, JUDGE_TOKEN_BUDGET);
   if (candidates.length === 0) {
     return ok({ items: [], truncated });
   }
@@ -267,7 +271,11 @@ export const recall = async (
   if (!filtered.ok) {
     return err(filtered.error);
   }
-  const fragments = leadingItemsWithin(filtered.value.items, RESULT_BUDGET);
+  const fragments = leadingItemsWithin(
+    filtered.value.items,
+    RESULT_TOKEN_BUDGET,
+    textTokens
+  );
   return ok({
     fragments,
     truncated:
