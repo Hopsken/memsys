@@ -45,13 +45,13 @@ const matched = async (corpus: Fragment[], cue: string) => {
 };
 
 describe("Recall", () => {
-  it("extracts normalized anchors without treating URLs or headings as tags", () => {
+  it("extracts normalized anchors without treating URLs, headings, or numbers as tags", () => {
     expect(
       extractAnchors(
-        "#Cloudflare #cloudflare (#project/a) #agent-memory #a_b #记忆 #123 https://x/#ignored word#ignored ##heading"
+        "#Cloudflare #cloudflare (#project/a) #agent-memory #a_b #记忆 #2fa PR #80 and #67-#70 https://x/#ignored word#ignored ##heading"
       )
     ).toStrictEqual([
-      "123",
+      "2fa",
       "a_b",
       "agent-memory",
       "cloudflare",

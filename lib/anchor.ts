@@ -1,6 +1,7 @@
 import { stemPlainEnglish } from "./analyzer";
 
-const ANCHOR = /(?<=^|[^\p{L}\p{N}_/#])#(?<anchor>[\p{L}\p{N}_/-]+)/gu;
+const ANCHOR =
+  /(?<=^|[^\p{L}\p{N}_/#])#(?<anchor>(?=[\p{N}_/-]*\p{L})[\p{L}\p{N}_/-]+)/gu;
 
 export const findAnchors = (text: string) =>
   [...text.matchAll(ANCHOR)].map((match) => {
