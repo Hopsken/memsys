@@ -29,9 +29,6 @@ const toolResult = <T>(value: Result<T, Failure>): CallToolResult =>
     ? { content: [{ text: JSON.stringify(value.value), type: "text" }] }
     : { content: [{ text: value.error.message, type: "text" }], isError: true };
 
-// Agents see an author only when the user vouches for it: the user, or a
-// persona by its current name. An `agent:<name>` is whatever the client calls
-// itself, so showing it would let one agent speak to the others.
 const vouchedAuthorNames = async (memory: MemoryService) => {
   const personas = await memory.personas();
   return new Map<Author, string>([
@@ -43,7 +40,7 @@ const vouchedAuthorNames = async (memory: MemoryService) => {
   ]);
 };
 
-const forAgents = <T extends Fragment>(
+const withVouchedAuthor = <T extends Fragment>(
   { by, ...fragment }: T,
   names: ReadonlyMap<Author, string>
 ) => {
@@ -82,7 +79,7 @@ const createMcpServer = (
         const written = await memory.remember(input, author);
         const names = await vouchedAuthorNames(memory);
         return toolResult(
-          written.ok ? ok(forAgents(written.value, names)) : written
+          written.ok ? ok(withVouchedAuthor(written.value, names)) : written
         );
       }
     );
@@ -110,7 +107,7 @@ const createMcpServer = (
             ? ok({
                 ...recalled.value,
                 fragments: recalled.value.fragments.map((item) =>
-                  forAgents(item, names)
+                  withVouchedAuthor(item, names)
                 ),
               })
             : recalled
@@ -142,7 +139,7 @@ const createMcpServer = (
         const written = await memory.revise(input, author);
         const names = await vouchedAuthorNames(memory);
         return toolResult(
-          written.ok ? ok(forAgents(written.value, names)) : written
+          written.ok ? ok(withVouchedAuthor(written.value, names)) : written
         );
       }
     );
