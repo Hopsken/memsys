@@ -137,7 +137,11 @@ describe("Stateless MCP", () => {
       blank: builtIn,
       overLimit: 422,
     });
-    expect(builtIn).toMatch(/^Memsys is long-term fragment memory\./u);
+    expect(builtIn).toMatch(
+      /^Memsys is one person's long-term memory, shared by all their agents\./u
+    );
+    // ChatGPT reads at most 512 characters of server instructions.
+    expect(builtIn.length).toBeLessThanOrEqual(512);
   });
 
   it("serves the 2026-07-28 protocol without a handshake", async () => {
