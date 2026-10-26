@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { z } from "zod";
@@ -124,12 +124,20 @@ const summarize = (events: PiEvent[]) => {
 
 export interface PiOptions {
   dir: string;
-  mcpUrl: string;
+  // Without a URL, Pi gets no MCP server and no tools at all.
+  mcpUrl?: string;
   model: string;
   prompt: string;
   recallBudget?: number;
+  // A directory that keeps the conversation between calls. The first call
+  // creates the session, every later call continues it. Without it the
+  // run is ephemeral.
+  sessionDir?: string;
   stdin: string;
   system: string;
+  // "append" adds `system` to Pi's own coding-assistant prompt; "replace"
+  // makes `system` the whole prompt, for an agent that is not a coder.
+  systemMode?: "append" | "replace";
   thinking: string;
 }
 
@@ -140,27 +148,41 @@ const runOnce = async (
 ): Promise<Omit<PiRun, "attempts">> => {
   await mkdir(options.dir, { recursive: true });
   const readOnly = options.recallBudget !== undefined;
+  const memsys =
+    options.mcpUrl === undefined
+      ? {}
+      : {
+          memsys: readOnly
+            ? {
+                exposure: "hidden",
+                toolExposure: { list_tags: "direct", recall: "direct" },
+                url: options.mcpUrl,
+              }
+            : { exposure: "direct", url: options.mcpUrl },
+        };
   await writeFile(
     path.join(options.dir, "mcp.json"),
-    JSON.stringify({
-      mcpServers: {
-        memsys: readOnly
-          ? {
-              exposure: "hidden",
-              toolExposure: { list_tags: "direct", recall: "direct" },
-              url: options.mcpUrl,
-            }
-          : { exposure: "direct", url: options.mcpUrl },
-      },
-    })
+    JSON.stringify({ mcpServers: memsys })
   );
+  const saved =
+    options.sessionDir === undefined
+      ? []
+      : await readdir(options.sessionDir).catch(() => []);
+  const session =
+    options.sessionDir === undefined
+      ? ["--no-session"]
+      : [
+          "--session-dir",
+          options.sessionDir,
+          ...(saved.length > 0 ? ["--continue"] : []),
+        ];
   const child = spawn(
     "pi",
     [
       "--mode",
       "json",
       "--print",
-      "--no-session",
+      ...session,
       "--no-builtin-tools",
       "--no-context-files",
       "--no-skills",
@@ -175,7 +197,9 @@ const runOnce = async (
       options.model,
       "--thinking",
       options.thinking,
-      "--append-system-prompt",
+      options.systemMode === "replace"
+        ? "--system-prompt"
+        : "--append-system-prompt",
       options.system,
       options.prompt,
     ],
