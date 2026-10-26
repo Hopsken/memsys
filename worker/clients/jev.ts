@@ -27,8 +27,6 @@ const answersSchema = z.object({
   answers: z.record(z.string(), z.object({ noul: z.number().min(0).max(1) })),
 });
 
-// Jev bills the state once and every question separately, so the rubric lives
-// in the state and each question only points at it.
 export const USEFUL =
   "A fragment is useful when it states something the agent would want in front of it right now; not when it is unrelated or only shares a broad topic tag.";
 
@@ -123,8 +121,8 @@ const score = async (
   }
 };
 
-// A token spans at least one byte, so the bytes / 3 estimate is off by at most
-// 3x and two splits fit. Two splits also stay at 7 Jev calls with 4 at once,
+// A token spans at least one byte, so the bytes / 4 estimate is off by at most
+// 4x and two splits fit. Two splits also stay at 7 Jev calls with 4 at once,
 // under the Workers limits of 50 subrequests (free plan) and 6 open
 // connections, and stop a 7003 that is not about size.
 const MAX_SPLITS = 2;

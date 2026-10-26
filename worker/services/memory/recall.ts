@@ -49,15 +49,8 @@ export interface RecallResult {
 
 const MAX_SEED_MATCHES = 10;
 
-// Holds one fragment at the longest length, so a result is never empty, and
-// about ten of the usual size.
 const RESULT_TOKEN_BUDGET = 1000;
-
-// Jev bills the state once and every question on top; the state must fit in
-// 32k tokens and the request in 64k. The budget counts what a candidate costs
-// in both: its text, its entry in the state, and its question. 20k estimated
-// tokens keeps the state under 32k even when the estimate runs low on Chinese.
-const JUDGE_TOKEN_BUDGET = 20_000;
+const JEV_STATE_LIMIT_TOKENS = 32_000;
 const ASSOCIATION_SHARE = 0.3;
 
 const STRICTNESS = {
@@ -150,15 +143,15 @@ type RecallMemory = Pick<
 >;
 
 const encoder = new TextEncoder();
-// Jev bills about 5 bytes per token for English text and 2.5 for Chinese, so
-// 4 overestimates English text by a tenth and underestimates Chinese text by
-// up to two fifths.
 const UTF8_BYTES_PER_TOKEN = 4;
+const CJK_BYTES_PER_TOKEN = 2.5;
 
 const textTokens = (item: Fragment) =>
   Math.ceil(encoder.encode(item.fragment).length / UTF8_BYTES_PER_TOKEN);
 
-// Measured: 33 tokens for a candidate's question, about 16 for its state entry.
+const JUDGE_TOKEN_BUDGET =
+  JEV_STATE_LIMIT_TOKENS * (CJK_BYTES_PER_TOKEN / UTF8_BYTES_PER_TOKEN);
+
 const CANDIDATE_OVERHEAD_TOKENS = 50;
 
 const judgeTokens = (item: Fragment) =>

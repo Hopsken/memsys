@@ -226,7 +226,6 @@ describe("Relevance filter", () => {
   const askedRefs = (run: ReturnType<typeof vi.fn<Run>>, call = 0) =>
     asked(run.mock.calls[call]?.[1]);
 
-  // Enough 1000-character candidates of either kind to overflow the budget.
   const tooMany = (matches: number, associations: number) =>
     rows(matches, associations, "x".repeat(1000));
   const OVERFLOW = 200;
