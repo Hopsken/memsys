@@ -34,7 +34,7 @@ const item = (ref: string, fragment: string, day = "01"): Fragment => ({
   ref,
 });
 
-// 900 ASCII bytes estimate to 300 tokens, so ten fill the 3000-token result.
+// 900 ASCII bytes estimate to 225 tokens, so four fill the 1000-token result.
 const long = (text: string) => `${text} ${"x".repeat(899 - text.length)}`;
 
 const associated = async (corpus: Fragment[], cue: string) => {
@@ -262,9 +262,9 @@ describe("Recall", () => {
 
   it.each([
     ["40 short matches", 40, 0, "short", 40, false],
-    ["13 long matches", 13, 0, "long", 13, false],
-    ["14 long matches", 14, 0, "long", 13, true],
-    ["12 long matches and 2 long associations", 12, 2, "long", 13, true],
+    ["4 long matches", 4, 0, "long", 4, false],
+    ["5 long matches", 5, 0, "long", 4, true],
+    ["3 long matches and 2 long associations", 3, 2, "long", 4, true],
   ])(
     "fits %s into the result budget",
     async (_name, matches, neighbors, size, returned, truncated) => {

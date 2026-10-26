@@ -49,8 +49,9 @@ export interface RecallResult {
 
 const MAX_SEED_MATCHES = 10;
 
-// Holds three fragments at the longest length, so a result is never empty.
-const RESULT_TOKEN_BUDGET = 3000;
+// Holds one fragment at the longest length, so a result is never empty, and
+// about ten of the usual size.
+const RESULT_TOKEN_BUDGET = 1000;
 
 // Jev bills the state once and every question on top; the state must fit in
 // 32k tokens and the request in 64k. The budget counts what a candidate costs
