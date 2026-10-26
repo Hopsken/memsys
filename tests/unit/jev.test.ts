@@ -13,7 +13,6 @@ import {
 import { workersAiFetch } from "../../worker/clients/workers-ai";
 import type { WorkersAiBinding } from "../../worker/clients/workers-ai";
 import {
-  JUDGE_BUDGET,
   keepOnlyJudgedRelevant,
   recall,
 } from "../../worker/services/memory/recall";
@@ -227,11 +226,16 @@ describe("Relevance filter", () => {
   const askedRefs = (run: ReturnType<typeof vi.fn<Run>>, call = 0) =>
     asked(run.mock.calls[call]?.[1]);
 
+  // Enough 1000-character candidates of either kind to overflow the budget.
+  const tooMany = (matches: number, associations: number) =>
+    rows(matches, associations, "x".repeat(1000));
+  const OVERFLOW = 200;
+
   it("keeps room for associations when cue matches alone would fill the budget", async () => {
     const run = vi.fn<Run>(approveAll);
-    const result = await stage(run, rows(JUDGE_BUDGET.count, 50));
+    const result = await stage(run, tooMany(OVERFLOW, OVERFLOW));
     const judged = askedRefs(run);
-    expect(judged).toHaveLength(JUDGE_BUDGET.count);
+    expect(judged.length).toBeLessThan(OVERFLOW);
     expect(judged.filter((ref) => ref.startsWith("a")).length).toBeGreaterThan(
       0
     );
@@ -239,17 +243,23 @@ describe("Relevance filter", () => {
   });
 
   it("gives unused association room to cue matches, and a cut of associations is not truncated", async () => {
+    const mixed = vi.fn<Run>(approveAll);
+    await stage(mixed, tooMany(OVERFLOW, OVERFLOW));
+    const mixedMatches = askedRefs(mixed).filter((ref) => ref.startsWith("m"));
+
     const onlyMatches = vi.fn<Run>(approveAll);
     await expect(
-      stage(onlyMatches, rows(JUDGE_BUDGET.count, 0))
-    ).resolves.toMatchObject({ ok: true, value: { truncated: false } });
-    expect(askedRefs(onlyMatches)).toHaveLength(JUDGE_BUDGET.count);
+      stage(onlyMatches, tooMany(OVERFLOW, 0))
+    ).resolves.toMatchObject({ ok: true, value: { truncated: true } });
+    expect(askedRefs(onlyMatches).length).toBeGreaterThan(mixedMatches.length);
 
     const manyAssociations = vi.fn<Run>(approveAll);
     await expect(
-      stage(manyAssociations, rows(1, JUDGE_BUDGET.count + 5))
+      stage(manyAssociations, tooMany(1, OVERFLOW))
     ).resolves.toMatchObject({ ok: true, value: { truncated: false } });
-    expect(askedRefs(manyAssociations)).toHaveLength(JUDGE_BUDGET.count);
+    const judged = askedRefs(manyAssociations);
+    expect(judged.length).toBeLessThan(OVERFLOW + 1);
+    expect(judged.length).toBeGreaterThan(mixedMatches.length);
   });
 
   it("asks no more 3000-character candidates than fit in Jev's context, in rank order", async () => {

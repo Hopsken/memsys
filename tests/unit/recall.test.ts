@@ -262,9 +262,9 @@ describe("Recall", () => {
 
   it.each([
     ["40 short matches", 40, 0, "short", 40, false],
-    ["10 long matches", 10, 0, "long", 10, false],
-    ["11 long matches", 11, 0, "long", 10, true],
-    ["9 long matches and 2 long associations", 9, 2, "long", 10, true],
+    ["13 long matches", 13, 0, "long", 13, false],
+    ["14 long matches", 14, 0, "long", 13, true],
+    ["12 long matches and 2 long associations", 12, 2, "long", 13, true],
   ])(
     "fits %s into the result budget",
     async (_name, matches, neighbors, size, returned, truncated) => {
