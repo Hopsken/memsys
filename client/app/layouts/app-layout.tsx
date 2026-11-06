@@ -1,7 +1,9 @@
 import { cn } from "cn";
 import { Archive, Settings } from "lucide-react";
 import { Navigate, NavLink, Outlet } from "react-router";
+import { Skeleton } from "skullet/react";
 
+import { MemoryList, SAMPLE_MEMORIES } from "@/pages/memories";
 import { authClient } from "@/shared/api";
 import { buttonVariants } from "@/shared/ui/button";
 import { Logo } from "@/shared/ui/logo";
@@ -19,10 +21,7 @@ const viewClass = cn(buttonVariants({ variant: "ghost" }), current);
 export const App = () => {
   const session = authClient.useSession();
 
-  if (session.isPending) {
-    return null;
-  }
-  if (!session.data) {
+  if (!session.isPending && !session.data) {
     return <Navigate replace to="/login" />;
   }
 
@@ -75,7 +74,21 @@ export const App = () => {
         </div>
       </header>
       <main className="mx-auto max-w-3xl px-5 pt-2 pb-10 sm:px-8 sm:pb-16">
-        <Outlet />
+        {/* The header is up before the session is, so the shell is what
+        paints first. The list below it is the shape the first page will
+        want, sketched while the session and its data land. */}
+        {session.isPending ? (
+          <Skeleton
+            data={null}
+            id="memories"
+            label="Loading your memories"
+            sample={SAMPLE_MEMORIES}
+          >
+            {(items) => <MemoryList items={items} />}
+          </Skeleton>
+        ) : (
+          <Outlet />
+        )}
       </main>
     </>
   );

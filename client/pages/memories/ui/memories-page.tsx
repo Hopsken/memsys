@@ -4,27 +4,21 @@ import { cn } from "cn";
 import { parseResponse } from "hono/client";
 import { ArrowDown, Hash, Layers } from "lucide-react";
 import { useEffect } from "react";
-import { Link, Outlet, useLocation } from "react-router";
+import { Link, Outlet } from "react-router";
+import { Skeleton } from "skullet/react";
 
-import { MemoryLength } from "@/entities/memory";
-import { authorLabel, Byline, usePersonas } from "@/entities/persona";
+import { authorLabel, usePersonas } from "@/entities/persona";
 import { SessionExpired } from "@/features/auth";
 import { AuthorFilter, useAuthorParam } from "@/features/author-filter";
-import { TaggedText, useTags } from "@/features/tag-filter";
+import { useTags } from "@/features/tag-filter";
 import { api, isExpired } from "@/shared/api";
 import type { Author, FragmentPage, ListedFragment } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
-import { listCard, listCardLink } from "@/shared/ui/list-card";
-import { Skeleton } from "@/shared/ui/skeleton";
-import {
-  memoryId,
-  useOpenHistory,
-  useReturnFocus,
-} from "@/widgets/memory-history";
-import { formatRelativeDate, formatRelativeDateInline } from "@lib/date";
+import { useReturnFocus } from "@/widgets/memory-history";
 
 import { FilterBar } from "./filter-bar";
+import { MemoryList, SAMPLE_MEMORIES } from "./memory-list";
 
 const linkClass =
   "text-foreground underline underline-offset-4 hover:text-foreground/80";
@@ -36,51 +30,6 @@ const latestPerRef = (pages: FragmentPage[]) => {
     items.set(item.ref, item);
   }
   return [...items.values()];
-};
-
-const FragmentRow = ({
-  item,
-  onSelectAuthor,
-}: {
-  item: ListedFragment;
-  onSelectAuthor: (by: Author) => void;
-}) => {
-  const open = useOpenHistory();
-  const to = `${item.ref}${useLocation().search}`;
-  return (
-    <li>
-      <div className={listCardLink} onClick={open(to)}>
-        <div className="text-muted-foreground flex min-h-7 flex-wrap items-center justify-between gap-x-4 text-xs">
-          <span className="flex flex-wrap items-center gap-x-1.5">
-            {item.by === null ? null : (
-              <>
-                <Byline by={item.by} onSelect={onSelectAuthor} withBy={false} />
-                <span aria-hidden="true">·</span>
-              </>
-            )}
-            <time dateTime={item.at} title={new Date(item.at).toLocaleString()}>
-              {item.versions > 1
-                ? `Edited ${formatRelativeDateInline(item.at)}`
-                : formatRelativeDate(item.at)}
-            </time>
-          </span>
-          <span className="flex items-center gap-3">
-            <MemoryLength text={item.fragment} />
-            <Link
-              className="hover:text-foreground focus-visible:ring-ring/50 rounded-sm font-mono outline-none focus-visible:ring-3"
-              id={memoryId(item.ref)}
-              to={to}
-            >
-              {item.ref}
-            </Link>
-          </span>
-        </div>
-        <p className="text-sm leading-6 [overflow-wrap:anywhere] whitespace-pre-wrap">
-          <TaggedText text={item.fragment} />
-        </p>
-      </div>
-    </li>
-  );
 };
 
 const EmptyList = ({ by, tags }: { by: Author | null; tags: string[] }) => {
@@ -203,25 +152,17 @@ export const FragmentsView = () => {
           query.isPlaceholderData && "opacity-50"
         )}
       >
-        {query.isPending ? (
-          <div className="space-y-2" role="status">
-            <span className="sr-only">Loading memories</span>
-            {[1, 2, 3].map((key) => (
-              <div className={cn(listCard, "space-y-2 py-3.5")} key={key}>
-                <Skeleton className="h-3 w-24" />
-                <Skeleton className="h-4 w-2/3" />
-              </div>
-            ))}
-          </div>
-        ) : null}
+        <Skeleton
+          data={query.isPending ? null : items}
+          id="memories"
+          label="Loading memories"
+          sample={SAMPLE_MEMORIES}
+        >
+          {(memories) => <MemoryList items={memories} onSelectAuthor={setBy} />}
+        </Skeleton>
         {query.isSuccess && items.length === 0 ? (
           <EmptyList by={by} tags={tags} />
         ) : null}
-        <ul className="space-y-2">
-          {items.map((item) => (
-            <FragmentRow item={item} key={item.ref} onSelectAuthor={setBy} />
-          ))}
-        </ul>
       </section>
       {query.hasNextPage ? (
         <footer className="mt-4 flex justify-center">

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { cn } from "cn";
 import { parseResponse } from "hono/client";
 import { Link, Outlet } from "react-router";
+import { Skeleton } from "skullet/react";
 
 import { MemoryLength, useRestore } from "@/entities/memory";
 import { SessionExpired } from "@/features/auth";
@@ -9,8 +9,7 @@ import { api, isExpired } from "@/shared/api";
 import type { ForgottenFragment } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
-import { listCard, listCardLink } from "@/shared/ui/list-card";
-import { Skeleton } from "@/shared/ui/skeleton";
+import { listCardLink } from "@/shared/ui/list-card";
 import { toasts } from "@/shared/ui/toaster";
 import {
   MemoryText,
@@ -19,6 +18,29 @@ import {
   useReturnFocus,
 } from "@/widgets/memory-history";
 import { formatRelativeDateInline } from "@lib/date";
+
+const minutesAgo = (minutes: number) =>
+  new Date(Date.now() - minutes * 60_000).toISOString();
+
+// A forgotten memory, with the line above it and the Restore button its row
+// carries. Skullet measures these into the list's skeleton.
+const SAMPLE_FORGOTTEN: ForgottenFragment[] = [
+  {
+    at: minutesAgo(2100),
+    by: "agent:Claude",
+    forgottenAt: minutesAgo(1500),
+    fragment: "Uses pnpm, never npm.",
+    ref: "m_4hd2Ls8n",
+  },
+  {
+    at: minutesAgo(4300),
+    by: "user",
+    forgottenAt: minutesAgo(2880),
+    fragment:
+      "Keeps one branch per change and squashes before merging, so the history reads as one decision.",
+    ref: "m_5tx9Qa2k",
+  },
+];
 
 const ForgottenRow = ({ item }: { item: ForgottenFragment }) => {
   const open = useOpenHistory();
@@ -77,6 +99,7 @@ export const ForgottenView = () => {
       ),
     queryKey: ["forgotten"],
   });
+  const fragments = query.data?.fragments ?? [];
   useReturnFocus();
 
   if (isExpired(query.error)) {
@@ -110,27 +133,25 @@ export const ForgottenView = () => {
       ) : null}
 
       <section aria-busy={query.isFetching} aria-label="Forgotten memories">
-        {query.isPending ? (
-          <div className="space-y-2" role="status">
-            <span className="sr-only">Loading forgotten memories</span>
-            {[1, 2].map((key) => (
-              <div className={cn(listCard, "space-y-2 py-3.5")} key={key}>
-                <Skeleton className="h-3 w-24" />
-                <Skeleton className="h-4 w-2/3" />
-              </div>
-            ))}
-          </div>
-        ) : null}
+        <Skeleton
+          data={query.isPending ? null : fragments}
+          id="forgotten"
+          label="Loading forgotten memories"
+          sample={SAMPLE_FORGOTTEN}
+        >
+          {(items) => (
+            <ul className="space-y-2">
+              {items.map((item) => (
+                <ForgottenRow item={item} key={item.ref} />
+              ))}
+            </ul>
+          )}
+        </Skeleton>
         {query.data?.fragments.length === 0 ? (
           <p className="text-muted-foreground rounded-xl border border-dashed px-6 py-12 text-center text-sm">
             Nothing forgotten.
           </p>
         ) : null}
-        <ul className="space-y-2">
-          {query.data?.fragments.map((item) => (
-            <ForgottenRow item={item} key={item.ref} />
-          ))}
-        </ul>
       </section>
       <Outlet />
     </>
