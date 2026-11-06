@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router";
+import { SkulletProvider } from "skullet/react";
 
 import { isRetryable } from "@/shared/api";
 import { Toaster } from "@/shared/ui/toaster";
@@ -22,11 +23,14 @@ const root = document.querySelector("#root");
 if (root) {
   createRoot(root).render(
     <StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <Toaster>
-          <RouterProvider router={router} />
-        </Toaster>
-      </QueryClientProvider>
+      {/* Like the page itself, skeletons stay light: there is no dark theme. */}
+      <SkulletProvider mode="light">
+        <QueryClientProvider client={queryClient}>
+          <Toaster>
+            <RouterProvider router={router} />
+          </Toaster>
+        </QueryClientProvider>
+      </SkulletProvider>
     </StrictMode>
   );
 }

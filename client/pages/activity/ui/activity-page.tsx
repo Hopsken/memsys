@@ -1,9 +1,9 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
-import { cn } from "cn";
 import { parseResponse } from "hono/client";
 import { Activity, ArrowDown } from "lucide-react";
 import { Link, Outlet } from "react-router";
+import { Skeleton } from "skullet/react";
 
 import { MemoryLength, OpBadge } from "@/entities/memory";
 import { authorLabel, Byline, usePersonas } from "@/entities/persona";
@@ -13,8 +13,7 @@ import { api, isExpired } from "@/shared/api";
 import type { ActivityEntry, ActivityPage, Author } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
-import { listCard, listCardLink } from "@/shared/ui/list-card";
-import { Skeleton } from "@/shared/ui/skeleton";
+import { listCardLink } from "@/shared/ui/list-card";
 import {
   MemoryText,
   memoryId,
@@ -25,6 +24,56 @@ import { formatRelativeDate } from "@lib/date";
 
 const linkClass =
   "text-foreground underline underline-offset-4 hover:text-foreground/80";
+
+const minutesAgo = (minutes: number) =>
+  new Date(Date.now() - minutes * 60_000).toISOString();
+
+// A record of each kind, so the skeleton spans a chip, a byline, a time and a
+// memory that wraps.
+const SAMPLE_ACTIVITY: ActivityEntry[] = [
+  {
+    at: minutesAgo(4),
+    by: "agent:Claude",
+    fragment:
+      "Prefers TypeScript with strict mode on, and no implicit any anywhere.",
+    op: "remember",
+    previous: null,
+    ref: "m_7qk3pR9x",
+  },
+  {
+    at: minutesAgo(38),
+    by: "agent:Claude",
+    fragment:
+      "Prefers TypeScript with strict mode on, and no implicit any anywhere in the repository.",
+    op: "revise",
+    previous: "Prefers TypeScript with strict mode on.",
+    ref: "m_7qk3pR9x",
+  },
+  {
+    at: minutesAgo(96),
+    by: "user",
+    fragment: null,
+    op: "forget",
+    previous: "Uses pnpm, never npm.",
+    ref: "m_4hd2Ls8n",
+  },
+  {
+    at: minutesAgo(140),
+    by: "agent:Codex",
+    fragment: "Uses pnpm, never npm.",
+    op: "restore",
+    previous: null,
+    ref: "m_4hd2Ls8n",
+  },
+  {
+    at: minutesAgo(265),
+    by: "agent:Claude",
+    fragment: "Lives in Singapore, so examples use Asia/Singapore dates.",
+    op: "remember",
+    previous: null,
+    ref: "m_9wf1Xc6z",
+  },
+];
 
 const time = (at: string) =>
   new Date(at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -116,7 +165,7 @@ export const ActivityView = () => {
       ),
     queryKey: ["activity", by],
   });
-  const days = byDay(query.data?.pages.flatMap((page) => page.entries) ?? []);
+  const entries = query.data?.pages.flatMap((page) => page.entries) ?? [];
   useReturnFocus();
 
   if (isExpired(query.error)) {
@@ -152,25 +201,39 @@ export const ActivityView = () => {
       ) : null}
 
       <section aria-busy={query.isFetching} aria-label="Activity">
-        {query.isPending ? (
-          <div className="space-y-2" role="status">
-            <span className="sr-only">Loading activity</span>
-            {[1, 2, 3].map((key) => (
-              <div className={cn(listCard, "space-y-2 py-3.5")} key={key}>
-                <Skeleton className="h-3 w-40" />
-                <Skeleton className="h-4 w-2/3" />
-              </div>
-            ))}
-          </div>
-        ) : null}
-        {query.isSuccess && days.length === 0 && by !== null ? (
+        <Skeleton
+          data={query.isPending ? null : entries}
+          id="activity"
+          label="Loading activity"
+          sample={SAMPLE_ACTIVITY}
+        >
+          {(loaded) =>
+            byDay(loaded).map(({ day, entries: dayEntries }) => (
+              <section className="pt-6 first:pt-1" key={day}>
+                <h2 className="text-muted-foreground pb-2 text-xs font-medium">
+                  {formatRelativeDate(dayEntries[0]?.at ?? day)}
+                </h2>
+                <ul className="space-y-2">
+                  {dayEntries.map((entry) => (
+                    <EntryRow
+                      entry={entry}
+                      key={`${entry.ref}-${entry.at}`}
+                      onSelectAuthor={setBy}
+                    />
+                  ))}
+                </ul>
+              </section>
+            ))
+          }
+        </Skeleton>
+        {query.isSuccess && entries.length === 0 && by !== null ? (
           <p className="text-muted-foreground rounded-xl border border-dashed px-6 py-12 text-center text-sm">
             {filteredName?.name === "you"
               ? "You haven’t changed anything yet."
               : `No changes by ${filteredName?.name ?? "this agent"} yet.`}
           </p>
         ) : null}
-        {query.isSuccess && days.length === 0 && by === null ? (
+        {query.isSuccess && entries.length === 0 && by === null ? (
           <div className="rounded-xl border border-dashed px-6 py-16 text-center">
             <Activity
               aria-hidden="true"
@@ -190,22 +253,6 @@ export const ActivityView = () => {
             </p>
           </div>
         ) : null}
-        {days.map(({ day, entries }) => (
-          <section className="pt-6 first:pt-1" key={day}>
-            <h2 className="text-muted-foreground pb-2 text-xs font-medium">
-              {formatRelativeDate(entries[0]?.at ?? day)}
-            </h2>
-            <ul className="space-y-2">
-              {entries.map((entry) => (
-                <EntryRow
-                  entry={entry}
-                  key={`${entry.ref}-${entry.at}`}
-                  onSelectAuthor={setBy}
-                />
-              ))}
-            </ul>
-          </section>
-        ))}
       </section>
       {query.hasNextPage ? (
         <footer className="mt-4 flex justify-center">
