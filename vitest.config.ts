@@ -46,6 +46,7 @@ export default defineConfig(async (): Promise<ViteUserConfig> => {
                 bindings: {
                   BETTER_AUTH_SECRET:
                     "test-secret-with-enough-entropy-0123456789",
+                  DEEPSEEK_API_KEY: "test-deepseek-key",
                   EMAIL_FROM: "memsys <memsys@memsys.test>",
                   PUBLIC_URL: "https://memsys.test",
                   RESEND_API_KEY: "test-resend-key",
@@ -62,10 +63,7 @@ export default defineConfig(async (): Promise<ViteUserConfig> => {
             exclude: [unitTests],
             include: ["tests/**/*.test.ts"],
             name: "worker",
-            setupFiles: [
-              "./tests/apply-migrations.ts",
-              "./tests/workers-ai.ts",
-            ],
+            setupFiles: ["./tests/apply-migrations.ts"],
           },
         },
       ],

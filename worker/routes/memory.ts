@@ -10,7 +10,7 @@ import { validator } from "hono/validator";
 
 import { unwrap } from "../lib/problem";
 import { validate } from "../lib/validate";
-import { recallInputSchema } from "../services/memory";
+import { memoryInputSchema } from "../services/memory";
 import type { AppEnv } from "../types";
 
 const IMPORT_FORMATS = new Map<string, ImportFormat>([
@@ -94,7 +94,7 @@ export const memory = new Hono<AppEnv>()
       .remember(c.req.valid("json"), c.get("source"));
     return c.json(unwrap(result), 201);
   })
-  .post("/recall", validate("json", recallInputSchema), async (c) => {
+  .post("/recall", validate("json", memoryInputSchema), async (c) => {
     const result = await c.get("memory").recall(c.req.valid("json"));
     return c.json(unwrap(result));
   })

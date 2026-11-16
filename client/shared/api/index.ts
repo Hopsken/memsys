@@ -13,7 +13,6 @@ export type {
   ListedFragment,
   Op,
   Persona,
-  RecallItem,
   RecallResult,
   Restored,
   Settings,
@@ -21,6 +20,5 @@ export type {
   SettingsView,
   Source,
   SourceSummary,
-  Strictness,
   Version,
 } from "./client";
