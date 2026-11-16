@@ -1,24 +1,20 @@
 import type { Fragment } from "@core";
 import { describe, expect, it } from "vitest";
 
-import { call, content, list, patchSettings, post, useAuth } from "./helpers";
+import { list, patchSettings, post, useAuth } from "./helpers";
 import type { User } from "./helpers";
 
 type WriteResult = (Fragment & { warnings?: string[] }) | { error: string };
 
 const write = async (
   user: User,
-  transport: string,
   args: { fragment: string; ref?: string }
 ): Promise<WriteResult> => {
-  const name = args.ref ? "revise" : "remember";
-  if (transport === "MCP") {
-    const result = await call(user, name, args);
-    return result.isError
-      ? { error: result.content[0]?.text ?? "" }
-      : content<WriteResult>(result);
-  }
-  const response = await post(`/api/${name}`, args, user);
+  const response = await post(
+    args.ref ? "/api/revise" : "/api/remember",
+    args,
+    user
+  );
   return response.json<WriteResult>();
 };
 
@@ -28,32 +24,29 @@ const warnings = (result: WriteResult) =>
 describe("Fragment length limits", () => {
   const signIn = useAuth();
 
-  it.each(["REST", "MCP"])(
-    "%s warns above 300 and rejects above 500 by default without writing",
-    async (transport) => {
-      const user = await signIn();
-      const saved = await write(user, transport, { fragment: "x" });
-      const ref = "ref" in saved ? saved.ref : "";
-      const results = await Promise.all(
-        [300, 301, 500, 501].flatMap((length) => [
-          write(user, transport, { fragment: "x".repeat(length) }),
-          write(user, transport, { fragment: "y".repeat(length), ref }),
-        ])
-      );
-      expect(results.map(warnings)).toStrictEqual([
-        0,
-        0,
-        1,
-        1,
-        1,
-        1,
-        "error",
-        "error",
-      ]);
-      const page = await list(user);
-      expect(page.fragments).toHaveLength(4);
-    }
-  );
+  it("warns above 300 and rejects above 500 by default without writing", async () => {
+    const user = await signIn();
+    const saved = await write(user, { fragment: "x" });
+    const ref = "ref" in saved ? saved.ref : "";
+    const results = await Promise.all(
+      [300, 301, 500, 501].flatMap((length) => [
+        write(user, { fragment: "x".repeat(length) }),
+        write(user, { fragment: "y".repeat(length), ref }),
+      ])
+    );
+    expect(results.map(warnings)).toStrictEqual([
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      "error",
+      "error",
+    ]);
+    const page = await list(user);
+    expect(page.fragments).toHaveLength(4);
+  });
 
   it("returns 422 above the owner's limit and 400 above the core ceiling", async () => {
     const user = await signIn();
@@ -75,13 +68,13 @@ describe("Fragment length limits", () => {
     await patchSettings(user, { length: { refuse: 10, warn: 5 } });
     const tight = await Promise.all(
       [5, 6, 11].map(async (length) =>
-        warnings(await write(user, "MCP", { fragment: "x".repeat(length) }))
+        warnings(await write(user, { fragment: "x".repeat(length) }))
       )
     );
     await patchSettings(user, { length: { refuse: 1000, warn: 1000 } });
     const off = await Promise.all(
       [1000, 1001].map(async (length) =>
-        warnings(await write(user, "MCP", { fragment: "x".repeat(length) }))
+        warnings(await write(user, { fragment: "x".repeat(length) }))
       )
     );
     expect({ off, tight }).toStrictEqual({

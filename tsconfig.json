@@ -35,7 +35,6 @@
     "client/**/*.ts",
     "client/**/*.tsx",
     "core/**/*.ts",
-    "eval/**/*.ts",
     "lib/**/*.ts",
     "scripts/**/*.ts",
     "worker/**/*.ts",

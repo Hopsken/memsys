@@ -1,57 +1,55 @@
 import type { Fragment } from "@core";
+import type { JSONValue } from "hono/utils/types";
 import { describe, expect, it } from "vitest";
 
-import { call, content, list, post, useAuth, withVersions } from "./helpers";
+import { list, post, useAuth, withVersions } from "./helpers";
 
 describe("Revise", () => {
   const signIn = useAuth();
 
-  it.each(["REST", "MCP"])(
-    "%s replaces the full text literally and preserves identity",
-    async (transport) => {
-      const user = await signIn();
-      const saved = await post(
-        "/api/remember",
-        { fragment: "Before\n旧内容 #old\nAfter" },
-        user
-      );
-      const item = await saved.json<Fragment>();
-      const input = { fragment: "$& $1 $` $' #new", ref: item.ref };
-      const revise = async () => {
-        if (transport === "MCP") {
-          return content<Fragment>(await call(user, "revise", input));
-        }
-        const response = await post("/api/revise", input, user);
-        return response.json<Fragment>();
-      };
-      const revised = await revise();
-      expect(revised).toMatchObject({
-        fragment: "$& $1 $` $' #new",
-        ref: item.ref,
-      });
-      expect(Date.parse(revised.at)).toBeGreaterThan(Date.parse(item.at));
-      await expect(list(user)).resolves.toStrictEqual({
-        fragments: [
-          withVersions(revised, 2, transport === "MCP" ? "agent:test" : "user"),
-        ],
-        nextCursor: null,
-      });
-    }
-  );
+  it("replaces the full text literally and preserves identity", async () => {
+    const user = await signIn();
+    const saved = await post(
+      "/api/remember",
+      { fragment: "Before\n旧内容 #old\nAfter" },
+      user
+    );
+    const item = await saved.json<Fragment>();
+    const response = await post(
+      "/api/revise",
+      { fragment: "$& $1 $` $' #new", ref: item.ref },
+      user
+    );
+    const revised = await response.json<Fragment>();
+    expect(revised).toMatchObject({
+      fragment: "$& $1 $` $' #new",
+      ref: item.ref,
+    });
+    expect(Date.parse(revised.at)).toBeGreaterThan(Date.parse(item.at));
+    await expect(list(user)).resolves.toStrictEqual({
+      fragments: [withVersions(revised, 2, "user")],
+      nextCursor: null,
+    });
+  });
 
-  it.each([
-    { fragment: "" },
-    { fragment: " \n" },
-    { fragment: "x".repeat(501) },
-    { new_string: "new", old_string: "keep" },
+  it.each<[Record<string, JSONValue>, boolean]>([
+    [{ fragment: "" }, true],
+    [{ fragment: " \n" }, true],
+    [{ fragment: "x".repeat(501) }, true],
+    [{ new_string: "new", old_string: "keep" }, true],
+    [{ fragment: "new" }, false],
   ])(
-    "leaves content and timestamps unchanged for invalid MCP input (%#)",
-    async (args) => {
+    "leaves content and timestamps unchanged for invalid input (%#)",
+    async (args, withRef) => {
       const user = await signIn();
       const saved = await post("/api/remember", { fragment: "keep" }, user);
       const item = await saved.json<Fragment>();
-      const result = await call(user, "revise", { ...args, ref: item.ref });
-      expect(result.isError).toBeTruthy();
+      const response = await post(
+        "/api/revise",
+        withRef ? { ...args, ref: item.ref } : args,
+        user
+      );
+      expect(response.ok).toBeFalsy();
       await expect(list(user)).resolves.toStrictEqual({
         fragments: [withVersions(item)],
         nextCursor: null,

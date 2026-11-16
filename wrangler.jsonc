@@ -29,12 +29,6 @@
   "dev": {
     "inspector_port": 0,
   },
-  // Workers AI; the relevance filter calls typesafe/jev through it. Always remote,
-  // so local dev bills the account too. Tests turn remote bindings off.
-  "ai": {
-    "binding": "AI",
-    "remote": true,
-  },
   // The Worker's database: accounts, sessions, API keys, and OAuth apps. Create it with
   // `wrangler d1 create memsys` and add its `database_id` before deploying.
   "d1_databases": [

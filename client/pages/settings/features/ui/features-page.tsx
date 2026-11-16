@@ -22,12 +22,6 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { Textarea } from "@/shared/ui/textarea";
-import { ToggleGroup, ToggleGroupItem } from "@/shared/ui/toggle-group";
-
-const FILTER_LEVELS: { label: string; value: Settings["relevanceFilter"] }[] = [
-  { label: "Default", value: "low" },
-  { label: "Strict", value: "medium" },
-];
 
 const INSTRUCTIONS_MAX = 500;
 
@@ -40,9 +34,6 @@ const changes = (draft: Settings, saved: Settings): SettingsMergePatch => ({
     instructions: draft.instructions,
   }),
   ...(!same(draft.length, saved.length) && { length: draft.length }),
-  ...(!same(draft.relevanceFilter, saved.relevanceFilter) && {
-    relevanceFilter: draft.relevanceFilter,
-  }),
 });
 
 const describe = (error: Error) => {
@@ -195,47 +186,10 @@ const FeaturesForm = ({ view }: { view: SettingsView }) => {
 
         <Card>
           <CardHeader>
-            <CardTitle id="relevance-filter">Relevance filter</CardTitle>
-            <CardDescription>
-              Hides recalled memories that won’t help with what your AI is doing
-              right now.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ToggleGroup
-              aria-labelledby="relevance-filter"
-              onValueChange={([next]) => {
-                const level = FILTER_LEVELS.find((item) => item.value === next);
-                if (level) {
-                  setDraft({ ...draft, relevanceFilter: level.value });
-                }
-              }}
-              size="sm"
-              spacing={0}
-              value={[draft.relevanceFilter]}
-              variant="outline"
-            >
-              {FILTER_LEVELS.map(({ label, value }) => (
-                <ToggleGroupItem
-                  className="aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
-                  key={value}
-                  value={value}
-                >
-                  {label}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-            <p className="text-muted-foreground mt-2 text-xs">
-              Strict also hides loose matches.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
             <CardTitle id="instructions">Instructions</CardTitle>
             <CardDescription>
-              Every connected AI gets these along with memsys’s own guidance.
+              Steers how memsys reads and curates your memories for every
+              connected AI.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -247,7 +201,7 @@ const FeaturesForm = ({ view }: { view: SettingsView }) => {
               onChange={(event) =>
                 setDraft({ ...draft, instructions: event.target.value })
               }
-              placeholder="Before starting a task, recall #must-read."
+              placeholder="Keep replies short and concrete."
               value={draft.instructions}
             />
             <div
@@ -285,7 +239,6 @@ const FeaturesForm = ({ view }: { view: SettingsView }) => {
                 mutation.mutate({
                   instructions: null,
                   length: null,
-                  relevanceFilter: null,
                 })
               }
               size="sm"

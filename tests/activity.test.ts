@@ -3,7 +3,7 @@ import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
 import worker from "../worker/index";
-import { call, content, ORIGIN, post, useAuth } from "./helpers";
+import { ORIGIN, post, useAuth } from "./helpers";
 import type { User } from "./helpers";
 
 const activity = async (user: User, query = "") => {
@@ -26,10 +26,12 @@ describe("Activity", () => {
 
   it("lists every record newest first, with who wrote it and the text before", async () => {
     const user = await signIn();
-    const saved = content<Fragment>(
-      await call(user, "remember", { fragment: "Prefers npm" })
+    const saved = await remember(user, "Prefers npm");
+    await post(
+      "/api/revise",
+      { fragment: "Prefers pnpm", ref: saved.ref },
+      user
     );
-    await call(user, "revise", { fragment: "Prefers pnpm", ref: saved.ref });
     const other = await remember(user, "Another");
     await post("/api/forget", { ref: saved.ref }, user);
     const { body } = await activity(user);
@@ -62,14 +64,14 @@ describe("Activity", () => {
         op: "revise",
         previous: "Prefers npm",
         ref: saved.ref,
-        source: "agent:test",
+        source: "user",
       },
       {
         fragment: "Prefers npm",
         op: "remember",
         previous: null,
         ref: saved.ref,
-        source: "agent:test",
+        source: "user",
       },
     ]);
   });

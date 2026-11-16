@@ -12,7 +12,6 @@ import type { User } from "./helpers";
 const DEFAULTS = {
   instructions: "",
   length: { refuse: 500, warn: 300 },
-  relevanceFilter: "low",
 };
 
 const read = async (user: User) => {
@@ -55,7 +54,9 @@ describe("Settings", () => {
     const invalid = await save(user, { length: { refuse: 10, warn: 20 } });
     const unknown = await save(user, { theme: "dark" });
     await save(user, { length: { refuse: 20, warn: 10 } });
-    const both = await save(user, { relevanceFilter: "medium" });
+    const both = await save(user, {
+      instructions: "Keep replies short.",
+    });
     await evictDurableObject(env.MEMORY.getByName(user.id));
     const persisted = await read(user);
     const reset = await save(user, { length: null });
@@ -69,8 +70,8 @@ describe("Settings", () => {
       both: {
         body: {
           settings: {
+            instructions: "Keep replies short.",
             length: { refuse: 20, warn: 10 },
-            relevanceFilter: "medium",
           },
         },
         status: 200,
@@ -80,11 +81,13 @@ describe("Settings", () => {
         status: 422,
       },
       persisted: {
+        instructions: "Keep replies short.",
         length: { refuse: 20, warn: 10 },
-        relevanceFilter: "medium",
       },
       reset: {
-        body: { settings: { ...DEFAULTS, relevanceFilter: "medium" } },
+        body: {
+          settings: { ...DEFAULTS, instructions: "Keep replies short." },
+        },
         status: 200,
       },
       unknown: { status: 422 },
@@ -96,12 +99,12 @@ describe("Settings", () => {
     const user = await signIn();
     await runInDurableObject(env.MEMORY.getByName(user.id), (_, state) => {
       state.storage.sql.exec(
-        `INSERT INTO metadata (key, value) VALUES ('settings', '{"length":{"refuse":"big"},"relevanceFilter":"medium"}')`
+        `INSERT INTO metadata (key, value) VALUES ('settings', '{"length":{"refuse":"big"},"instructions":"Kept"}')`
       );
     });
     await evictDurableObject(env.MEMORY.getByName(user.id));
     await expect(read(user)).resolves.toMatchObject({
-      settings: { ...DEFAULTS, relevanceFilter: "medium" },
+      settings: { ...DEFAULTS, instructions: "Kept" },
     });
     log.mockRestore();
   });
@@ -142,13 +145,9 @@ describe("Settings", () => {
     );
     expect(migrated).toStrictEqual([
       DEFAULTS,
-      {
-        ...DEFAULTS,
-        length: { refuse: 400, warn: 200 },
-        relevanceFilter: "medium",
-      },
+      { ...DEFAULTS, length: { refuse: 400, warn: 200 } },
       { ...DEFAULTS, length: { refuse: 1000, warn: 1000 } },
-      { ...DEFAULTS, relevanceFilter: "medium" },
+      DEFAULTS,
     ]);
     log.mockRestore();
   });
@@ -158,7 +157,7 @@ describe("Settings", () => {
     const send = (headers: Record<string, string>) =>
       worker.fetch(
         new Request("https://memsys.test/api/settings", {
-          body: JSON.stringify({ relevanceFilter: "medium" }),
+          body: JSON.stringify({ instructions: "Keep replies short." }),
           headers: { Cookie: user.cookie, ...headers },
           method: "PATCH",
         }),
