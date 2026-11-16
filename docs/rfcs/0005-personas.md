@@ -6,7 +6,7 @@
 
 ## Summary
 
-A **persona** is an agent identity that the user records in a memory space. The user can assign a connection to a persona. Writes from that connection then record `by: "persona:<id>"`. Writes from a connection with no persona record `by: "agent:<name>"`, as they do today.
+A **persona** is an agent identity that the user records in a memory space. The user can assign a connection to a persona. Writes from that connection then record `from: "persona:<id>"`. Writes from a connection with no persona record `from: "agent:<name>"`, as they do today.
 
 Personas live in the memory core beside the log, so the memory space alone explains every `persona:<id>` in the log. The user can archive a persona but never delete it.
 
@@ -18,7 +18,7 @@ memsys exists so that all of a person's agents share one memory. To share memory
 
 Each agent's identity lives in its own system, such as a Grok bot, a Muse assistant, or the configuration of a coding agent. memsys sees only the connection that the agent signs in with, and a connection is a credential. The user creates and drops connections when they reconnect, change machines, or rotate keys. One agent uses many connections over its life, so a connection cannot stand in for the agent.
 
-Today `by` is `agent:` and the name of the OAuth client or API key at the time of the write. That causes four problems:
+Today `from` is `agent:` and the name of the OAuth client or API key at the time of the write. That causes four problems:
 
 - When the user connects the same agent again, the name can change, and the agent's history splits in two.
 - An OAuth client reports its own name, so any client can call itself "ChatGPT".
@@ -32,13 +32,13 @@ memsys needs an identity that the user records, that outlives every connection, 
 1. The web UI shows the correct, current name of the agent that made each change.
 2. The user can list every change that one agent made.
 
-Both goals must hold before agents can see authorship in `recall`. That change alters the MCP output contract and needs its own discussion, so this RFC does not include it.
+Both goals must hold before agents can see the source of a memory in `recall`. That change alters the MCP output contract and needs its own discussion, so this RFC does not include it.
 
 ## Terms
 
 - A **persona** is an agent identity in a memory space. It has an id, a name, and an archived flag. A persona exists without any connection, for example after an import or after the agent stops.
 - A **connection** is a credential that lets an agent call `/mcp`. It is either an OAuth consent for one client or an API key. A connection can belong to one persona.
-- The **author** of a log record is the value of its `by` field.
+- The **source** of a log record is the value of its `from` field.
 
 ## Decisions
 
@@ -54,7 +54,7 @@ An agent cannot see, create, or change personas. Persona management needs the us
 
 A connection belongs to zero or one persona. A persona has zero or more connections.
 
-| Writer                       | `by`           |
+| Writer                       | `from`         |
 | ---------------------------- | -------------- |
 | A connection with a persona  | `persona:<id>` |
 | A connection with no persona | `agent:<name>` |
@@ -66,9 +66,9 @@ The agent cannot write before the user's choice of persona is saved. If the save
 
 An OAuth connection is one client, because the consent is per client. Every install that uses the same client id belongs to the same persona. To give a second install its own persona, the user connects it with an API key.
 
-### 3. The author is fixed at write time
+### 3. The source is fixed at write time
 
-A record keeps the author that was correct when the record was written:
+A record keeps the source that was correct when the record was written:
 
 - A change to a connection's persona affects only later writes.
 - Records from a connection with no persona keep `agent:<name>`. memsys does not move them to a persona, even when the names match, because two unrelated connections can have the same name.
@@ -94,9 +94,9 @@ The table is mutable. The log needs only the two rules in decision 4, and a hist
 
 The core contract changes in three places:
 
-- `authorSchema` accepts `persona:<id>`.
-- A write with `by: "persona:<id>"` fails with `not-found` when no persona has that id. It does not fall back to `agent:<name>`, because a silent fallback would hide broken data.
-- The activity read can return only the records of one author.
+- `sourceSchema` accepts `persona:<id>`.
+- A write with `from: "persona:<id>"` fails with `not-found` when no persona has that id. It does not fall back to `agent:<name>`, because a silent fallback would hide broken data.
+- The activity read can return only the records of one source.
 
 Which persona a connection belongs to is the Worker's business. The Worker keeps it in D1, beside the credentials.
 
@@ -108,21 +108,21 @@ Import adds a persona whose id the memory space does not have, and skips one who
 
 A record that refers to a persona that neither the file nor the memory space has still imports. The web UI shows it as written by an unknown agent.
 
-### 7. The web UI shows each author by its current name
+### 7. The web UI shows each source by its current name
 
-| `by`                     | Shown as                    |
+| `from`                   | Shown as                    |
 | ------------------------ | --------------------------- |
-| `user`                   | "by you"                    |
+| `user`                   | "from you"                  |
 | `persona:<id>`           | the persona's current name  |
 | `persona:<id>`, archived | the name, marked "archived" |
-| `persona:<id>`, unknown  | "by an unknown agent"       |
+| `persona:<id>`, unknown  | "from an unknown agent"     |
 | `agent:<name>`           | the name, as today          |
 
-**Activity** has a filter for one author.
+**Activity** has a filter for one source.
 
 ## Not in this RFC
 
-- **Authorship in `recall`.** It changes the MCP output contract and needs its own discussion.
+- **A source name in `recall`.** It changes the MCP output contract and needs its own discussion.
 - **Scopes per persona.** Scopes stay on the connection.
 - **Memory per persona.** All agents share one memory, as [VISION](../VISION.md) says. Tags can separate content when the user wants that.
 - **One credential for many agents.** The link between connections and personas would become many-to-many.
@@ -136,9 +136,9 @@ A record that refers to a persona that neither the file nor the memory space has
 
 A persona named after the client's reported name is the same untrusted name that this RFC replaces, and the persona list fills with product names. With optional personas, a user who never creates one sees the same history as today.
 
-### Add a `connection:<id>` author for connections with no persona
+### Add a `connection:<id>` source for connections with no persona
 
-It would tell apart two such connections with the same name. It adds a fourth kind of author, and memsys would have to keep a record of every connection after the user disconnects it. `agent:<name>` is enough, because decision 3 does not move old records.
+It would tell apart two such connections with the same name. It adds a fourth kind of source, and memsys would have to keep a record of every connection after the user disconnects it. `agent:<name>` is enough, because decision 3 does not move old records.
 
 ### Move old records to a persona by name
 
@@ -162,19 +162,19 @@ Two installs that share a client id could then belong to different personas. The
 
 ## Migration
 
-Existing connections have no persona, and existing records keep their `by`. The migration rewrites nothing. A build without persona support rejects an import file that contains personas. One deployment exists today, so the risk is small.
+Existing connections have no persona, and existing records keep their `from`. The migration rewrites nothing. A build without persona support rejects an import file that contains personas. One deployment exists today, so the risk is small.
 
 ## Testing
 
 End-to-end tests through `/mcp` and `/api/` check that none of these failures happen:
 
-- A write records the wrong kind of author for its connection.
-- A change to a connection's persona changes the author of earlier records.
+- A write records the wrong kind of source for its connection.
+- A change to a connection's persona changes the source of earlier records.
 - A rename does not show on a persona's earlier records.
 - The core stores a write with an unknown persona id.
 - After the user archives a persona, a write from one of its former connections records the persona instead of `agent:<name>`, or fails.
 - The agent can write before its persona is saved.
 - An export and import loses a persona or the link between records and personas.
-- The Activity filter for one author misses records or includes another author's records.
+- The Activity filter for one source misses records or includes another source's records.
 
 The final test exports a memory space with personas and imports it into a new space. It assigns a new API key to an imported persona, writes with that key, and checks that Activity shows the old and the new records under one persona. The test keeps the export file and the Activity response as its artifact.

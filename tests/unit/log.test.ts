@@ -11,28 +11,34 @@ describe("Fragment log", () => {
     const rows: Row[] = [
       {
         at: at(22),
-        by: "agent:Claude Code",
         fragment: 'Line one\nline two 😀 "quoted"',
+        from: "agent:Claude Code",
         op: "remember",
         ref: "abcdefg",
       },
       {
         at: at(21),
-        by: null,
         fragment: "é".repeat(FRAGMENT_MAX),
+        from: null,
         op: "remember",
         ref: "hjkmnpq",
       },
-      { at: at(23), by: "user", fragment: null, op: "forget", ref: "hjkmnpq" },
+      {
+        at: at(23),
+        fragment: null,
+        from: "user",
+        op: "forget",
+        ref: "hjkmnpq",
+      },
     ];
     const text = serializeLog([], rows);
     expect(text).toMatch(/\n$/u);
     expect(text.split("\n")).toHaveLength(4);
     expect(text.split("\n")[0]).toBe(
-      `{"v":1,"ref":"hjkmnpq","fragment":"${"é".repeat(FRAGMENT_MAX)}","at":"2026-09-21T08:00:00.000Z","op":"remember"}`
+      `{"v":2,"ref":"hjkmnpq","fragment":"${"é".repeat(FRAGMENT_MAX)}","at":"2026-09-21T08:00:00.000Z","op":"remember"}`
     );
     expect(text.split("\n")[2]).toBe(
-      '{"v":1,"ref":"hjkmnpq","fragment":null,"at":"2026-09-23T08:00:00.000Z","op":"forget","by":"user"}'
+      '{"v":2,"ref":"hjkmnpq","fragment":null,"at":"2026-09-23T08:00:00.000Z","op":"forget","from":"user"}'
     );
     expect(parseLog(text)).toStrictEqual({
       personas: [],
@@ -43,15 +49,15 @@ describe("Fragment log", () => {
   it("ignores unknown keys and a missing final line break", () => {
     expect(
       parseLog(
-        '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","note":"x"}'
+        '{"v":2,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","note":"x"}'
       )
     ).toStrictEqual({
       personas: [],
       rows: [
         {
           at: at(21),
-          by: null,
           fragment: "Hi",
+          from: null,
           op: "remember",
           ref: "abcdefg",
         },
@@ -61,7 +67,7 @@ describe("Fragment log", () => {
 
   it("gives records without an op the one their place in the log implies", () => {
     const line = (day: number, fragment: string | null, ref = "abcdefg") =>
-      `${JSON.stringify({ at: new Date(at(day)).toISOString(), fragment, ref, v: 1 })}\n`;
+      `${JSON.stringify({ at: new Date(at(day)).toISOString(), fragment, ref, v: 2 })}\n`;
     const parsed = parseLog(
       [
         line(24, "Back"),
@@ -84,32 +90,36 @@ describe("Fragment log", () => {
 
   it.each([
     [
-      '{"v":2,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z"}',
+      '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z"}',
       "v",
     ],
     [
-      '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00Z"}',
+      '{"v":2,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00Z"}',
       "at",
     ],
-    ['{"v":1,"ref":"abcdefg","fragment":"Hi"}', "at"],
+    ['{"v":2,"ref":"abcdefg","fragment":"Hi"}', "at"],
     [
-      '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","op":"forget"}',
+      '{"v":2,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","op":"forget"}',
       "op",
     ],
     [
-      '{"v":1,"ref":"abcdefg","fragment":null,"at":"2026-09-21T08:00:00.000Z","op":"revise"}',
+      '{"v":2,"ref":"abcdefg","fragment":null,"at":"2026-09-21T08:00:00.000Z","op":"revise"}',
       "op",
     ],
     [
-      '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","by":"You"}',
+      '{"v":2,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","from":"You"}',
+      "from",
+    ],
+    [
+      '{"v":2,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","by":"user"}',
       "by",
     ],
     [
-      '{"v":1,"ref":"0000000","fragment":"Hi","at":"2026-09-21T08:00:00.000Z"}',
+      '{"v":2,"ref":"0000000","fragment":"Hi","at":"2026-09-21T08:00:00.000Z"}',
       "ref",
     ],
     [
-      '{"v":1,"ref":"abcdefg","fragment":" ","at":"2026-09-21T08:00:00.000Z"}',
+      '{"v":2,"ref":"abcdefg","fragment":" ","at":"2026-09-21T08:00:00.000Z"}',
       "fragment",
     ],
   ])("rejects %s", (line, field) => {
@@ -118,10 +128,32 @@ describe("Fragment log", () => {
     });
   });
 
+  it("tells the owner of an older file how to bring it forward", () => {
+    const v1 = parseLog(
+      '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z"}\n'
+    );
+    expect(v1).toMatchObject({
+      issues: [
+        { message: expect.stringMatching(/version 2/u), path: ["1", "v"] },
+      ],
+    });
+    const withBy = parseLog(
+      '{"v":2,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","by":"user"}\n'
+    );
+    expect(withBy).toMatchObject({
+      issues: [
+        {
+          message: expect.stringMatching(/`by` is now `from`/u),
+          path: ["1", "by"],
+        },
+      ],
+    });
+  });
+
   it("rejects torn lines, blank lines, and two records of a ref at one time", () => {
     const line =
-      '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z"}';
-    expect(parseLog(`${line}\n{"v":1,"ref"`)).toMatchObject({
+      '{"v":2,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z"}';
+    expect(parseLog(`${line}\n{"v":2,"ref"`)).toMatchObject({
       issues: [{ path: ["2"] }],
     });
     expect(parseLog(`${line}\n\n${line}\n`)).toMatchObject({
@@ -133,11 +165,16 @@ describe("Fragment log", () => {
     const rows = [
       {
         at: at(24),
-        by: "user" as const,
         fragment: "Back again",
+        from: "user" as const,
         ref: "abcdefg",
       },
-      { at: at(21), by: "agent:a" as const, fragment: "First", ref: "abcdefg" },
+      {
+        at: at(21),
+        fragment: "First",
+        from: "agent:a" as const,
+        ref: "abcdefg",
+      },
       { at: at(23), fragment: null, ref: "abcdefg" },
       { at: at(22), fragment: "Second", ref: "abcdefg" },
       { at: at(21), fragment: "Gone", ref: "hjkmnpq" },
@@ -147,8 +184,8 @@ describe("Fragment log", () => {
     expect([...corpus.values()]).toStrictEqual([
       {
         at: "2026-09-24T08:00:00.000Z",
-        by: "user",
         fragment: "Back again",
+        from: "user",
         ref: "abcdefg",
       },
     ]);

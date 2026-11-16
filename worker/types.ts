@@ -1,4 +1,4 @@
-import type { Author } from "@core";
+import type { Source } from "@core";
 
 import type { Scope } from "./lib/better-auth";
 import type { MemoryService } from "./services/memory";
@@ -6,7 +6,7 @@ import type { MemoryService } from "./services/memory";
 export interface AppEnv {
   Bindings: Env;
   Variables: {
-    author: Author;
+    source: Source;
     memory: MemoryService;
     scopes: ReadonlySet<Scope>;
     userId: string;

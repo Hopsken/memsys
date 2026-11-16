@@ -1,4 +1,4 @@
-import type { Author, Fragment, FragmentPage, ListedFragment } from "@core";
+import type { Fragment, FragmentPage, ListedFragment, Source } from "@core";
 import { env } from "cloudflare:workers";
 import type { JSONValue } from "hono/utils/types";
 import { afterAll, beforeAll, vi } from "vitest";
@@ -144,10 +144,10 @@ export const getList = (user: User | null, query = "") =>
 export const withVersions = (
   item: Fragment,
   versions = 1,
-  by: Author | null = "user"
+  from: Source | null = "user"
 ): ListedFragment => ({
   ...item,
-  by,
+  from,
   versions,
 });
 

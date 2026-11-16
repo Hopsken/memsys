@@ -31,19 +31,29 @@ const at = "2026-09-01T00:00:00.000Z";
 const corpus = [
   {
     at,
-    by: null,
     fragment: "Deploys go through pnpm deploy. #memsys",
+    from: null,
     ref: "m1",
   },
-  { at, by: null, fragment: "Tokens rotate monthly. #auth-tokens", ref: "m2" },
   {
     at,
-    by: null,
+    fragment: "Tokens rotate monthly. #auth-tokens",
+    from: null,
+    ref: "m2",
+  },
+  {
+    at,
     fragment: "Recall favors recall over noise. #memsys",
+    from: null,
     ref: "r1",
   },
-  { at, by: null, fragment: "Sessions expire after a week. #auth", ref: "r2" },
-  { at, by: null, fragment: "Unrelated note. #garden", ref: "x1" },
+  {
+    at,
+    fragment: "Sessions expire after a week. #auth",
+    from: null,
+    ref: "r2",
+  },
+  { at, fragment: "Unrelated note. #garden", from: null, ref: "x1" },
 ];
 
 const refs = (items: readonly RecallItem[]) =>
@@ -65,9 +75,15 @@ describe("Recall grouping", () => {
 
   it("puts a memory related to several matches under the first", () => {
     const items: RecallItem[] = [
-      { at, by: null, fragment: "First. #memsys", ref: "a" },
-      { at, by: null, fragment: "Second. #memsys", ref: "b" },
-      { at, by: null, fragment: "Related. #memsys", ref: "c", via: ["memsys"] },
+      { at, fragment: "First. #memsys", from: null, ref: "a" },
+      { at, fragment: "Second. #memsys", from: null, ref: "b" },
+      {
+        at,
+        fragment: "Related. #memsys",
+        from: null,
+        ref: "c",
+        via: ["memsys"],
+      },
     ];
     expect(refs(items)).toStrictEqual([
       ["a", ["c"]],

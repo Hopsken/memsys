@@ -53,13 +53,14 @@ const assign = (user: User, connection: string, personaId: string | null) =>
 const remember = async (user: User, fragment: string) =>
   content<Fragment>(await call(user, "remember", { fragment }));
 
-const authors = async (user: User, query = "") => {
+const changes = async (user: User, query = "") => {
   const response = await api(user, `/api/activity${query}`);
   const { entries } = await response.json<ActivityPage>();
-  return entries.map(({ by, fragment }) => ({ by, fragment }));
+  return entries.map(({ fragment, from }) => ({ fragment, from }));
 };
 
-const by = (author: string) => `?${new URLSearchParams({ by: author })}`;
+const fromSource = (source: string) =>
+  `?${new URLSearchParams({ from: source })}`;
 
 const listed = async (user: User) => {
   const response = await api(user, "/api/personas");
@@ -111,15 +112,15 @@ describe("Personas", () => {
       status: 200,
     });
     await remember(laptop.user, "After removing");
-    await expect(authors(user)).resolves.toStrictEqual([
-      { by: "agent:Laptop script", fragment: "After removing" },
-      { by: "agent:test", fragment: "From the test key" },
-      { by: `persona:${work.id}`, fragment: "After assigning" },
-      { by: "agent:Laptop script", fragment: "Before assigning" },
+    await expect(changes(user)).resolves.toStrictEqual([
+      { fragment: "After removing", from: "agent:Laptop script" },
+      { fragment: "From the test key", from: "agent:test" },
+      { fragment: "After assigning", from: `persona:${work.id}` },
+      { fragment: "Before assigning", from: "agent:Laptop script" },
     ]);
   });
 
-  it("filters activity to one author", async () => {
+  it("filters activity to one source", async () => {
     const user = await signIn();
     const laptop = await keyOf(user, "Laptop script");
     const work = await createPersona(user, "Work assistant");
@@ -129,20 +130,20 @@ describe("Personas", () => {
     await post("/api/remember", { fragment: "Three" }, user);
     await remember(laptop.user, "Four");
     await expect(
-      authors(user, by(`persona:${work.id}`))
+      changes(user, fromSource(`persona:${work.id}`))
     ).resolves.toStrictEqual([
-      { by: `persona:${work.id}`, fragment: "Four" },
-      { by: `persona:${work.id}`, fragment: "One" },
+      { fragment: "Four", from: `persona:${work.id}` },
+      { fragment: "One", from: `persona:${work.id}` },
     ]);
-    await expect(authors(user, by("user"))).resolves.toStrictEqual([
-      { by: "user", fragment: "Three" },
+    await expect(changes(user, fromSource("user"))).resolves.toStrictEqual([
+      { fragment: "Three", from: "user" },
     ]);
-    await expect(authors(user, by("agent:test"))).resolves.toStrictEqual([
-      { by: "agent:test", fragment: "Two" },
-    ]);
+    await expect(
+      changes(user, fromSource("agent:test"))
+    ).resolves.toStrictEqual([{ fragment: "Two", from: "agent:test" }]);
   });
 
-  it("lists memories by the author of their current version", async () => {
+  it("lists memories from the source of their current version", async () => {
     const user = await signIn();
     const laptop = await keyOf(user, "Laptop script");
     const work = await createPersona(user, "Work assistant");
@@ -158,23 +159,25 @@ describe("Personas", () => {
       const response = await api(user, `/api/fragments${query}`);
       const page = await response.json<FragmentPage>();
       return page.fragments.map((item) => ({
-        by: item.by,
         fragment: item.fragment,
+        from: item.from,
       }));
     };
     await expect(fragments()).resolves.toStrictEqual([
-      { by: `persona:${work.id}`, fragment: "Tests run in workerd" },
-      { by: "user", fragment: "Deploys use pnpm" },
+      { fragment: "Tests run in workerd", from: `persona:${work.id}` },
+      { fragment: "Deploys use pnpm", from: "user" },
     ]);
-    await expect(fragments(by(`persona:${work.id}`))).resolves.toStrictEqual([
-      { by: `persona:${work.id}`, fragment: "Tests run in workerd" },
+    await expect(
+      fragments(fromSource(`persona:${work.id}`))
+    ).resolves.toStrictEqual([
+      { fragment: "Tests run in workerd", from: `persona:${work.id}` },
     ]);
-    await expect(fragments(by("user"))).resolves.toStrictEqual([
-      { by: "user", fragment: "Deploys use pnpm" },
+    await expect(fragments(fromSource("user"))).resolves.toStrictEqual([
+      { fragment: "Deploys use pnpm", from: "user" },
     ]);
   });
 
-  it("tells agents who wrote each memory, by name, and only when the user vouches for it", async () => {
+  it("names the source of each memory, and only when the user vouches for it", async () => {
     const user = await signIn();
     const laptop = await keyOf(user, "Laptop script");
     const retired = await keyOf(user, "Retired script");
@@ -187,15 +190,15 @@ describe("Personas", () => {
     const unvouched = await remember(user, "Kyoto flights leave from PVG");
     await remember(retired.user, "Kyoto budget is 3000 USD");
     const revised = await remember(user, "Kyoto hotel near Gion");
-    const revision = content<{ by?: string }>(
+    const revision = content<{ from?: string }>(
       await call(laptop.user, "revise", {
         fragment: "Kyoto hotel near Kyoto Station",
         ref: revised.ref,
       })
     );
     expect({
-      remembered: "by" in unvouched,
-      revised: revision.by,
+      remembered: "from" in unvouched,
+      revised: revision.from,
     }).toStrictEqual({ remembered: false, revised: "Wrok assistant" });
     await api(user, `/api/personas/${work.id}`, "PATCH", {
       name: "Work assistant",
@@ -203,12 +206,12 @@ describe("Personas", () => {
     await api(user, `/api/personas/${old.id}/archived`, "PUT", {
       archived: true,
     });
-    const found = content<{ fragments: { by?: string; fragment: string }[] }>(
-      await call(user, "recall", { cues: "Kyoto" })
-    );
+    const found = content<{
+      fragments: { fragment: string; from?: string }[];
+    }>(await call(user, "recall", { cues: "Kyoto" }));
     expect(
       Object.fromEntries(
-        found.fragments.map((item) => [item.fragment, item.by ?? null])
+        found.fragments.map((item) => [item.fragment, item.from ?? null])
       )
     ).toStrictEqual({
       "Kyoto budget is 3000 USD": "Old bot",
@@ -229,8 +232,8 @@ describe("Personas", () => {
       name: "Work assistant",
     });
     expect(renamed.status).toBe(200);
-    await expect(authors(user)).resolves.toStrictEqual([
-      { by: `persona:${persona.id}`, fragment: "Written before the rename" },
+    await expect(changes(user)).resolves.toStrictEqual([
+      { fragment: "Written before the rename", from: `persona:${persona.id}` },
     ]);
     await expect(listed(user)).resolves.toMatchObject([
       { connections: 1, id: persona.id, name: "Work assistant" },
@@ -247,7 +250,7 @@ describe("Personas", () => {
       .run();
     const result = await call(laptop.user, "remember", { fragment: "Lost" });
     expect(result.isError).toBeTruthy();
-    await expect(authors(user)).resolves.toStrictEqual([]);
+    await expect(changes(user)).resolves.toStrictEqual([]);
   });
 
   it("removes every connection from a persona when it is archived", async () => {
@@ -265,8 +268,8 @@ describe("Personas", () => {
     );
     expect(archived.status).toBe(200);
     await remember(laptop.user, "After archiving");
-    await expect(authors(user)).resolves.toStrictEqual([
-      { by: "agent:Laptop script", fragment: "After archiving" },
+    await expect(changes(user)).resolves.toStrictEqual([
+      { fragment: "After archiving", from: "agent:Laptop script" },
     ]);
     await expect(
       assign(user, laptop.connection, old.id)
@@ -291,8 +294,8 @@ describe("Personas", () => {
       assign(other, laptop.connection, persona.id)
     ).resolves.toMatchObject({ status: 404 });
     await remember(laptop.user, "Still the owner's");
-    await expect(authors(owner)).resolves.toStrictEqual([
-      { by: "agent:Laptop script", fragment: "Still the owner's" },
+    await expect(changes(owner)).resolves.toStrictEqual([
+      { fragment: "Still the owner's", from: "agent:Laptop script" },
     ]);
   });
 
@@ -325,14 +328,14 @@ describe("Personas", () => {
     await remember(newKey.user, "Written on the new instance");
     const activity = await api(
       target,
-      `/api/activity${by(`persona:${work.id}`)}`
+      `/api/activity${fromSource(`persona:${work.id}`)}`
     );
     const { entries } = await activity.json<ActivityPage>();
     expect(
-      entries.map(({ by: author, fragment }) => ({ author, fragment }))
+      entries.map(({ fragment, from }) => ({ fragment, from }))
     ).toStrictEqual([
-      { author: `persona:${work.id}`, fragment: "Written on the new instance" },
-      { author: `persona:${work.id}`, fragment: "Deploys go through wrangler" },
+      { fragment: "Written on the new instance", from: `persona:${work.id}` },
+      { fragment: "Deploys go through wrangler", from: `persona:${work.id}` },
     ]);
 
     const placeholders = new Map([

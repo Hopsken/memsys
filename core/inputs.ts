@@ -3,13 +3,13 @@ import { z } from "zod";
 import { extractAnchors, withinTag } from "@lib/anchor";
 
 import {
-  authorSchema,
   fragmentTextSchema,
   personaIdSchema,
   personaNameSchema,
   refSchema,
+  sourceSchema,
 } from "./model";
-import type { Author, Fragment } from "./model";
+import type { Fragment, Source } from "./model";
 
 export const PAGE_SIZE = 50;
 
@@ -27,14 +27,14 @@ const tagSchema = z
 
 export const listInputSchema = z
   .object({
-    by: authorSchema.optional(),
     cursor: cursorSchema.optional(),
+    from: sourceSchema.optional(),
     tag: z.array(tagSchema).max(10).optional(),
   })
   .strict();
 
 export const activityInputSchema = z
-  .object({ by: authorSchema.optional(), cursor: cursorSchema.optional() })
+  .object({ cursor: cursorSchema.optional(), from: sourceSchema.optional() })
   .strict();
 
 export const inputSchemas = {
@@ -57,13 +57,13 @@ export const restoreInputSchema = z
   .object({ at: z.iso.datetime({ precision: 3 }) })
   .strict();
 
-export const listFragments = <T extends Fragment & { by?: Author | null }>(
+export const listFragments = <T extends Fragment & { from?: Source | null }>(
   corpus: Iterable<T>,
   input: z.input<typeof listInputSchema>
 ) => {
-  const { by, cursor: after, tag: tags = [] } = listInputSchema.parse(input);
+  const { cursor: after, from, tag: tags = [] } = listInputSchema.parse(input);
   const ordered = [...corpus]
-    .filter((item) => !by || item.by === by)
+    .filter((item) => !from || item.from === from)
     .filter(
       (item) =>
         !after ||

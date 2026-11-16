@@ -1,4 +1,4 @@
-import type { Author, Fragment, ImportFormat, Memory, Metadata } from "@core";
+import type { Fragment, ImportFormat, Memory, Metadata, Source } from "@core";
 
 import { fragmentLength } from "@lib/fragment";
 import { err, ok } from "@lib/result";
@@ -49,20 +49,20 @@ export class MemoryService {
     this.#settings = new SettingsService(memory);
   }
 
-  async remember(input: { fragment: string }, by: Author) {
+  async remember(input: { fragment: string }, source: Source) {
     return await this.#write(input.fragment, () =>
-      this.#memory.remember(input, by)
+      this.#memory.remember(input, source)
     );
   }
 
-  async revise(input: { fragment: string; ref: string }, by: Author) {
+  async revise(input: { fragment: string; ref: string }, source: Source) {
     return await this.#write(input.fragment, () =>
-      this.#memory.revise(input, by)
+      this.#memory.revise(input, source)
     );
   }
 
-  async forget(input: { ref: string }, by: Author) {
-    return await this.#memory.forget(input, by);
+  async forget(input: { ref: string }, source: Source) {
+    return await this.#memory.forget(input, source);
   }
 
   async restore(input: { at: number; ref: string }) {
@@ -93,8 +93,8 @@ export class MemoryService {
     return await this.#memory.activity(input);
   }
 
-  async authors() {
-    return await this.#memory.authors();
+  async sources() {
+    return await this.#memory.sources();
   }
 
   async personas() {

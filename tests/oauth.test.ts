@@ -201,7 +201,7 @@ describe("OAuth for MCP", () => {
       headers: { Cookie: user.cookie },
     });
     await expect(activity.json()).resolves.toMatchObject({
-      entries: [{ by: "agent:Test agent", op: "remember" }],
+      entries: [{ from: "agent:Test agent", op: "remember" }],
     });
   });
 
@@ -321,8 +321,8 @@ describe("OAuth for MCP", () => {
     const activity = await request("/api/activity", { headers: session });
     await expect(activity.json()).resolves.toMatchObject({
       entries: [
-        { by: "agent:Test agent", fragment: "After reconnecting" },
-        { by: `persona:${personaId}`, fragment: "As the persona" },
+        { fragment: "After reconnecting", from: "agent:Test agent" },
+        { fragment: "As the persona", from: `persona:${personaId}` },
       ],
     });
   });

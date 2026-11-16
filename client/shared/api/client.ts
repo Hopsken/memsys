@@ -19,7 +19,7 @@ export type History = InferResponseType<
 >;
 export type Version = History["versions"][number];
 export type Op = Version["op"];
-export type Author = NonNullable<Version["by"]>;
+export type Source = NonNullable<Version["from"]>;
 export type Restored = InferResponseType<
   (typeof api.fragments)[":ref"]["restore"]["$post"],
   200
@@ -50,8 +50,8 @@ export type Assignment = InferResponseType<
   typeof api.personas.assignments.$get,
   200
 >[number];
-export type AuthorSummary = InferResponseType<
-  typeof api.authors.$get,
+export type SourceSummary = InferResponseType<
+  typeof api.sources.$get,
   200
 >[number];
 

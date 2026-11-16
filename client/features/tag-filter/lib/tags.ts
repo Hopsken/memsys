@@ -7,13 +7,13 @@ export const useTags = () => {
 
 export const useFilteredList = () => {
   const { pathname, search } = useLocation();
-  const by = pathname.startsWith("/memories")
-    ? new URLSearchParams(search).get("by")
+  const from = pathname.startsWith("/memories")
+    ? new URLSearchParams(search).get("from")
     : null;
   return (tags: string[]) => {
     const params = new URLSearchParams(tags.map((tag) => ["tag", tag]));
-    if (by !== null) {
-      params.set("by", by);
+    if (from !== null) {
+      params.set("from", from);
     }
     return {
       pathname: "/memories",

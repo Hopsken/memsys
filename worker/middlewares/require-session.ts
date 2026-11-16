@@ -10,7 +10,7 @@ export const requireSession = createMiddleware<AppEnv>(async (c, next) => {
   if (!result) {
     return c.json({ error: "Authentication required" }, 401);
   }
-  c.set("author", "user");
+  c.set("source", "user");
   c.set("userId", result.user.id);
   return next();
 });

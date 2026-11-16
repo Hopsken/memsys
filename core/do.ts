@@ -33,13 +33,12 @@ import type { Row } from "./log";
 import { mergePatch } from "./merge-patch";
 import migrations from "./migrations/migrations.js";
 import { PERSONA_ID_LENGTH, REF_ALPHABET, REF_LENGTH } from "./model";
-import type { Author, Fragment, Op, Persona, Version } from "./model";
+import type { Fragment, Op, Persona, Source, Version } from "./model";
 import { FragmentIndex } from "./search";
 import type {
   ActivityPage,
   AnchorCount,
   Association,
-  AuthorSummary,
   Diagnostics,
   ForgottenList,
   FragmentPage,
@@ -52,6 +51,7 @@ import type {
   NotFound,
   Restored,
   SearchHit,
+  SourceSummary,
 } from "./types";
 
 const newRef = customAlphabet(REF_ALPHABET, REF_LENGTH);
@@ -116,10 +116,10 @@ const toPersona = (row: typeof personas.$inferSelect): Persona => ({
   name: row.name,
 });
 
-const toVersion = ({ at, by, fragment, op, ref }: Row): Version => ({
+const toVersion = ({ at, fragment, from, op, ref }: Row): Version => ({
   at: new Date(at).toISOString(),
-  by,
   fragment,
+  from,
   op,
   ref,
 });
@@ -212,10 +212,10 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     }
   }
 
-  private isKnownAuthor(by: Author) {
+  private isKnownSource(source: Source) {
     return (
-      !by.startsWith("persona:") ||
-      this.personaById.has(by.slice("persona:".length))
+      !source.startsWith("persona:") ||
+      this.personaById.has(source.slice("persona:".length))
     );
   }
 
@@ -229,36 +229,49 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     return Math.max(Date.now(), (this.latestAtByRef.get(ref) ?? 0) + 1);
   }
 
-  private append(ref: string, fragment: string | null, op: Op, by: Author) {
+  private append(ref: string, fragment: string | null, op: Op, source: Source) {
     const at = this.nextAt(ref);
-    this.db.insert(records).values({ at, by, fragment, op, ref }).run();
+    this.db
+      .insert(records)
+      .values({ at, fragment, from: source, op, ref })
+      .run();
     this.latestAtByRef.set(ref, at);
     this.versions.set(ref, (this.versions.get(ref) ?? 0) + 1);
     return at;
   }
 
-  private write(ref: string, fragment: string, op: Op, by: Author): Fragment {
-    const at = this.append(ref, fragment, op, by);
-    const item = { at: new Date(at).toISOString(), by, fragment, ref };
+  private write(
+    ref: string,
+    fragment: string,
+    op: Op,
+    source: Source
+  ): Fragment {
+    const at = this.append(ref, fragment, op, source);
+    const item = {
+      at: new Date(at).toISOString(),
+      fragment,
+      from: source,
+      ref,
+    };
     this.index.set(item);
     return item;
   }
 
-  private remove(ref: string, by: Author) {
-    const at = this.append(ref, null, "forget", by);
+  private remove(ref: string, source: Source) {
+    const at = this.append(ref, null, "forget", source);
     this.index.delete(ref);
     return at;
   }
 
   remember(
     input: { fragment: string },
-    by: Author
+    source: Source
   ): Result<Fragment, InvalidInput | NotFound> {
     const parsed = inputSchemas.remember.safeParse(input);
     if (!parsed.success) {
       return err(invalid(parsed.error));
     }
-    if (!this.isKnownAuthor(by)) {
+    if (!this.isKnownSource(source)) {
       return personaNotFound();
     }
     return ok(
@@ -266,14 +279,14 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
         freshRef(this.latestAtByRef),
         parsed.data.fragment,
         "remember",
-        by
+        source
       )
     );
   }
 
   revise(
     input: { fragment: string; ref: string },
-    by: Author
+    source: Source
   ): Result<Fragment, InvalidInput | NotFound> {
     const parsed = inputSchemas.revise.safeParse(input);
     if (!parsed.success) {
@@ -283,24 +296,24 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     if (!this.index.has(ref)) {
       return notFound();
     }
-    if (!this.isKnownAuthor(by)) {
+    if (!this.isKnownSource(source)) {
       return personaNotFound();
     }
-    return ok(this.write(ref, fragment, "revise", by));
+    return ok(this.write(ref, fragment, "revise", source));
   }
 
   forget(
     input: { ref: string },
-    by: Author
+    source: Source
   ): Result<{ ref: string }, NotFound> {
     const { ref } = input;
     if (!this.index.has(ref)) {
       return notFound();
     }
-    if (!this.isKnownAuthor(by)) {
+    if (!this.isKnownSource(source)) {
       return personaNotFound();
     }
-    this.remove(ref, by);
+    this.remove(ref, source);
     return ok({ ref });
   }
 
@@ -326,8 +339,8 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
         : Date.parse(this.write(ref, row.fragment, op, "user").at);
     return ok({
       at: new Date(restored).toISOString(),
-      by: "user",
       fragment: row.fragment,
+      from: "user",
       op: row.fragment === null ? "forget" : op,
       ref,
       versions: this.versions.get(ref) ?? 1,
@@ -377,7 +390,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
         texts.add(fragment);
         const ref = freshRef(taken);
         taken.add(ref);
-        rows.push({ at, by: "user", fragment, op: "remember", ref });
+        rows.push({ at, fragment, from: "user", op: "remember", ref });
         imported += 1;
       }
     } else {
@@ -428,10 +441,10 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
       this.personas(),
       history
         ? this.db.select().from(records).all()
-        : [...this.index.values()].map(({ at, by, fragment, ref }) => ({
+        : [...this.index.values()].map(({ at, fragment, from, ref }) => ({
             at: Date.parse(at),
-            by,
             fragment,
+            from,
             ref,
           }))
     );
@@ -445,8 +458,8 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   }
 
   list(input: {
-    by?: Author | undefined;
     cursor?: string | undefined;
+    from?: Source | undefined;
     tag?: string[] | undefined;
   }): FragmentPage {
     return listFragments(
@@ -472,16 +485,16 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   }
 
   activity(input: {
-    by?: Author | undefined;
     cursor?: string | undefined;
+    from?: Source | undefined;
   }): ActivityPage {
-    const { by, cursor: after } = activityInputSchema.parse(input);
+    const { cursor: after, from } = activityInputSchema.parse(input);
     const rows = this.db
       .select()
       .from(records)
       .where(
         and(
-          by && eq(records.by, by),
+          from && eq(records.from, from),
           after &&
             or(
               lt(records.at, Date.parse(after[0])),
@@ -516,18 +529,18 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     };
   }
 
-  authors(): AuthorSummary[] {
+  sources(): SourceSummary[] {
     return this.db
-      .select({ by: records.by, lastAt: max(records.at) })
+      .select({ from: records.from, lastAt: max(records.at) })
       .from(records)
-      .where(isNotNull(records.by))
-      .groupBy(records.by)
+      .where(isNotNull(records.from))
+      .groupBy(records.from)
       .orderBy(desc(max(records.at)))
       .all()
-      .flatMap(({ by, lastAt }) =>
-        by === null || lastAt === null
+      .flatMap(({ from, lastAt }) =>
+        from === null || lastAt === null
           ? []
-          : [{ by, lastAt: new Date(lastAt).toISOString() }]
+          : [{ from, lastAt: new Date(lastAt).toISOString() }]
       );
   }
 
@@ -547,9 +560,9 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
       if (last?.fragment) {
         fragments.push({
           at: new Date(last.at).toISOString(),
-          by: last.by,
           forgottenAt: new Date(forgottenAt).toISOString(),
           fragment: last.fragment,
+          from: last.from,
           ref,
         });
       }

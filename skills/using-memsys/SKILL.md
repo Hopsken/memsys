@@ -64,7 +64,7 @@ A memory that points at a source tells you where to look. Reread the source befo
 
 ## Keeping memory right
 
-`by` is who last wrote the text down. `user` is the person. Any other name is one of their agents. `by` says who wrote it down, not who said the fact. Read the fragment for that. A missing `by` is not the user. Do not invent a writer.
+`from` is who last wrote the text down. `user` is the person. Any other name is one of their agents. `from` says who wrote it down, not who said the fact. Read the fragment for that. A missing `from` is not the user. Do not invent a writer.
 
 When a recalled memory is wrong or outdated, `revise` it by `ref`, whoever wrote it. Keep what still holds, and say what changed. Do not `remember` a contradicting fragment beside it. Recall would return both as true.
 

@@ -41,7 +41,7 @@ const importFile = (
   );
 
 const log = (items: Omit<LogRecord, "v">[]) =>
-  items.map((item) => `${JSON.stringify({ v: 1, ...item })}\n`).join("");
+  items.map((item) => `${JSON.stringify({ v: 2, ...item })}\n`).join("");
 
 const remember = async (user: User, fragment: string) => {
   const response = await post("/api/remember", { fragment }, user);
@@ -105,7 +105,7 @@ describe("Fragment export and import", () => {
     );
     const history = await records(source, "?history=true");
     expect(
-      history.map(({ by, fragment, op }) => [fragment, op, by])
+      history.map(({ fragment, from, op }) => [fragment, op, from])
     ).toStrictEqual([
       ["Before", "remember", "user"],
       ["After", "revise", "user"],
@@ -203,7 +203,7 @@ describe("Fragment export and import", () => {
     ]);
     const cases = [
       `${valid}not json\n`,
-      `${valid}{"v":2,"ref":"hjkmnpq","fragment":"Later","at":"2020-01-01T00:00:00.000Z"}\n`,
+      `${valid}{"v":1,"ref":"hjkmnpq","fragment":"Later","at":"2020-01-01T00:00:00.000Z"}\n`,
       `${valid}${valid}`,
       `${valid}\n`,
     ];
@@ -218,9 +218,34 @@ describe("Fragment export and import", () => {
       issues: { path: string[] }[];
     }>();
     expect(body?.issues[0]?.path).toStrictEqual(["2", "v"]);
-    expect(body?.error).toMatch(/^Line 2, v: /u);
+    expect(body?.error).toMatch(/^Line 2, v: .*version 2/u);
     const json = await post("/api/import", { fragments: [] }, user);
     expect(json.status).toBe(415);
+    await expect(list(user)).resolves.toStrictEqual({
+      fragments: [],
+      nextCursor: null,
+    });
+  });
+
+  it("rejects a file from v1, which named the source `by`", async () => {
+    const user = await signIn();
+    const response = await importFile(
+      user,
+      '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2020-01-01T00:00:00.000Z","by":"user"}\n'
+    );
+    expect(response.status).toBe(422);
+    const body = await response.json<{
+      error: string;
+      issues: { message: string; path: string[] }[];
+    }>();
+    expect(body.issues).toStrictEqual([
+      {
+        message:
+          "`by` is now `from`; export the file again from this version of memsys",
+        path: ["1", "by"],
+      },
+    ]);
+    expect(body.error).toMatch(/^Line 1, by: `by` is now `from`/u);
     await expect(list(user)).resolves.toStrictEqual({
       fragments: [],
       nextCursor: null,
