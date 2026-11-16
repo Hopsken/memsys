@@ -22,7 +22,7 @@ const recallTail = `Answer the caller's request from the memory above. When memo
 const noteTail = `Decide whether the caller's context holds anything that belongs in memory, then use the tools to add, revise, or forget memories. Keep each memory to one short idea, in words a later question would use. When nothing belongs, make no tool call. Finish with one short sentence about what changed, or that nothing did.`;
 
 const escapeMarkup = (text: string) =>
-  text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+  text.replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
 const from = (source: Fragment["source"]) =>
   `from:${escapeMarkup((source ?? "unknown").replaceAll(/\s+/gu, " "))}`;
