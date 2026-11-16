@@ -66,12 +66,12 @@ The prompt layout below targets `DeepSeek-V4.1-Flash-1017`, which combines causa
 ### 5. Core indexes, owner settings, and web UI
 
 - **Core.** The core keeps the append-only fragment log, personas, metadata, version history, restore, purge, import, and export. It drops lexical and anchor-association search indexes, and provides snapshot-plus-delta reads for prompt assembly.
-- **Settings.** Custom owner instructions steer the subagent directly instead of relying on outside callers to obey MCP instructions. Relevance-filter strictness and owner fragment-length settings are removed because the subagent now owns retrieval and formatting.
+- **Settings.** Custom owner instructions steer the subagent directly instead of relying on outside callers to obey MCP instructions, and owner fragment-length limits continue to bound the fragments that the subagent writes. Relevance-filter strictness is removed because the subagent now owns retrieval.
 - **Web UI.** Fragment browsing, tag and author filtering, Activity auditing, version restore, and import or export stay unchanged, while the recall preview queries the subagent directly.
 
 ## Migration
 
 - MCP replaces the five fragment and tag tools with `recall` and `note`, and updates server instructions and companion skills to match.
 - The subagent replaces the lexical-and-anchor recall pipeline and the external relevance filter.
-- Settings drop relevance-filter strictness and owner fragment-length limits while preserving custom instructions.
+- Settings drop relevance-filter strictness while preserving custom instructions and owner fragment-length limits.
 - Stored fragment and persona records do not change, so existing memory spaces and NDJSON exports stay compatible without a data migration.
