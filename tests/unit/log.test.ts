@@ -35,10 +35,10 @@ describe("Fragment log", () => {
     expect(text).toMatch(/\n$/u);
     expect(text.split("\n")).toHaveLength(4);
     expect(text.split("\n")[0]).toBe(
-      `{"v":2,"ref":"hjkmnpq","fragment":"${"é".repeat(FRAGMENT_MAX)}","at":"2026-09-21T08:00:00.000Z","op":"remember"}`
+      `{"v":1,"ref":"hjkmnpq","fragment":"${"é".repeat(FRAGMENT_MAX)}","at":"2026-09-21T08:00:00.000Z","op":"remember"}`
     );
     expect(text.split("\n")[2]).toBe(
-      '{"v":2,"ref":"hjkmnpq","fragment":null,"at":"2026-09-23T08:00:00.000Z","op":"forget","source":"user"}'
+      '{"v":1,"ref":"hjkmnpq","fragment":null,"at":"2026-09-23T08:00:00.000Z","op":"forget","source":"user"}'
     );
     expect(parseLog(text)).toStrictEqual({
       personas: [],
@@ -49,7 +49,7 @@ describe("Fragment log", () => {
   it("ignores unknown keys and a missing final line break", () => {
     expect(
       parseLog(
-        '{"v":2,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","note":"x"}'
+        '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","note":"x"}'
       )
     ).toStrictEqual({
       personas: [],
@@ -67,7 +67,7 @@ describe("Fragment log", () => {
 
   it("gives records without an op the one their place in the log implies", () => {
     const line = (day: number, fragment: string | null, ref = "abcdefg") =>
-      `${JSON.stringify({ at: new Date(at(day)).toISOString(), fragment, ref, v: 2 })}\n`;
+      `${JSON.stringify({ at: new Date(at(day)).toISOString(), fragment, ref, v: 1 })}\n`;
     const parsed = parseLog(
       [
         line(24, "Back"),
@@ -90,36 +90,32 @@ describe("Fragment log", () => {
 
   it.each([
     [
-      '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z"}',
+      '{"v":2,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z"}',
       "v",
     ],
     [
-      '{"v":2,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00Z"}',
+      '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00Z"}',
       "at",
     ],
-    ['{"v":2,"ref":"abcdefg","fragment":"Hi"}', "at"],
+    ['{"v":1,"ref":"abcdefg","fragment":"Hi"}', "at"],
     [
-      '{"v":2,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","op":"forget"}',
+      '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","op":"forget"}',
       "op",
     ],
     [
-      '{"v":2,"ref":"abcdefg","fragment":null,"at":"2026-09-21T08:00:00.000Z","op":"revise"}',
+      '{"v":1,"ref":"abcdefg","fragment":null,"at":"2026-09-21T08:00:00.000Z","op":"revise"}',
       "op",
     ],
     [
-      '{"v":2,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","source":"You"}',
+      '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","source":"You"}',
       "source",
     ],
     [
-      '{"v":2,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","by":"user"}',
-      "by",
-    ],
-    [
-      '{"v":2,"ref":"0000000","fragment":"Hi","at":"2026-09-21T08:00:00.000Z"}',
+      '{"v":1,"ref":"0000000","fragment":"Hi","at":"2026-09-21T08:00:00.000Z"}',
       "ref",
     ],
     [
-      '{"v":2,"ref":"abcdefg","fragment":" ","at":"2026-09-21T08:00:00.000Z"}',
+      '{"v":1,"ref":"abcdefg","fragment":" ","at":"2026-09-21T08:00:00.000Z"}',
       "fragment",
     ],
   ])("rejects %s", (line, field) => {
@@ -128,32 +124,10 @@ describe("Fragment log", () => {
     });
   });
 
-  it("tells the owner of an older file how to bring it forward", () => {
-    const v1 = parseLog(
-      '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z"}\n'
-    );
-    expect(v1).toMatchObject({
-      issues: [
-        { message: expect.stringMatching(/version 2/u), path: ["1", "v"] },
-      ],
-    });
-    const withBy = parseLog(
-      '{"v":2,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","by":"user"}\n'
-    );
-    expect(withBy).toMatchObject({
-      issues: [
-        {
-          message: expect.stringMatching(/`by` is now `source`/u),
-          path: ["1", "by"],
-        },
-      ],
-    });
-  });
-
   it("rejects torn lines, blank lines, and two records of a ref at one time", () => {
     const line =
-      '{"v":2,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z"}';
-    expect(parseLog(`${line}\n{"v":2,"ref"`)).toMatchObject({
+      '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z"}';
+    expect(parseLog(`${line}\n{"v":1,"ref"`)).toMatchObject({
       issues: [{ path: ["2"] }],
     });
     expect(parseLog(`${line}\n\n${line}\n`)).toMatchObject({

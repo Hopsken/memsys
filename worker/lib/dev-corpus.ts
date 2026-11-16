@@ -92,7 +92,7 @@ export const corpus = memories.map(
     op: "remember",
     ref,
     source,
-    v: 2,
+    v: 1,
   })
 );
 

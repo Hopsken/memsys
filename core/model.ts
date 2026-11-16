@@ -77,10 +77,7 @@ export const logRecordSchema = z
     op: opSchema.optional(),
     ref: refSchema,
     source: sourceSchema.optional(),
-    v: z.literal(2, {
-      error:
-        "Log records are version 2; export the file again from this version of memsys",
-    }),
+    v: z.literal(1),
   })
   .refine(
     (record) =>

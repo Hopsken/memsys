@@ -75,4 +75,4 @@ The prompt layout below targets `DeepSeek-V4.1-Flash-1017`, which combines causa
 - The subagent replaces the lexical-and-anchor recall pipeline and the external relevance filter.
 - Settings drop relevance-filter strictness while preserving custom instructions and owner fragment-length limits.
 - One data migration: the `records.by` column is renamed to `records.source`. It renames the column in place and keeps every row's value, so existing memory spaces need no re-import. The core, the HTTP API, NDJSON, and MCP all call the field `source`.
-- NDJSON records move to `v` 2, which names the field `source` instead of `by`. Import accepts `v` 2 only and rejects `v` 1 with an error that says to export the file again; there is no compatibility layer. Persona records stay at `v` 1.
+- NDJSON records keep `v` 1 and name the field `source` instead of `by`. The format has not shipped, so the rename starts no new version and needs no compatibility layer: a file exported before it would import its records without provenance.

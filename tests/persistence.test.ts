@@ -103,8 +103,8 @@ describe("Memory persistence", () => {
     });
     await expect(memory.exportLog({ history: true })).resolves.toBe(
       [
-        '{"v":2,"ref":"abcdefg","fragment":"Old #memsys","at":"2026-01-01T00:00:00.000Z","op":"remember"}',
-        '{"v":2,"ref":"hjkmnpq","fragment":"Revised","at":"2026-02-01T00:00:00.000Z","op":"remember"}',
+        '{"v":1,"ref":"abcdefg","fragment":"Old #memsys","at":"2026-01-01T00:00:00.000Z","op":"remember"}',
+        '{"v":1,"ref":"hjkmnpq","fragment":"Revised","at":"2026-02-01T00:00:00.000Z","op":"remember"}',
         "",
       ].join("\n")
     );

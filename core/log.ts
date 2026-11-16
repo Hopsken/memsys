@@ -58,8 +58,6 @@ const jsonLineSchema = z.string().transform((line, ctx) => {
 
 const hasPersonaKeySchema = z.looseObject({ persona: z.string() });
 
-const hasByKeySchema = z.looseObject({ by: z.unknown() });
-
 const toPersona = ({
   archivedAt,
   createdAt,
@@ -85,14 +83,6 @@ export const parseLog = (
     }
     const number = String(index + 1);
     const json = jsonLineSchema.safeParse(line);
-    if (json.success && hasByKeySchema.safeParse(json.data).success) {
-      issues.push({
-        message:
-          "`by` is now `source`; export the file again from this version of memsys",
-        path: [number, "by"],
-      });
-      continue;
-    }
     const result = json.success
       ? (hasPersonaKeySchema.safeParse(json.data).success
           ? personaRecordSchema
@@ -198,7 +188,7 @@ export const serializeLog = (
     .map(({ at, fragment: text, op, ref, source }) => {
       // oxlint-disable-next-line sort-keys
       const record: LogRecord = {
-        v: 2,
+        v: 1,
         ref,
         fragment: text,
         at: new Date(at).toISOString(),
