@@ -4,8 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import worker from "../worker/index";
+import { faux } from "./faux-provider";
 import { ORIGIN, post, randomIp, useAuth } from "./helpers";
 import type { User } from "./helpers";
+import { scripted, useFauxModel } from "./subagent";
 
 const RESOURCE = `${ORIGIN}/mcp`;
 const REDIRECT_URI = "http://127.0.0.1:33418/callback";
@@ -134,6 +136,7 @@ const toolNames = async (accessToken: string) => {
 
 describe("OAuth for MCP", () => {
   const signIn = useAuth();
+  useFauxModel();
 
   it("points apps without a token to sign-in", async () => {
     const response = await request("/mcp", {
@@ -171,7 +174,6 @@ describe("OAuth for MCP", () => {
     const clientId = await register();
     const readOnly = await authorize(user, clientId, "memory:read");
     await expect(toolNames(readOnly.access_token)).resolves.toStrictEqual([
-      "list_tags",
       "recall",
     ]);
     const both = await authorize(
@@ -180,15 +182,17 @@ describe("OAuth for MCP", () => {
       "memory:read memory:write"
     );
     await expect(toolNames(both.access_token)).resolves.toStrictEqual([
-      "forget",
-      "list_tags",
+      "note",
       "recall",
-      "remember",
-      "revise",
+    ]);
+    const script = scripted();
+    faux.setResponses([
+      script.tool("remember", { fragment: "Signed in with OAuth #oauth" }),
+      script.text("Stored."),
     ]);
     const remembered = await mcp(both.access_token, "tools/call", {
-      arguments: { fragment: "Signed in with OAuth #oauth" },
-      name: "remember",
+      arguments: { context: "I signed in with OAuth." },
+      name: "note",
     });
     expect(remembered.status).toBe(200);
     const list = await request("/api/fragments", {
@@ -290,9 +294,14 @@ describe("OAuth for MCP", () => {
       .object({ id: z.string() })
       .parse(await created.json());
     const write = async (accessToken: string, fragment: string) => {
+      const script = scripted();
+      faux.setResponses([
+        script.tool("remember", { fragment }),
+        script.text("Stored."),
+      ]);
       const response = await mcp(accessToken, "tools/call", {
-        arguments: { fragment },
-        name: "remember",
+        arguments: { context: fragment },
+        name: "note",
       });
       expect(response.status).toBe(200);
     };
@@ -437,9 +446,7 @@ describe("OAuth for MCP", () => {
         "memory:write",
         "offline_access",
       ]);
-      await expect(toolNames(tokens.access_token)).resolves.toContain(
-        "remember"
-      );
+      await expect(toolNames(tokens.access_token)).resolves.toContain("note");
       expect(redirects.length).toBeGreaterThan(0);
       expect(new Set(redirects)).toStrictEqual(new Set(["manual"]));
     } finally {

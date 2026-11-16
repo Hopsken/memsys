@@ -1,11 +1,13 @@
-import type { ActivityPage, Fragment, FragmentPage, Persona } from "@core";
+import type { ActivityPage, FragmentPage, Persona } from "@core";
 import { env } from "cloudflare:workers";
 import type { JSONValue } from "hono/utils/types";
 import { describe, expect, it } from "vitest";
 
 import worker from "../worker/index";
-import { call, content, ORIGIN, post, randomIp, useAuth } from "./helpers";
+import { faux } from "./faux-provider";
+import { call, ORIGIN, list, post, randomIp, text, useAuth } from "./helpers";
 import type { User } from "./helpers";
+import { scripted, useFauxModel } from "./subagent";
 
 type Listed = Persona & { connections: number; lastChangeAt: string | null };
 
@@ -50,8 +52,40 @@ const keyOf = async (user: User, name: string) => {
 const assign = (user: User, connection: string, personaId: string | null) =>
   api(user, "/api/personas/assignments", "PUT", { connection, personaId });
 
-const remember = async (user: User, fragment: string) =>
-  content<Fragment>(await call(user, "remember", { fragment }));
+const stored = async (user: User, fragment: string) => {
+  const page = await list(user);
+  const item = page.fragments.find((each) => each.fragment === fragment);
+  if (!item) {
+    throw new TypeError(`Memory not stored: ${fragment}`);
+  }
+  return item;
+};
+
+const remember = async (user: User, fragment: string) => {
+  const script = scripted();
+  faux.setResponses([
+    script.tool("remember", { fragment }),
+    script.text("Stored."),
+  ]);
+  const result = await call(user, "note", { context: fragment });
+  if (result.isError) {
+    throw new TypeError(text(result));
+  }
+  return stored(user, fragment);
+};
+
+const revise = async (user: User, fragment: string, ref: string) => {
+  const script = scripted();
+  faux.setResponses([
+    script.tool("revise", { fragment, ref }),
+    script.text("Revised."),
+  ]);
+  const result = await call(user, "note", { context: fragment });
+  if (result.isError) {
+    throw new TypeError(text(result));
+  }
+  return stored(user, fragment);
+};
 
 const changes = async (user: User, query = "") => {
   const response = await api(user, `/api/activity${query}`);
@@ -96,6 +130,7 @@ const transfer = async (signIn: () => Promise<User>) => {
 
 describe("Personas", () => {
   const signIn = useAuth();
+  useFauxModel();
 
   it("records the persona a connection belongs to, and only for later writes", async () => {
     const user = await signIn();
@@ -176,7 +211,7 @@ describe("Personas", () => {
     ]);
   });
 
-  it("names the source of each memory, and only when the user vouches for it", async () => {
+  it("records the source of each memory", async () => {
     const user = await signIn();
     const laptop = await keyOf(user, "Laptop script");
     const retired = await keyOf(user, "Retired script");
@@ -186,38 +221,21 @@ describe("Personas", () => {
     await assign(user, retired.connection, old.id);
     await remember(laptop.user, "Kyoto trip uses the JR pass");
     await post("/api/remember", { fragment: "Kyoto ryokan is booked" }, user);
-    const unvouched = await remember(user, "Kyoto flights leave from PVG");
+    await remember(user, "Kyoto flights leave from PVG");
     await remember(retired.user, "Kyoto budget is 3000 USD");
     const revised = await remember(user, "Kyoto hotel near Gion");
-    const revision = content<{ source?: string }>(
-      await call(laptop.user, "revise", {
-        fragment: "Kyoto hotel near Kyoto Station",
-        ref: revised.ref,
-      })
-    );
-    expect({
-      remembered: "source" in unvouched,
-      revised: revision.source,
-    }).toStrictEqual({ remembered: false, revised: "Wrok assistant" });
-    await api(user, `/api/personas/${work.id}`, "PATCH", {
-      name: "Work assistant",
-    });
-    await api(user, `/api/personas/${old.id}/archived`, "PUT", {
-      archived: true,
-    });
-    const found = content<{
-      fragments: { fragment: string; source?: string }[];
-    }>(await call(user, "recall", { cues: "Kyoto" }));
+    await revise(laptop.user, "Kyoto hotel near Kyoto Station", revised.ref);
+    const { fragments } = await list(user);
     expect(
       Object.fromEntries(
-        found.fragments.map((item) => [item.fragment, item.source ?? null])
+        fragments.map((item) => [item.fragment, item.source ?? null])
       )
     ).toStrictEqual({
-      "Kyoto budget is 3000 USD": "Old bot",
-      "Kyoto flights leave from PVG": null,
-      "Kyoto hotel near Kyoto Station": "Work assistant",
+      "Kyoto budget is 3000 USD": `persona:${old.id}`,
+      "Kyoto flights leave from PVG": "agent:test",
+      "Kyoto hotel near Kyoto Station": `persona:${work.id}`,
       "Kyoto ryokan is booked": "user",
-      "Kyoto trip uses the JR pass": "Work assistant",
+      "Kyoto trip uses the JR pass": `persona:${work.id}`,
     });
   });
 
@@ -250,8 +268,13 @@ describe("Personas", () => {
     )
       .bind(user.id, laptop.connection, "missingid2")
       .run();
-    const result = await call(laptop.user, "remember", { fragment: "Lost" });
-    expect(result.isError).toBeTruthy();
+    const script = scripted();
+    faux.setResponses([
+      script.tool("remember", { fragment: "Lost" }),
+      script.text("Could not store it."),
+    ]);
+    const result = await call(laptop.user, "note", { context: "Lost" });
+    expect(text(result)).toBe("No memories changed.");
     await expect(changes(user)).resolves.toStrictEqual([]);
   });
 
@@ -348,8 +371,8 @@ describe("Personas", () => {
         `<ref-${index + 1}>`,
       ]),
     ]);
-    const stable = (text: string) => {
-      let result = text.replaceAll(/\d{4}-\d\d-\d\dT[\d:.]+Z/gu, "<time>");
+    const stable = (raw: string) => {
+      let result = raw.replaceAll(/\d{4}-\d\d-\d\dT[\d:.]+Z/gu, "<time>");
       for (const [value, placeholder] of placeholders) {
         result = result.replaceAll(value, placeholder);
       }
