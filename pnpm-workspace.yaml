@@ -1,5 +1,7 @@
 allowBuilds:
+  "@google/genai": true
   esbuild: true
+  protobufjs: true
   workerd: true
 # Kysely runs one SQLite query at a time per isolate. D1 queries stand alone,
 # and one canceled with its request would hold that turn forever, hanging
