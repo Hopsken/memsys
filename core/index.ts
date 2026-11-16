@@ -1,9 +1,7 @@
 export type {
   ActivityEntry,
   ActivityPage,
-  AnchorCount,
   SourceSummary,
-  Association,
   Diagnostics,
   ForgottenFragment,
   ForgottenList,
@@ -13,11 +11,11 @@ export type {
   ImportResult,
   InvalidInput,
   ListedFragment,
+  LogRead,
   Memory,
   Metadata,
   NotFound,
   Restored,
-  SearchHit,
 } from "./types";
 export {
   activityInputSchema,
@@ -29,6 +27,7 @@ export {
 export {
   fragmentSchema,
   fragmentTextSchema,
+  LOG_CURSOR_KEY,
   logRecordSchema,
   opSchema,
   personaIdSchema,
@@ -45,4 +44,3 @@ export type {
   Source,
   Version,
 } from "./model";
-export { FragmentIndex, inMemory } from "./search";

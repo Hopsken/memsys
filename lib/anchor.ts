@@ -1,5 +1,3 @@
-import { stemPlainEnglish } from "./analyzer";
-
 const ANCHOR =
   /(?<=^|[^\p{L}\p{N}_/#])#(?<anchor>(?=[\p{N}_/-]*\p{L})[\p{L}\p{N}_/-]+)/gu;
 
@@ -15,10 +13,3 @@ export const extractAnchors = (text: string): string[] =>
 
 export const withinTag = (anchor: string, tag: string) =>
   anchor === tag || anchor.startsWith(`${tag}/`);
-
-const isNamespaced = (anchor: string) => anchor.includes("/");
-
-export const associationKeys = (anchor: string): string[] =>
-  isNamespaced(anchor)
-    ? [anchor]
-    : [anchor, ...anchor.split("-").filter(Boolean)].map(stemPlainEnglish);

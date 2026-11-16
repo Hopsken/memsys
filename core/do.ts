@@ -32,13 +32,15 @@ import { parseLog, parseText, replay, serializeLog } from "./log";
 import type { Row } from "./log";
 import { mergePatch } from "./merge-patch";
 import migrations from "./migrations/migrations.js";
-import { PERSONA_ID_LENGTH, REF_ALPHABET, REF_LENGTH } from "./model";
+import {
+  LOG_CURSOR_KEY,
+  PERSONA_ID_LENGTH,
+  REF_ALPHABET,
+  REF_LENGTH,
+} from "./model";
 import type { Fragment, Op, Persona, Source, Version } from "./model";
-import { FragmentIndex } from "./search";
 import type {
   ActivityPage,
-  AnchorCount,
-  Association,
   Diagnostics,
   ForgottenList,
   FragmentPage,
@@ -46,11 +48,11 @@ import type {
   ImportFormat,
   ImportResult,
   InvalidInput,
+  LogRead,
   MemoryCore,
   Metadata,
   NotFound,
   Restored,
-  SearchHit,
   SourceSummary,
 } from "./types";
 
@@ -142,7 +144,7 @@ export type CoreEnv = Record<never, never>;
 
 export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   private readonly db;
-  private readonly index = new FragmentIndex();
+  private readonly corpus = new Map<string, Fragment>();
   private latestAtByRef = new Map<string, number>();
   private readonly versions = new Map<string, number>();
   private readonly metadata = new Map<string, Metadata>();
@@ -163,9 +165,9 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   private load() {
     const rows = this.db.select().from(records).all();
     const { corpus, latestAtByRef } = replay(rows);
-    this.index.clear();
-    for (const item of corpus.values()) {
-      this.index.set(item);
+    this.corpus.clear();
+    for (const [ref, item] of corpus) {
+      this.corpus.set(ref, item);
     }
     this.latestAtByRef = latestAtByRef;
     this.versions.clear();
@@ -245,13 +247,13 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   ): Fragment {
     const at = this.append(ref, fragment, op, source);
     const item = { at: new Date(at).toISOString(), fragment, ref, source };
-    this.index.set(item);
+    this.corpus.set(item.ref, item);
     return item;
   }
 
   private remove(ref: string, source: Source) {
     const at = this.append(ref, null, "forget", source);
-    this.index.delete(ref);
+    this.corpus.delete(ref);
     return at;
   }
 
@@ -285,7 +287,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
       return err(invalid(parsed.error));
     }
     const { fragment, ref } = parsed.data;
-    if (!this.index.has(ref)) {
+    if (!this.corpus.has(ref)) {
       return notFound();
     }
     if (!this.isKnownSource(source)) {
@@ -299,7 +301,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     source: Source
   ): Result<{ ref: string }, NotFound> {
     const { ref } = input;
-    if (!this.index.has(ref)) {
+    if (!this.corpus.has(ref)) {
       return notFound();
     }
     if (!this.isKnownSource(source)) {
@@ -324,7 +326,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     if (!row) {
       return notFound(at);
     }
-    const op = this.index.has(ref) ? "revise" : "restore";
+    const op = this.corpus.has(ref) ? "revise" : "restore";
     const restored =
       row.fragment === null
         ? this.remove(ref, "user")
@@ -347,8 +349,16 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     this.db.delete(records).where(eq(records.ref, ref)).run();
     this.latestAtByRef.delete(ref);
     this.versions.delete(ref);
-    this.index.delete(ref);
+    this.corpus.delete(ref);
+    // SQLite may reuse a purged rowid, so a frozen snapshot can no longer be
+    // trusted to describe the same rows.
+    this.clearLogCursor();
     return ok({ ref });
+  }
+
+  private clearLogCursor() {
+    this.db.delete(metadata).where(eq(metadata.key, LOG_CURSOR_KEY)).run();
+    this.metadata.delete(LOG_CURSOR_KEY);
   }
 
   importLog(raw: {
@@ -365,7 +375,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
       return err(invalidFile(parsed.issues));
     }
     const texts = new Set(
-      [...this.index.values()].map(({ fragment }) => fragment)
+      [...this.corpus.values()].map(({ fragment }) => fragment)
     );
     const rows: Row[] = [];
     const conflicts: string[] = [];
@@ -391,7 +401,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
       for (const ref of latestAtByRef.keys()) {
         const current = corpus.get(ref)?.fragment ?? null;
         if (this.latestAtByRef.has(ref)) {
-          if ((this.index.get(ref)?.fragment ?? null) === current) {
+          if ((this.corpus.get(ref)?.fragment ?? null) === current) {
             skipped += 1;
           } else {
             conflicts.push(ref);
@@ -423,8 +433,9 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
       this.latestAtByRef.set(ref, at);
     }
     for (const item of corpus.values()) {
-      this.index.set(item);
+      this.corpus.set(item.ref, item);
     }
+    this.clearLogCursor();
     return ok({ conflicts, imported, skipped });
   }
 
@@ -433,7 +444,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
       this.personas(),
       history
         ? this.db.select().from(records).all()
-        : [...this.index.values()].map(({ at, fragment, ref, source }) => ({
+        : [...this.corpus.values()].map(({ at, fragment, ref, source }) => ({
             at: Date.parse(at),
             fragment,
             ref,
@@ -444,7 +455,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
 
   get(refs: string[]): Fragment[] {
     return refs.flatMap((ref) => {
-      const item = this.index.get(ref);
+      const item = this.corpus.get(ref);
       return item ? [item] : [];
     });
   }
@@ -455,12 +466,39 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     tag?: string[] | undefined;
   }): FragmentPage {
     return listFragments(
-      [...this.index.values()].map((item) => ({
+      [...this.corpus.values()].map((item) => ({
         ...item,
         versions: this.versions.get(item.ref) ?? 1,
       })),
       input
     );
+  }
+
+  readLog({ after }: { after?: number | undefined }): LogRead {
+    const rows = this.db
+      .select({
+        at: records.at,
+        fragment: records.fragment,
+        op: records.op,
+        ref: records.ref,
+        rowid: sql<number>`rowid`,
+        source: records.source,
+      })
+      .from(records)
+      .orderBy(sql`rowid`)
+      .all();
+    const cursor = rows.at(-1)?.rowid ?? 0;
+    const folded = rows.filter(
+      ({ rowid }) => after !== undefined && rowid <= after
+    );
+    const updates = rows.filter(
+      ({ rowid }) => after === undefined || rowid > after
+    );
+    return {
+      cursor,
+      fragments: [...replay(folded).corpus.values()],
+      records: updates.map(toVersion),
+    };
   }
 
   history({ ref }: { ref: string }): Result<History, NotFound> {
@@ -539,7 +577,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   forgotten(): ForgottenList {
     const fragments = [];
     for (const [ref, forgottenAt] of this.latestAtByRef) {
-      if (this.index.has(ref)) {
+      if (this.corpus.has(ref)) {
         continue;
       }
       const last = this.db
@@ -566,24 +604,12 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     return { fragments };
   }
 
-  search(terms: string[]): SearchHit[] {
-    return this.index.search(terms);
-  }
-
-  associated(keys: string[]): Association[] {
-    return this.index.associated(keys);
-  }
-
-  anchors(): AnchorCount[] {
-    return this.index.anchors();
-  }
-
   count(): number {
-    return this.index.size;
+    return this.corpus.size;
   }
 
   snapshot(): Fragment[] {
-    return [...this.index.values()];
+    return [...this.corpus.values()];
   }
 
   personas(): Persona[] {
@@ -666,7 +692,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   async diagnostics(): Promise<Diagnostics> {
     return {
       colo: await currentColo(),
-      fragments: this.index.size,
+      fragments: this.corpus.size,
       id: this.ctx.id.toString(),
       storageBytes: this.ctx.storage.sql.databaseSize,
     };
