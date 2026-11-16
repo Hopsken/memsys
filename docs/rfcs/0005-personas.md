@@ -14,11 +14,11 @@ With personas, the web UI shows the current name of the agent that made each cha
 
 ## Why
 
-memsys exists so that all of a person's agents share one memory. To share memory well, memsys must know which agent wrote each record. Today it knows only which connection wrote it.
+memsys exists so that all of a person's agents share one memory. To share memory well, memsys must know which agent each record came from. Today it knows only which connection it came from.
 
 Each agent's identity lives in its own system, such as a Grok bot, a Muse assistant, or the configuration of a coding agent. memsys sees only the connection that the agent signs in with, and a connection is a credential. The user creates and drops connections when they reconnect, change machines, or rotate keys. One agent uses many connections over its life, so a connection cannot stand in for the agent.
 
-Today `from` is `agent:` and the name of the OAuth client or API key at the time of the write. That causes four problems:
+Today a record's `from` is `agent:<name>`, using the name of the OAuth client or API key at the time of the write. That causes four problems:
 
 - When the user connects the same agent again, the name can change, and the agent's history splits in two.
 - An OAuth client reports its own name, so any client can call itself "ChatGPT".
@@ -54,7 +54,7 @@ An agent cannot see, create, or change personas. Persona management needs the us
 
 A connection belongs to zero or one persona. A persona has zero or more connections.
 
-| Writer                       | `from`         |
+| Source                       | `from`         |
 | ---------------------------- | -------------- |
 | A connection with a persona  | `persona:<id>` |
 | A connection with no persona | `agent:<name>` |
@@ -106,7 +106,7 @@ Every export includes all personas, before the fragment records. It does not inc
 
 Import adds a persona whose id the memory space does not have, and skips one whose id it has. An imported memory therefore keeps its history under the same personas. The user then assigns the reconnected agents to them, and their history continues.
 
-A record that refers to a persona that neither the file nor the memory space has still imports. The web UI shows it as written by an unknown agent.
+A record that refers to a persona that neither the file nor the memory space has still imports. The web UI shows its source as an unknown agent.
 
 ### 7. The web UI shows each source by its current name
 

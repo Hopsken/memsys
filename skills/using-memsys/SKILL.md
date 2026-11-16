@@ -64,9 +64,9 @@ A memory that points at a source tells you where to look. Reread the source befo
 
 ## Keeping memory right
 
-`from` is who last wrote the text down. `user` is the person. Any other name is one of their agents. `from` says who wrote it down, not who said the fact. Read the fragment for that. A missing `from` is not the user. Do not invent a writer.
+`from` is where the current version came from: `user` is the person; any other name is one of their agents. It does not prove who first said the fact. Read the fragment for that. A missing `from` is not the user. Do not invent a source.
 
-When a recalled memory is wrong or outdated, `revise` it by `ref`, whoever wrote it. Keep what still holds, and say what changed. Do not `remember` a contradicting fragment beside it. Recall would return both as true.
+When a recalled memory is wrong or outdated, `revise` it by `ref`, whatever its source. Keep what still holds, and say what changed. Do not `remember` a contradicting fragment beside it. Recall would return both as true.
 
 When two memories disagree, prefer what the user says now, then an explicit statement over an inference, then the later decision. A later `at` does not settle the conflict by itself. Revise the memory that lost. When the conflict matters and you cannot settle it, show both and ask.
 
