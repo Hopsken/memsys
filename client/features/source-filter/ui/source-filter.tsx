@@ -45,12 +45,12 @@ const SourceGroup = ({
 
 export const SourceFilter = ({
   className,
-  from,
   onChange,
+  source,
 }: {
   className?: string;
-  from: Source | null;
-  onChange: (from: Source | null) => void;
+  onChange: (source: Source | null) => void;
+  source: Source | null;
 }) => {
   const personas = usePersonas();
   const written = useQuery({
@@ -58,17 +58,17 @@ export const SourceFilter = ({
       parseResponse(api.sources.$get(undefined, { init: { signal } })),
     queryKey: ["sources"],
   });
-  const wrote = new Set(written.data?.map((summary) => summary.from));
+  const wrote = new Set(written.data?.map((summary) => summary.source));
   const withChanges = personas.data?.filter(({ id }) =>
     wrote.has(`persona:${id}`)
   );
   const active = withChanges?.filter(({ archivedAt }) => archivedAt === null);
   const archived = withChanges?.filter(({ archivedAt }) => archivedAt !== null);
   const apps =
-    written.data?.flatMap(({ from: source }) =>
-      source.startsWith("agent:") ? [source] : []
+    written.data?.flatMap(({ source: each }) =>
+      each.startsWith("agent:") ? [each] : []
     ) ?? [];
-  const selected = from === null ? null : sourceLabel(from, personas.data);
+  const selected = source === null ? null : sourceLabel(source, personas.data);
   const selectedName = selected?.name === "you" ? "You" : selected?.name;
 
   return (
@@ -79,11 +79,11 @@ export const SourceFilter = ({
             <Button
               className="rounded-full"
               size="sm"
-              variant={from === null ? "outline" : "secondary"}
+              variant={source === null ? "outline" : "secondary"}
             />
           }
         >
-          {from === null ? "Everyone" : (selectedName ?? "…")}
+          {source === null ? "Everyone" : (selectedName ?? "…")}
           <ChevronDown aria-hidden="true" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="min-w-52">
@@ -91,7 +91,7 @@ export const SourceFilter = ({
             onValueChange={(value: string) =>
               onChange(isSource(value) ? value : null)
             }
-            value={from ?? EVERYONE}
+            value={source ?? EVERYONE}
           >
             <DropdownMenuRadioItem closeOnClick value={EVERYONE}>
               Everyone
@@ -108,9 +108,9 @@ export const SourceFilter = ({
             />
             <SourceGroup
               label="Apps"
-              sources={apps.map((source) => ({
-                label: sourceLabel(source, personas.data)?.name ?? source,
-                value: source,
+              sources={apps.map((agent) => ({
+                label: sourceLabel(agent, personas.data)?.name ?? agent,
+                value: agent,
               }))}
             />
             <SourceGroup
@@ -123,7 +123,7 @@ export const SourceFilter = ({
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-      {from === null ? null : (
+      {source === null ? null : (
         <Button
           aria-label="Clear filter"
           className="rounded-full"

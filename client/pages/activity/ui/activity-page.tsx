@@ -57,7 +57,7 @@ const EntryRow = ({
   onSelectSource,
 }: {
   entry: ActivityEntry;
-  onSelectSource: (from: Source) => void;
+  onSelectSource: (source: Source) => void;
 }) => {
   const open = useOpenHistory();
   const to = `${entry.ref}?${new URLSearchParams({ at: entry.at })}`;
@@ -68,7 +68,7 @@ const EntryRow = ({
         <div className="text-muted-foreground flex min-h-7 flex-wrap items-center justify-between gap-x-4 text-xs">
           <span className="flex flex-wrap items-center gap-x-1.5">
             <OpBadge op={entry.op} />
-            <SourceLine from={entry.from} onSelect={onSelectSource} />
+            <SourceLine onSelect={onSelectSource} source={entry.source} />
             <span aria-hidden="true">·</span>
             <time
               dateTime={entry.at}
@@ -95,9 +95,10 @@ const EntryRow = ({
 };
 
 export const ActivityView = () => {
-  const [from, setFrom] = useSourceParam();
+  const [source, setSource] = useSourceParam();
   const personas = usePersonas();
-  const filteredName = from === null ? null : sourceLabel(from, personas.data);
+  const filteredName =
+    source === null ? null : sourceLabel(source, personas.data);
   const query = useInfiniteQuery<
     ActivityPage,
     Error,
@@ -111,12 +112,15 @@ export const ActivityView = () => {
       parseResponse(
         api.activity.$get(
           {
-            query: { cursor: pageParam ?? undefined, from: from ?? undefined },
+            query: {
+              cursor: pageParam ?? undefined,
+              source: source ?? undefined,
+            },
           },
           { init: { signal } }
         )
       ),
-    queryKey: ["activity", from],
+    queryKey: ["activity", source],
   });
   const days = byDay(query.data?.pages.flatMap((page) => page.entries) ?? []);
   useReturnFocus();
@@ -146,8 +150,8 @@ export const ActivityView = () => {
         </Alert>
       ) : null}
 
-      <SourceFilter className="mb-1" from={from} onChange={setFrom} />
-      {from?.startsWith("persona:") ? (
+      <SourceFilter className="mb-1" onChange={setSource} source={source} />
+      {source?.startsWith("persona:") ? (
         <p className="text-muted-foreground mt-2 mb-1 text-xs">
           Earlier changes from its apps show under the app’s name.
         </p>
@@ -165,14 +169,14 @@ export const ActivityView = () => {
             ))}
           </div>
         ) : null}
-        {query.isSuccess && days.length === 0 && from !== null ? (
+        {query.isSuccess && days.length === 0 && source !== null ? (
           <p className="text-muted-foreground rounded-xl border border-dashed px-6 py-12 text-center text-sm">
             {filteredName?.name === "you"
               ? "You haven’t changed anything yet."
               : `No changes from ${filteredName?.name ?? "this agent"} yet.`}
           </p>
         ) : null}
-        {query.isSuccess && days.length === 0 && from === null ? (
+        {query.isSuccess && days.length === 0 && source === null ? (
           <div className="rounded-xl border border-dashed px-6 py-16 text-center">
             <Activity
               aria-hidden="true"
@@ -202,7 +206,7 @@ export const ActivityView = () => {
                 <EntryRow
                   entry={entry}
                   key={`${entry.ref}-${entry.at}`}
-                  onSelectSource={setFrom}
+                  onSelectSource={setSource}
                 />
               ))}
             </ul>

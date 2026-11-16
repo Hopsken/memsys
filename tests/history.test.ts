@@ -53,16 +53,16 @@ describe("History and restore", () => {
       {
         at: second.at,
         fragment: "Second",
-        from: "user",
         op: "revise",
         ref: saved.ref,
+        source: "user",
       },
       {
         at: saved.at,
         fragment: "First",
-        from: "user",
         op: "remember",
         ref: saved.ref,
+        source: "user",
       },
     ]);
     await expect(
@@ -89,8 +89,8 @@ describe("History and restore", () => {
           {
             at: restored.at,
             fragment: "Original",
-            from: "user",
             ref: saved.ref,
+            source: "user",
           },
           3
         ),
@@ -111,8 +111,8 @@ describe("History and restore", () => {
     await post("/api/forget", { ref: saved.ref }, user);
     await expect(list(user)).resolves.toMatchObject({ fragments: [] });
     await expect(restore(user, saved.ref, saved.at)).resolves.toMatchObject({
-      from: "user",
       op: "restore",
+      source: "user",
     });
     await expect(list(user)).resolves.toMatchObject({
       fragments: [{ fragment: "Keep this #memsys", ref: saved.ref }],

@@ -41,11 +41,11 @@ const vouchedSourceNames = async (memory: MemoryService) => {
 };
 
 const withVouchedSource = <T extends Fragment>(
-  { from, ...fragment }: T,
+  { source, ...fragment }: T,
   names: ReadonlyMap<Source, string>
 ) => {
-  const name = from === null ? undefined : names.get(from);
-  return name === undefined ? fragment : { ...fragment, from: name };
+  const name = source === null ? undefined : names.get(source);
+  return name === undefined ? fragment : { ...fragment, source: name };
 };
 
 const createMcpServer = (

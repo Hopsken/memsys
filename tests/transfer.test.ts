@@ -105,7 +105,11 @@ describe("Fragment export and import", () => {
     );
     const history = await records(source, "?history=true");
     expect(
-      history.map(({ fragment, from, op }) => [fragment, op, from])
+      history.map(({ fragment, op, source: writtenBy }) => [
+        fragment,
+        op,
+        writtenBy,
+      ])
     ).toStrictEqual([
       ["Before", "remember", "user"],
       ["After", "revise", "user"],
@@ -241,11 +245,11 @@ describe("Fragment export and import", () => {
     expect(body.issues).toStrictEqual([
       {
         message:
-          "`by` is now `from`; export the file again from this version of memsys",
+          "`by` is now `source`; export the file again from this version of memsys",
         path: ["1", "by"],
       },
     ]);
-    expect(body.error).toMatch(/^Line 1, by: `by` is now `from`/u);
+    expect(body.error).toMatch(/^Line 1, by: `by` is now `source`/u);
     await expect(list(user)).resolves.toStrictEqual({
       fragments: [],
       nextCursor: null,

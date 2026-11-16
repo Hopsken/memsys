@@ -14,10 +14,9 @@ export const records = sqliteTable(
   {
     at: integer().notNull(),
     fragment: text(),
-    // `from` is reserved in SQL, so the column is `source`.
-    from: text("source").$type<Source>(),
     op: text().$type<Op>().notNull(),
     ref: text().notNull(),
+    source: text().$type<Source>(),
   },
   (table) => [
     primaryKey({ columns: [table.ref, table.at] }),

@@ -19,12 +19,13 @@ import type {
 export interface Row {
   at: number;
   fragment: string | null;
-  from: Source | null;
   op: Op;
   ref: string;
+  source: Source | null;
 }
 
-type Snapshot = Omit<Row, "from" | "op"> & Partial<Pick<Row, "from" | "op">>;
+type Snapshot = Omit<Row, "op" | "source"> &
+  Partial<Pick<Row, "op" | "source">>;
 
 const impliedOp = (text: string | null, previous?: string | null): Op => {
   if (text === null) {
@@ -87,7 +88,7 @@ export const parseLog = (
     if (json.success && hasByKeySchema.safeParse(json.data).success) {
       issues.push({
         message:
-          "`by` is now `from`; export the file again from this version of memsys",
+          "`by` is now `source`; export the file again from this version of memsys",
         path: [number, "by"],
       });
       continue;
@@ -129,15 +130,15 @@ export const parseLog = (
   const last = new Map<string, string | null>();
   const rows = parsed
     .toSorted((a, b) => a.at - b.at)
-    .map(({ at, fragment: text, from = null, op, ref }): Row => {
+    .map(({ at, fragment: text, op, ref, source = null }): Row => {
       const previous = last.has(ref) ? last.get(ref) : undefined;
       last.set(ref, text);
       return {
         at,
         fragment: text,
-        from,
         op: op ?? impliedOp(text, previous),
         ref,
+        source,
       };
     });
   return { personas: [...personas.values()], rows };
@@ -194,7 +195,7 @@ export const serializeLog = (
   personas.map(serializePersona).join("") +
   [...rows]
     .toSorted((a, b) => a.at - b.at || a.ref.localeCompare(b.ref))
-    .map(({ at, fragment: text, from, op, ref }) => {
+    .map(({ at, fragment: text, op, ref, source }) => {
       // oxlint-disable-next-line sort-keys
       const record: LogRecord = {
         v: 2,
@@ -202,7 +203,7 @@ export const serializeLog = (
         fragment: text,
         at: new Date(at).toISOString(),
         ...(op && { op }),
-        ...(from && { from }),
+        ...(source && { source }),
       };
       return `${JSON.stringify(record)}\n`;
     })
@@ -210,12 +211,12 @@ export const serializeLog = (
 
 export const replay = (
   rows: Iterable<
-    Pick<Row, "at" | "fragment" | "ref"> & Partial<Pick<Row, "from">>
+    Pick<Row, "at" | "fragment" | "ref"> & Partial<Pick<Row, "source">>
   >
 ) => {
   const corpus = new Map<string, Fragment>();
   const latestAtByRef = new Map<string, number>();
-  for (const { at, fragment: text, from = null, ref } of rows) {
+  for (const { at, fragment: text, ref, source = null } of rows) {
     if (at <= (latestAtByRef.get(ref) ?? Number.NEGATIVE_INFINITY)) {
       continue;
     }
@@ -226,8 +227,8 @@ export const replay = (
       corpus.set(ref, {
         at: new Date(at).toISOString(),
         fragment: text,
-        from,
         ref,
+        source,
       });
     }
   }

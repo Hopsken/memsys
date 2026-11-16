@@ -12,23 +12,23 @@ describe("Fragment log", () => {
       {
         at: at(22),
         fragment: 'Line one\nline two 😀 "quoted"',
-        from: "agent:Claude Code",
         op: "remember",
         ref: "abcdefg",
+        source: "agent:Claude Code",
       },
       {
         at: at(21),
         fragment: "é".repeat(FRAGMENT_MAX),
-        from: null,
         op: "remember",
         ref: "hjkmnpq",
+        source: null,
       },
       {
         at: at(23),
         fragment: null,
-        from: "user",
         op: "forget",
         ref: "hjkmnpq",
+        source: "user",
       },
     ];
     const text = serializeLog([], rows);
@@ -38,7 +38,7 @@ describe("Fragment log", () => {
       `{"v":2,"ref":"hjkmnpq","fragment":"${"é".repeat(FRAGMENT_MAX)}","at":"2026-09-21T08:00:00.000Z","op":"remember"}`
     );
     expect(text.split("\n")[2]).toBe(
-      '{"v":2,"ref":"hjkmnpq","fragment":null,"at":"2026-09-23T08:00:00.000Z","op":"forget","from":"user"}'
+      '{"v":2,"ref":"hjkmnpq","fragment":null,"at":"2026-09-23T08:00:00.000Z","op":"forget","source":"user"}'
     );
     expect(parseLog(text)).toStrictEqual({
       personas: [],
@@ -57,9 +57,9 @@ describe("Fragment log", () => {
         {
           at: at(21),
           fragment: "Hi",
-          from: null,
           op: "remember",
           ref: "abcdefg",
+          source: null,
         },
       ],
     });
@@ -107,8 +107,8 @@ describe("Fragment log", () => {
       "op",
     ],
     [
-      '{"v":2,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","from":"You"}',
-      "from",
+      '{"v":2,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","source":"You"}',
+      "source",
     ],
     [
       '{"v":2,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","by":"user"}',
@@ -143,7 +143,7 @@ describe("Fragment log", () => {
     expect(withBy).toMatchObject({
       issues: [
         {
-          message: expect.stringMatching(/`by` is now `from`/u),
+          message: expect.stringMatching(/`by` is now `source`/u),
           path: ["1", "by"],
         },
       ],
@@ -166,14 +166,14 @@ describe("Fragment log", () => {
       {
         at: at(24),
         fragment: "Back again",
-        from: "user" as const,
         ref: "abcdefg",
+        source: "user" as const,
       },
       {
         at: at(21),
         fragment: "First",
-        from: "agent:a" as const,
         ref: "abcdefg",
+        source: "agent:a" as const,
       },
       { at: at(23), fragment: null, ref: "abcdefg" },
       { at: at(22), fragment: "Second", ref: "abcdefg" },
@@ -185,8 +185,8 @@ describe("Fragment log", () => {
       {
         at: "2026-09-24T08:00:00.000Z",
         fragment: "Back again",
-        from: "user",
         ref: "abcdefg",
+        source: "user",
       },
     ]);
     expect(latestAtByRef).toStrictEqual(

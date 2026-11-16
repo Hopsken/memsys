@@ -144,10 +144,10 @@ export const getList = (user: User | null, query = "") =>
 export const withVersions = (
   item: Fragment,
   versions = 1,
-  from: Source | null = "user"
+  source: Source | null = "user"
 ): ListedFragment => ({
   ...item,
-  from,
+  source,
   versions,
 });
 

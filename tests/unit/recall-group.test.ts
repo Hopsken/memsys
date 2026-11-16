@@ -32,28 +32,28 @@ const corpus = [
   {
     at,
     fragment: "Deploys go through pnpm deploy. #memsys",
-    from: null,
     ref: "m1",
+    source: null,
   },
   {
     at,
     fragment: "Tokens rotate monthly. #auth-tokens",
-    from: null,
     ref: "m2",
+    source: null,
   },
   {
     at,
     fragment: "Recall favors recall over noise. #memsys",
-    from: null,
     ref: "r1",
+    source: null,
   },
   {
     at,
     fragment: "Sessions expire after a week. #auth",
-    from: null,
     ref: "r2",
+    source: null,
   },
-  { at, fragment: "Unrelated note. #garden", from: null, ref: "x1" },
+  { at, fragment: "Unrelated note. #garden", ref: "x1", source: null },
 ];
 
 const refs = (items: readonly RecallItem[]) =>
@@ -75,13 +75,13 @@ describe("Recall grouping", () => {
 
   it("puts a memory related to several matches under the first", () => {
     const items: RecallItem[] = [
-      { at, fragment: "First. #memsys", from: null, ref: "a" },
-      { at, fragment: "Second. #memsys", from: null, ref: "b" },
+      { at, fragment: "First. #memsys", ref: "a", source: null },
+      { at, fragment: "Second. #memsys", ref: "b", source: null },
       {
         at,
         fragment: "Related. #memsys",
-        from: null,
         ref: "c",
+        source: null,
         via: ["memsys"],
       },
     ];

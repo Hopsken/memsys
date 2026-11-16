@@ -4,7 +4,7 @@ import m0002 from "./20260927062704_fragment_log/migration.sql";
 import m0003 from "./20260927110735_activity_ops/migration.sql";
 import m0004 from "./20261024035713_metadata/migration.sql";
 import m0005 from "./20261025131041_personas/migration.sql";
-import m0006 from "./20261116091431_from_source/migration.sql";
+import m0006 from "./20261116091431_by_to_source/migration.sql";
 
 export default {
   migrations: {
@@ -14,6 +14,6 @@ export default {
     "20260927110735_activity_ops": m0003,
     "20261024035713_metadata": m0004,
     "20261025131041_personas": m0005,
-    "20261116091431_from_source": m0006,
+    "20261116091431_by_to_source": m0006,
   },
 };

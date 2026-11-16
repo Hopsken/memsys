@@ -31,8 +31,10 @@ export const memory = new Hono<AppEnv>()
   .get(
     "/activity",
     validator("query", (value, c) => {
-      const query: { cursor?: string | undefined; from?: Source | undefined } =
-        toRpcObject(value);
+      const query: {
+        cursor?: string | undefined;
+        source?: Source | undefined;
+      } = toRpcObject(value);
       if (!activityInputSchema.safeParse(query).success) {
         return c.json({ error: "Invalid activity query" }, 400);
       }
@@ -52,7 +54,7 @@ export const memory = new Hono<AppEnv>()
     validator("query", (value, c) => {
       const query: {
         cursor?: string | undefined;
-        from?: Source | undefined;
+        source?: Source | undefined;
         tag?: string[] | undefined;
       } = toRpcObject({ ...value, tag: c.req.queries("tag") });
       if (!listInputSchema.safeParse(query).success) {

@@ -19,7 +19,7 @@ export type History = InferResponseType<
 >;
 export type Version = History["versions"][number];
 export type Op = Version["op"];
-export type Source = NonNullable<Version["from"]>;
+export type Source = NonNullable<Version["source"]>;
 export type Restored = InferResponseType<
   (typeof api.fragments)[":ref"]["restore"]["$post"],
   200

@@ -116,12 +116,12 @@ const toPersona = (row: typeof personas.$inferSelect): Persona => ({
   name: row.name,
 });
 
-const toVersion = ({ at, fragment, from, op, ref }: Row): Version => ({
+const toVersion = ({ at, fragment, op, ref, source }: Row): Version => ({
   at: new Date(at).toISOString(),
   fragment,
-  from,
   op,
   ref,
+  source,
 });
 
 // Cloudflare offers no API for where a Durable Object lives; a request from
@@ -231,10 +231,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
 
   private append(ref: string, fragment: string | null, op: Op, source: Source) {
     const at = this.nextAt(ref);
-    this.db
-      .insert(records)
-      .values({ at, fragment, from: source, op, ref })
-      .run();
+    this.db.insert(records).values({ at, fragment, op, ref, source }).run();
     this.latestAtByRef.set(ref, at);
     this.versions.set(ref, (this.versions.get(ref) ?? 0) + 1);
     return at;
@@ -247,12 +244,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     source: Source
   ): Fragment {
     const at = this.append(ref, fragment, op, source);
-    const item = {
-      at: new Date(at).toISOString(),
-      fragment,
-      from: source,
-      ref,
-    };
+    const item = { at: new Date(at).toISOString(), fragment, ref, source };
     this.index.set(item);
     return item;
   }
@@ -340,9 +332,9 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     return ok({
       at: new Date(restored).toISOString(),
       fragment: row.fragment,
-      from: "user",
       op: row.fragment === null ? "forget" : op,
       ref,
+      source: "user",
       versions: this.versions.get(ref) ?? 1,
     });
   }
@@ -390,7 +382,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
         texts.add(fragment);
         const ref = freshRef(taken);
         taken.add(ref);
-        rows.push({ at, fragment, from: "user", op: "remember", ref });
+        rows.push({ at, fragment, op: "remember", ref, source: "user" });
         imported += 1;
       }
     } else {
@@ -441,11 +433,11 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
       this.personas(),
       history
         ? this.db.select().from(records).all()
-        : [...this.index.values()].map(({ at, fragment, from, ref }) => ({
+        : [...this.index.values()].map(({ at, fragment, ref, source }) => ({
             at: Date.parse(at),
             fragment,
-            from,
             ref,
+            source,
           }))
     );
   }
@@ -459,7 +451,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
 
   list(input: {
     cursor?: string | undefined;
-    from?: Source | undefined;
+    source?: Source | undefined;
     tag?: string[] | undefined;
   }): FragmentPage {
     return listFragments(
@@ -486,15 +478,15 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
 
   activity(input: {
     cursor?: string | undefined;
-    from?: Source | undefined;
+    source?: Source | undefined;
   }): ActivityPage {
-    const { cursor: after, from } = activityInputSchema.parse(input);
+    const { cursor: after, source } = activityInputSchema.parse(input);
     const rows = this.db
       .select()
       .from(records)
       .where(
         and(
-          from && eq(records.from, from),
+          source && eq(records.source, source),
           after &&
             or(
               lt(records.at, Date.parse(after[0])),
@@ -531,16 +523,16 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
 
   sources(): SourceSummary[] {
     return this.db
-      .select({ from: records.from, lastAt: max(records.at) })
+      .select({ lastAt: max(records.at), source: records.source })
       .from(records)
-      .where(isNotNull(records.from))
-      .groupBy(records.from)
+      .where(isNotNull(records.source))
+      .groupBy(records.source)
       .orderBy(desc(max(records.at)))
       .all()
-      .flatMap(({ from, lastAt }) =>
-        from === null || lastAt === null
+      .flatMap(({ lastAt, source }) =>
+        source === null || lastAt === null
           ? []
-          : [{ from, lastAt: new Date(lastAt).toISOString() }]
+          : [{ lastAt: new Date(lastAt).toISOString(), source }]
       );
   }
 
@@ -562,8 +554,8 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
           at: new Date(last.at).toISOString(),
           forgottenAt: new Date(forgottenAt).toISOString(),
           fragment: last.fragment,
-          from: last.from,
           ref,
+          source: last.source,
         });
       }
     }

@@ -29,8 +29,8 @@ const personas: PersonaRecord[] = [
 const memories: {
   date: string;
   fragment: string;
-  from?: Source;
   ref: string;
+  source?: Source;
 }[] = [
   {
     date: "2026-09-20",
@@ -41,8 +41,8 @@ const memories: {
   {
     date: "2026-09-19",
     fragment: "D1's primary region is in US West #memsys #cloudflare #d1",
-    from: WORK,
     ref: "seed3aa",
+    source: WORK,
   },
   {
     date: "2026-09-18",
@@ -53,45 +53,45 @@ const memories: {
     date: "2026-09-17",
     fragment:
       "Each test has at most 5 expects, per the oxlint rules #preference #must-read #memsys",
-    from: WORK,
     ref: "seed5aa",
+    source: WORK,
   },
   {
     date: "2026-09-16",
     fragment:
       "Vite dev server allowedHosts cannot be true, or it returns 403 #vite #lesson",
-    from: "agent:Claude Code",
     ref: "seed6aa",
+    source: "agent:Claude Code",
   },
   {
     date: "2026-09-15",
     fragment:
       "DOs get evicted, so the in-memory corpus must rebuild from SQLite #memsys #durable-object #do-eviction",
-    from: WORK,
     ref: "seed7aa",
+    source: WORK,
   },
   {
     date: "2026-09-14",
     fragment:
       "Run database migrations with wrangler d1 migrations apply #memsys #d1 #migration",
-    from: OLD,
     ref: "seed8aa",
+    source: OLD,
   },
   {
     date: "2026-09-13",
     fragment: "Bird migration season is autumn #birds #migration",
-    from: HOME,
     ref: "seed9aa",
+    source: HOME,
   },
 ];
 
 export const corpus = memories.map(
-  ({ date, fragment, from = "user", ref }): LogRecord => ({
+  ({ date, fragment, ref, source = "user" }): LogRecord => ({
     at: `${date}T12:00:00.000Z`,
     fragment,
-    from,
     op: "remember",
     ref,
+    source,
     v: 2,
   })
 );

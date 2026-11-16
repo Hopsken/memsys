@@ -43,7 +43,7 @@ const FragmentRow = ({
   onSelectSource,
 }: {
   item: ListedFragment;
-  onSelectSource: (from: Source) => void;
+  onSelectSource: (source: Source) => void;
 }) => {
   const open = useOpenHistory();
   const to = `${item.ref}${useLocation().search}`;
@@ -52,12 +52,12 @@ const FragmentRow = ({
       <div className={listCardLink} onClick={open(to)}>
         <div className="text-muted-foreground flex min-h-7 flex-wrap items-center justify-between gap-x-4 text-xs">
           <span className="flex flex-wrap items-center gap-x-1.5">
-            {item.from === null ? null : (
+            {item.source === null ? null : (
               <>
                 <SourceLine
-                  from={item.from}
                   onSelect={onSelectSource}
-                  withFrom={false}
+                  source={item.source}
+                  withPrefix={false}
                 />
                 <span aria-hidden="true">·</span>
               </>
@@ -87,10 +87,16 @@ const FragmentRow = ({
   );
 };
 
-const EmptyList = ({ from, tags }: { from: Source | null; tags: string[] }) => {
+const EmptyList = ({
+  source,
+  tags,
+}: {
+  source: Source | null;
+  tags: string[];
+}) => {
   const personas = usePersonas();
-  if (from !== null) {
-    const name = sourceLabel(from, personas.data)?.name ?? "this agent";
+  if (source !== null) {
+    const name = sourceLabel(source, personas.data)?.name ?? "this agent";
     return (
       <p className="text-muted-foreground rounded-xl border border-dashed px-6 py-12 text-center text-sm">
         {tags.length > 0
@@ -138,7 +144,7 @@ const EmptyList = ({ from, tags }: { from: Source | null; tags: string[] }) => {
 
 export const FragmentsView = () => {
   const tags = useTags();
-  const [from, setFrom] = useSourceParam();
+  const [source, setSource] = useSourceParam();
   const query = useInfiniteQuery<
     FragmentPage,
     Error,
@@ -155,14 +161,14 @@ export const FragmentsView = () => {
           {
             query: {
               cursor: pageParam ?? undefined,
-              from: from ?? undefined,
+              source: source ?? undefined,
               tag: tags,
             },
           },
           { init: { signal } }
         )
       ),
-    queryKey: ["fragments", from, { tag: tags }],
+    queryKey: ["fragments", source, { tag: tags }],
   });
   const items = latestPerRef(query.data?.pages ?? []);
   useReturnFocus();
@@ -178,7 +184,7 @@ export const FragmentsView = () => {
   return (
     <>
       <FilterBar>
-        <SourceFilter from={from} onChange={setFrom} />
+        <SourceFilter onChange={setSource} source={source} />
       </FilterBar>
       {query.isError ? (
         <Alert className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -219,11 +225,15 @@ export const FragmentsView = () => {
           </div>
         ) : null}
         {query.isSuccess && items.length === 0 ? (
-          <EmptyList from={from} tags={tags} />
+          <EmptyList source={source} tags={tags} />
         ) : null}
         <ul className="space-y-2">
           {items.map((item) => (
-            <FragmentRow item={item} key={item.ref} onSelectSource={setFrom} />
+            <FragmentRow
+              item={item}
+              key={item.ref}
+              onSelectSource={setSource}
+            />
           ))}
         </ul>
       </section>

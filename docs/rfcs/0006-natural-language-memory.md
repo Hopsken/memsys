@@ -74,5 +74,5 @@ The prompt layout below targets `DeepSeek-V4.1-Flash-1017`, which combines causa
 - MCP replaces the five fragment and tag tools with `recall` and `note`, and updates server instructions and companion skills to match.
 - The subagent replaces the lexical-and-anchor recall pipeline and the external relevance filter.
 - Settings drop relevance-filter strictness while preserving custom instructions and owner fragment-length limits.
-- One data migration: the `records.by` column is renamed to `records.source`, because `from` is reserved in SQL. It renames the column in place and keeps every row's value, so existing memory spaces need no re-import. The core, the HTTP API, NDJSON, and MCP all call the field `from`.
-- NDJSON records move to `v` 2, which names the field `from` instead of `by`. Import accepts `v` 2 only and rejects `v` 1 with an error that says to export the file again; there is no compatibility layer. Persona records stay at `v` 1.
+- One data migration: the `records.by` column is renamed to `records.source`. It renames the column in place and keeps every row's value, so existing memory spaces need no re-import. The core, the HTTP API, NDJSON, and MCP all call the field `source`.
+- NDJSON records move to `v` 2, which names the field `source` instead of `by`. Import accepts `v` 2 only and rejects `v` 1 with an error that says to export the file again; there is no compatibility layer. Persona records stay at `v` 1.

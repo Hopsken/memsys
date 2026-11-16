@@ -58,25 +58,25 @@ export const personaRecordSchema = z
 export const fragmentSchema = z.object({
   at: atSchema,
   fragment: fragmentTextSchema,
-  from: sourceSchema.nullable(),
   ref: refSchema,
+  source: sourceSchema.nullable(),
 });
 
 export const versionSchema = z.object({
   at: atSchema,
   fragment: fragmentTextSchema.nullable(),
-  from: sourceSchema.nullable(),
   op: opSchema,
   ref: refSchema,
+  source: sourceSchema.nullable(),
 });
 
 export const logRecordSchema = z
   .object({
     at: atSchema.transform((value) => Date.parse(value)),
     fragment: fragmentTextSchema.nullable(),
-    from: sourceSchema.optional(),
     op: opSchema.optional(),
     ref: refSchema,
+    source: sourceSchema.optional(),
     v: z.literal(2, {
       error:
         "Log records are version 2; export the file again from this version of memsys",

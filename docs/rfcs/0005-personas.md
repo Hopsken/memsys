@@ -6,7 +6,7 @@
 
 ## Summary
 
-A **persona** is an agent identity that the user records in a memory space. The user can assign a connection to a persona. Writes from that connection then record `from: "persona:<id>"`. Writes from a connection with no persona record `from: "agent:<name>"`, as they do today.
+A **persona** is an agent identity that the user records in a memory space. The user can assign a connection to a persona. Writes from that connection then record `source: "persona:<id>"`. Writes from a connection with no persona record `source: "agent:<name>"`, as they do today.
 
 Personas live in the memory core beside the log, so the memory space alone explains every `persona:<id>` in the log. The user can archive a persona but never delete it.
 
@@ -18,7 +18,7 @@ memsys exists so that all of a person's agents share one memory. To share memory
 
 Each agent's identity lives in its own system, such as a Grok bot, a Muse assistant, or the configuration of a coding agent. memsys sees only the connection that the agent signs in with, and a connection is a credential. The user creates and drops connections when they reconnect, change machines, or rotate keys. One agent uses many connections over its life, so a connection cannot stand in for the agent.
 
-Today a record's `from` is `agent:<name>`, using the name of the OAuth client or API key at the time of the write. That causes four problems:
+Today a record's `source` is `agent:<name>`, using the name of the OAuth client or API key at the time of the write. That causes four problems:
 
 - When the user connects the same agent again, the name can change, and the agent's history splits in two.
 - An OAuth client reports its own name, so any client can call itself "ChatGPT".
@@ -38,7 +38,7 @@ Both goals must hold before agents can see the source of a memory in `recall`. T
 
 - A **persona** is an agent identity in a memory space. It has an id, a name, and an archived flag. A persona exists without any connection, for example after an import or after the agent stops.
 - A **connection** is a credential that lets an agent call `/mcp`. It is either an OAuth consent for one client or an API key. A connection can belong to one persona.
-- The **source** of a log record is the value of its `from` field.
+- The **source** of a log record is the value of its `source` field.
 
 ## Decisions
 
@@ -54,7 +54,7 @@ An agent cannot see, create, or change personas. Persona management needs the us
 
 A connection belongs to zero or one persona. A persona has zero or more connections.
 
-| Source                       | `from`         |
+| Where it came from           | `source`       |
 | ---------------------------- | -------------- |
 | A connection with a persona  | `persona:<id>` |
 | A connection with no persona | `agent:<name>` |
@@ -95,7 +95,7 @@ The table is mutable. The log needs only the two rules in decision 4, and a hist
 The core contract changes in three places:
 
 - `sourceSchema` accepts `persona:<id>`.
-- A write with `from: "persona:<id>"` fails with `not-found` when no persona has that id. It does not fall back to `agent:<name>`, because a silent fallback would hide broken data.
+- A write with `source: "persona:<id>"` fails with `not-found` when no persona has that id. It does not fall back to `agent:<name>`, because a silent fallback would hide broken data.
 - The activity read can return only the records of one source.
 
 Which persona a connection belongs to is the Worker's business. The Worker keeps it in D1, beside the credentials.
@@ -110,7 +110,7 @@ A record that refers to a persona that neither the file nor the memory space has
 
 ### 7. The web UI shows each source by its current name
 
-| `from`                   | Shown as                    |
+| `source`                 | Shown as                    |
 | ------------------------ | --------------------------- |
 | `user`                   | "from you"                  |
 | `persona:<id>`           | the persona's current name  |
@@ -162,7 +162,7 @@ Two installs that share a client id could then belong to different personas. The
 
 ## Migration
 
-Existing connections have no persona, and existing records keep their `from`. The migration rewrites nothing. A build without persona support rejects an import file that contains personas. One deployment exists today, so the risk is small.
+Existing connections have no persona, and existing records keep their `source`. The migration rewrites nothing. A build without persona support rejects an import file that contains personas. One deployment exists today, so the risk is small.
 
 ## Testing
 

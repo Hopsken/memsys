@@ -32,7 +32,7 @@ export const personas = new Hono<AppEnv>()
       listConnectionPersonas(c.env.DB, c.get("userId")),
     ]);
     const lastChangeAt = new Map(
-      sources.map(({ from, lastAt }) => [from, lastAt])
+      sources.map(({ lastAt, source }) => [source, lastAt])
     );
     return c.json(
       list.map((persona) => ({

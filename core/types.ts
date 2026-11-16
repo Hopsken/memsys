@@ -64,8 +64,8 @@ export interface AnchorCount {
 }
 
 export interface SourceSummary {
-  from: Source;
   lastAt: string;
+  source: Source;
 }
 
 export interface Diagnostics {
@@ -99,13 +99,13 @@ export interface MemoryCore {
   get: (refs: string[]) => Fragment[];
   list: (input: {
     cursor?: string | undefined;
-    from?: Source | undefined;
+    source?: Source | undefined;
     tag?: string[] | undefined;
   }) => FragmentPage;
   history: (input: { ref: string }) => Result<History, NotFound>;
   activity: (input: {
     cursor?: string | undefined;
-    from?: Source | undefined;
+    source?: Source | undefined;
   }) => ActivityPage;
   sources: () => SourceSummary[];
   forgotten: () => ForgottenList;

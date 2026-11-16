@@ -5,18 +5,18 @@ import type { Source } from "@/shared/api";
 
 export const useSourceParam = () => {
   const [params, setParams] = useSearchParams();
-  const value = params.get("from");
-  const from = isSource(value) ? value : null;
-  const setFrom = (next: Source | null) => {
+  const value = params.get("source");
+  const source = isSource(value) ? value : null;
+  const setSource = (next: Source | null) => {
     setParams((current) => {
       if (next === null) {
-        current.delete("from");
+        current.delete("source");
       } else {
-        current.set("from", next);
+        current.set("source", next);
       }
       return current;
     });
     window.scrollTo({ top: 0 });
   };
-  return [from, setFrom] as const;
+  return [source, setSource] as const;
 };

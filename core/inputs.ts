@@ -28,13 +28,13 @@ const tagSchema = z
 export const listInputSchema = z
   .object({
     cursor: cursorSchema.optional(),
-    from: sourceSchema.optional(),
+    source: sourceSchema.optional(),
     tag: z.array(tagSchema).max(10).optional(),
   })
   .strict();
 
 export const activityInputSchema = z
-  .object({ cursor: cursorSchema.optional(), from: sourceSchema.optional() })
+  .object({ cursor: cursorSchema.optional(), source: sourceSchema.optional() })
   .strict();
 
 export const inputSchemas = {
@@ -57,13 +57,17 @@ export const restoreInputSchema = z
   .object({ at: z.iso.datetime({ precision: 3 }) })
   .strict();
 
-export const listFragments = <T extends Fragment & { from?: Source | null }>(
+export const listFragments = <T extends Fragment & { source?: Source | null }>(
   corpus: Iterable<T>,
   input: z.input<typeof listInputSchema>
 ) => {
-  const { cursor: after, from, tag: tags = [] } = listInputSchema.parse(input);
+  const {
+    cursor: after,
+    source,
+    tag: tags = [],
+  } = listInputSchema.parse(input);
   const ordered = [...corpus]
-    .filter((item) => !from || item.from === from)
+    .filter((item) => !source || item.source === source)
     .filter(
       (item) =>
         !after ||

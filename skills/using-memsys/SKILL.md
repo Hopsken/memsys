@@ -60,11 +60,11 @@ Recall before work that depends on the user or their world, once per topic, with
 
 For a dinner for the user's parents, make one call. Set `context` to that plan. Use the cues `parents food dislikes`, `dinner restaurant`, and `#family`.
 
-A memory that points at a source tells you where to look. Reread the source before you rely on it.
+A memory that names a file, URL, or tool tells you where to look. Reread it before you rely on it.
 
 ## Keeping memory right
 
-`from` is where the current version came from: `user` is the person; any other name is one of their agents. It does not prove who first said the fact. Read the fragment for that. A missing `from` is not the user. Do not invent a source.
+`source` is where the current version came from: `user` is the person; any other name is one of their agents. It does not prove who first said the fact. Read the fragment for that. A missing `source` is not the user. Do not invent a source.
 
 When a recalled memory is wrong or outdated, `revise` it by `ref`, whatever its source. Keep what still holds, and say what changed. Do not `remember` a contradicting fragment beside it. Recall would return both as true.
 

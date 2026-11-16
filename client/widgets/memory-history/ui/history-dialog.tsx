@@ -184,7 +184,7 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
       ) : null}
       <ol>
         {versions.map((version, index) => {
-          const { at, fragment, from, op } = version;
+          const { at, fragment, op, source } = version;
           const isCurrent = index === 0 && fragment !== null;
           const canRestore = fragment !== null && fragment !== current;
           const before =
@@ -216,7 +216,7 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
                 <div className="text-muted-foreground flex min-h-7 items-center justify-between gap-3 text-xs">
                   <span className="flex flex-wrap items-center gap-x-1.5">
                     <OpBadge op={op} />
-                    <SourceLine from={from} />
+                    <SourceLine source={source} />
                     <span aria-hidden="true">·</span>
                     <time dateTime={at} title={new Date(at).toLocaleString()}>
                       {stamp(at)}
