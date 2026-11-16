@@ -212,7 +212,7 @@ const FeaturesForm = ({ view }: { view: SettingsView }) => {
             >
               <p id="instructions-hint">
                 {instructionsError ??
-                  "Put the most important line first. Some apps show only part of it, and some don’t show it at all."}
+                  "Only memsys reads these. They are never sent to your connected AI."}
               </p>
               <span className="font-mono whitespace-nowrap tabular-nums">
                 {draft.instructions.length} / {INSTRUCTIONS_MAX}

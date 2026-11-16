@@ -30,7 +30,7 @@ The success measure is theirs: _how often do I have to repeat myself?_ Fewer rep
 
 ### Authors of AGENTS.md, custom instructions, and skills
 
-They compose memsys with the rest of the harness: "read `#must-read` before starting" in AGENTS.md or an assistant's custom instructions, a skill for how to write good fragments. They care that memsys is **Composable** — that push, scoping, and workflow can be expressed as conventions over stable primitives rather than as new endpoints.
+They compose memsys with the rest of the harness: "recall before planning dinner" in AGENTS.md or an assistant's custom instructions, a skill for when to recall and what to hand over. They care that memsys is **Composable** — that push, scoping, and workflow can be expressed as conventions over stable primitives rather than as new endpoints.
 
 ### Cheap models on routine tasks
 

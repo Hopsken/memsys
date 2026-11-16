@@ -22,7 +22,7 @@ Agents connect over MCP at `/mcp` (stateless Streamable HTTP) with an OAuth acce
 
 Both tools run synchronously through a DeepSeek V4.1 Flash subagent. Its system prompt holds memsys's rules, the owner's instructions, a frozen snapshot of memories up to a cutoff, and the log records written after that cutoff; the caller's context and the instruction for this call come last. `recall` disables tools and answers from the memory in prose. `note` enables `remember`, `revise`, and `forget` under the caller's source, bounded at 8 turns, 10 writes, and 3 forgets; it returns a receipt with counts, never memory text. Writes already made stay if a later turn fails, and the error says so.
 
-The cutoff advances only when the update list grows past its bound, after a purge or import, or when the owner changes instructions, so repeated calls reuse one cached prefix. Length limits and owner instructions live under **Settings → Features**; the core itself rejects fragments over 1000 characters. [Architecture](docs/Architecture.md) covers where behavior lives, the prompt layout, failure rules, and permissions.
+The first read fixes the cutoff at the end of the log. It advances only when the update list grows past its bound, after a purge or import, so repeated calls reuse one cached prefix. Changing the owner's instructions or the tool set starts a new prefix without moving the cutoff. Length limits and owner instructions live under **Settings → Features**; the core itself rejects fragments over 1000 characters. [Architecture](docs/Architecture.md) covers where behavior lives, the prompt layout, failure rules, and permissions.
 
 ## Storage
 

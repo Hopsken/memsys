@@ -61,7 +61,7 @@ The subagent does not search. It reads a prompt that holds the memory in two par
 1. The owner's instructions and memsys's rules.
 2. A frozen snapshot of current fragments up to a cutoff, then every log record after that cutoff, in order.
 
-The snapshot must not be rebuilt while the cutoff holds: it is the cached prefix the model pays for once and reuses. New writes append to the update list, far from the start of the prompt. When the update list grows past its bound, or after a purge or import, the cutoff advances: the next read folds every update into a new snapshot. Between folds, the prefix is byte-stable for the same owner instructions and tool set.
+The first read sets the cutoff at the end of the log. The snapshot must not be rebuilt while that cutoff holds: it is the cached prefix the model pays for once and reuses. New writes append to the update list, far from the start of the prompt. When the update list grows past its bound, or after a purge or import, the cutoff advances: the next read folds every update into a new snapshot. Between folds, the prefix is byte-stable for the same owner instructions and tool set.
 
 The caller's words and the current time come after the snapshot, and the instruction for this call (`recall` or `note`) comes last, where the model attends most closely.
 
