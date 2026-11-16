@@ -128,7 +128,43 @@ describe("Memory subagent", () => {
     });
   });
 
-  it("folds updates into the snapshot at the cursor", async () => {
+  it("folds a large update log into the snapshot at the cursor", async () => {
+    const memory = openMemory("fold-threshold");
+    const initial = await memory.remember(
+      { fragment: "Initial memory" },
+      "user"
+    );
+    const script = scripted();
+    faux.setResponses([script.text("Before folding.")]);
+    await memory.recall({ context: "first" });
+    const before = await memory.readMetadata(LOG_CURSOR_KEY);
+    const added = await Promise.all(
+      Array.from({ length: 201 }, (_, index) =>
+        memory.remember({ fragment: `Fold ${index}` }, "user")
+      )
+    );
+    faux.setResponses([script.text("After folding.")]);
+    await memory.recall({ context: "second" });
+    const after = await memory.readMetadata(LOG_CURSOR_KEY);
+    const folded = systemOf(at(script.requests, 1));
+    expect({
+      added: initial.ok && added.every((result) => result.ok),
+      after,
+      before,
+      hasFirst: snapshotOf(at(script.requests, 1)).includes("Initial memory"),
+      hasLast: snapshotOf(at(script.requests, 1)).includes("Fold 200"),
+      noUpdates: folded.content.includes("No changes yet."),
+    }).toStrictEqual({
+      added: true,
+      after: { cursor: 202 },
+      before: { cursor: 1 },
+      hasFirst: true,
+      hasLast: true,
+      noUpdates: true,
+    });
+  });
+
+  it("keeps the snapshot stable when a new write appends", async () => {
     const memory = openMemory("fold");
     const fragments = await seeded(memory, 201);
     const script = scripted();
