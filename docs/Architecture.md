@@ -93,11 +93,11 @@ The subagent runs synchronously. When the model fails, the call fails: a `recall
 ## Boundaries
 
 ```
-client ──────────────▶ worker types only
+client ──────────────▶ lib, worker types only
 worker ──▶ core ─────▶ lib
 ```
 
-- The client renders the worker's API and runs none of the worker's or core's code.
+- The client renders the worker's API, uses shared library code, and runs none of the worker's or core's code.
 - The worker holds the routes, the memory service, and the subagent. Only one module opens a memory space and assembles its services, so no path skips the worker's rules.
 - The core owns the log and its replay. It exposes writes, reads, history, metadata, personas, import, and export; it has no search index and no notion of relevance.
 - A shared library holds rules both sides must compute the same way and generic code such as results. It imports nothing above it.
