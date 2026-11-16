@@ -488,11 +488,13 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
       .orderBy(sql`rowid`)
       .all();
     const cursor = rows.at(-1)?.rowid ?? 0;
+    // With no cursor yet, the whole log is the first snapshot: the prompt
+    // starts from current memory instead of replaying every write.
     const folded = rows.filter(
-      ({ rowid }) => after !== undefined && rowid <= after
+      ({ rowid }) => after === undefined || rowid <= after
     );
     const updates = rows.filter(
-      ({ rowid }) => after === undefined || rowid > after
+      ({ rowid }) => after !== undefined && rowid > after
     );
     return {
       cursor,
@@ -606,10 +608,6 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
 
   count(): number {
     return this.corpus.size;
-  }
-
-  snapshot(): Fragment[] {
-    return [...this.corpus.values()];
   }
 
   personas(): Persona[] {

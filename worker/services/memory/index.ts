@@ -93,6 +93,10 @@ export class MemoryService {
     return await this.#memory.readLog(input);
   }
 
+  async count() {
+    return await this.#memory.count();
+  }
+
   async readMetadata(key: string) {
     return await this.#memory.readMetadata(key);
   }

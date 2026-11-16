@@ -3,7 +3,6 @@ import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
 import worker from "../worker/index";
-import { faux } from "./faux-provider";
 import {
   createInvite,
   getList,
@@ -218,14 +217,11 @@ describe("Authentication", () => {
     );
     const item = await saved.json<Fragment>();
     const script = scripted();
-    faux.setResponses([script.text("I have nothing about that.")]);
     const found = await post("/api/recall", { context: "Private" }, bob);
     await expect(found.json()).resolves.toStrictEqual({
-      answer: "I have nothing about that.",
+      answer: "I don't have any memories yet.",
     });
-    expect(JSON.stringify(script.requests[0]?.context.messages)).not.toContain(
-      "Private design"
-    );
+    expect(script.requests).toHaveLength(0);
     await expect(list(bob)).resolves.toStrictEqual({
       fragments: [],
       nextCursor: null,

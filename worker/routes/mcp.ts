@@ -62,6 +62,7 @@ const createMcpServer = (
     server.registerTool(
       "note",
       {
+        annotations: { destructiveHint: true },
         description: TOOLS.note.description,
         inputSchema: z
           .object({

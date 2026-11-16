@@ -26,6 +26,7 @@ import { createProvider } from "./provider";
 export const MODEL_PROVIDER = "deepseek";
 export const MODEL_ID = "deepseek-flash";
 export const THINKING = "high";
+export const EMPTY_ANSWER = "I don't have any memories yet.";
 
 const ALLOW: BeforeToolCallResult = {};
 
@@ -188,6 +189,9 @@ export class Subagent {
   async recall(
     context: string
   ): Promise<Result<{ answer: string }, MemoryUnavailable>> {
+    if ((await this.#memory.count()) === 0) {
+      return ok({ answer: EMPTY_ANSWER });
+    }
     const subject = createRunner(this.#apiKey);
     if (!subject) {
       return err(failed("The DeepSeek model is not available"));
@@ -284,7 +288,6 @@ export class Subagent {
             return Promise.resolve({
               block: true,
               reason: "This call has reached its forget limit.",
-              terminate: true,
             });
           }
           if (
@@ -294,7 +297,6 @@ export class Subagent {
             return Promise.resolve({
               block: true,
               reason: "This call has reached its write limit.",
-              terminate: true,
             });
           }
           return Promise.resolve(ALLOW);

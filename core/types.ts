@@ -102,7 +102,6 @@ export interface MemoryCore {
   forgotten: () => ForgottenList;
 
   count: () => number;
-  snapshot: () => Fragment[];
 
   personas: () => Persona[];
   createPersona: (input: { name: string }) => Result<Persona, InvalidInput>;

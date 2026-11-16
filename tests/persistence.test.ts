@@ -42,7 +42,15 @@ describe("Memory persistence", () => {
       fragments: [{ ...revised.value, source: "user", versions: 2 }],
       nextCursor: null,
     });
-    const log = await memory.readLog({});
+    const snapshot = await memory.readLog({});
+    expect({
+      fragments: snapshot.fragments.map(({ fragment }) => fragment),
+      records: snapshot.records,
+    }).toStrictEqual({
+      fragments: ["Workers #changed"],
+      records: [],
+    });
+    const log = await memory.readLog({ after: 0 });
     expect(log.records.map(({ fragment }) => fragment)).toStrictEqual([
       "Durable objects #Programming",
       "Workers #program",

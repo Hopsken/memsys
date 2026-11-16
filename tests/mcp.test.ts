@@ -26,7 +26,10 @@ const toolNames = async (user: User) => {
   );
   const { result } = await response.json<{
     result: {
-      tools: { annotations?: { readOnlyHint?: boolean }; name: string }[];
+      tools: {
+        annotations?: { destructiveHint?: boolean; readOnlyHint?: boolean };
+        name: string;
+      }[];
     };
   }>();
   return result.tools;
@@ -97,11 +100,18 @@ describe("Stateless MCP", () => {
     expect(result.instructions).toBe(SERVER_INSTRUCTIONS);
     const tools = await toolNames(user);
     expect({
+      destructive: tools.flatMap((tool) =>
+        tool.annotations?.destructiveHint ? [tool.name] : []
+      ),
       names: tools.map((tool) => tool.name).toSorted(),
       readOnly: tools.flatMap((tool) =>
         tool.annotations?.readOnlyHint ? [tool.name] : []
       ),
-    }).toStrictEqual({ names: ["note", "recall"], readOnly: ["recall"] });
+    }).toStrictEqual({
+      destructive: ["note"],
+      names: ["note", "recall"],
+      readOnly: ["recall"],
+    });
   });
 
   it("keeps owner instructions out of the server instructions", async () => {
@@ -142,6 +152,7 @@ describe("Stateless MCP", () => {
       result: { tools: { name: string }[] };
     }>();
     expect(result.tools.map((tool) => tool.name)).toContain("recall");
+    await post("/api/remember", { fragment: "Modern MCP memory" }, user);
     const script = scripted();
     faux.setResponses([script.text("Modern MCP works.")]);
     const recalled = await withoutInitialize(
@@ -261,15 +272,24 @@ describe("Stateless MCP", () => {
 
   it("returns the model failure without writing", async () => {
     const user = await signIn();
+    const saved = await post(
+      "/api/remember",
+      { fragment: "Existing memory" },
+      user
+    );
+    const item = await saved.json<Fragment>();
     const script = scripted();
-    faux.setResponses([script.fail("upstream is down")]);
+    faux.setResponses([
+      script.fail("upstream is down"),
+      script.fail("upstream is down"),
+    ]);
     const recalled = await call(user, "recall", { context: "anything" });
     expect(recalled.isError).toBeTruthy();
     expect(text(recalled)).toContain("Retry this call shortly");
     const noted = await call(user, "note", { context: "anything" });
     expect(noted.isError).toBeTruthy();
     await expect(list(user)).resolves.toStrictEqual({
-      fragments: [],
+      fragments: [withVersions(item)],
       nextCursor: null,
     });
   });
