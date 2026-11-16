@@ -1,6 +1,6 @@
 # RFC 0006: A natural-language memory system
 
-- Status: Proposed
+- Status: Accepted
 - Created: 2026-11-16
 - Supersedes: [RFC 0002](0002-recall-contract.md)
 - Updates: [RFC 0004](0004-memory-core.md), where it places term and anchor search in the core

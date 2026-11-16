@@ -1,6 +1,6 @@
 ## Purpose
 
-This is an overview of what memsys is for, zoomed out enough that it survives while the exact tools, ranking rules, and features shift over time.
+This is an overview of what memsys is for, zoomed out enough that it survives while the exact tools, curation rules, and features shift over time.
 
 ### Charter
 
@@ -13,7 +13,7 @@ Tenets guide how decisions are made. Ideally we honor all of them all the time. 
 1. **Durable.** The memory layer outlives the model. It stores only model-independent content — natural-language fragments and explicit, human-readable tags. Fragments are the single source of truth.
 2. **Faithful.** What is stored is what was written. The system never summarizes, merges, reinforces, decays, or forgets on its own.
 3. **Composable.** The tool contract is small, orthogonal, and stable, in the way Bash is.
-4. **Inspectable.** A person can read their entire memory, and can see why something was recalled (which anchors it shared). Nothing is hidden behind a model's opinion.
+4. **Inspectable.** A person can read the entire memory and every change, and audit which source produced each. Recall is a model's reading of that memory, not a deterministic trace; its answer can be checked against the log.
 5. **Accessible.** Any model with basic tool use can use memsys for everyday needs. Stronger models get more out of the same primitives; we do not chase parity for weak models, nor compatibility with every model.
 
 ## Use Cases
@@ -52,7 +52,7 @@ Three kinds of payload in practice:
 | Facts about the person's world | sister Mei lives in Lisbon; the dentist is Dr. Okafor | moderate, stable, scoped by person, place, or project |
 | Episodic lessons | the hotel the assistant booked in Porto was too noisy | many, ever-growing, triggered by situation rather than keyword |
 
-Whether a fragment can be recalled is decided as much when it is written as when it is queried: recall works on the overlap between cue and encoding. The write path deserves the same design attention as the read path.
+What memory holds still decides what recall can answer: the model reads only what was written down. The write path deserves the same design attention as the read path.
 
 ## Boundaries
 
@@ -62,22 +62,23 @@ Three things compose; none replaces another.
 - **Skills** — how to do things. How a tool is used, how it is used well.
 - **Memory** — durable facts and experience. Retrieved on demand.
 
-Push is a convention, not a mechanism. memsys's server instructions and tool descriptions, AGENTS.md, custom instructions, and skills are all tools for telling an agent when to recall: one line pointing at `#must-read` is a "how to work with me" document. Data lives in memory, policy lives in the instructions, the substrate does not move.
+Push is a convention, not a mechanism. memsys's tool descriptions, AGENTS.md, custom instructions, and skills can all tell an agent when to recall: one line in a person's instructions, such as "recall before planning dinner", is a "how to work with me" document. Data lives in memory, policy lives in the instructions, the substrate does not move.
 
 ## The System
 
 ### Layers
 
-- **Durable store.** Fragments. Tags and every index are derived caches that can be deleted and rebuilt.
-- **Core.** Four tools: `remember`, `revise`, `forget`, `recall`. The minimal complete set — write, change, forget, bring back. Remove any one and it stops being a memory system.
-- **Features.** Everything else: how `recall` ranks and filters, how writes are checked, tools such as listing tags. Features read fragments; they never modify them except through the core write tools.
+- **Durable store.** The append-only log of fragments. Tags are read from the text when needed, never stored.
+- **Core.** The log and four operations on it: `remember`, `revise`, `forget`, and replay. The minimal complete set — write, change, forget, read back. Remove any one and it stops being a memory system.
+- **Subagent.** The model that reads the memory for `recall` and curates it for `note`. It reads through the core and writes only through the core's operations, under the caller's source.
+- **Features.** Everything else: how the subagent reads and curates, how writes are checked. Features read fragments; they change them only through the core write operations.
 - **Per-instance settings.** Which features are on and how they are tuned belongs to the user's instance, like temperature belongs to a harness. The agent cannot see or change them.
 
 The test for placing something: _if we remove it, is this still a memory system?_ Yes → a feature, which may get a setting when the owner has a reason to change it. No → core.
 
 ### Stability Promise
 
-The core contract — four tools, their inputs, the meaning of their outputs — is meant to hold for years. New capability arrives as additive fields or as features that can be switched off. Settings are not part of the contract: two instances with different settings behave differently, but the same agent code runs against both.
+The core contract — the four operations, their inputs, the meaning of their outputs — is meant to hold for years. Agents see only `recall` and `note`, so the model-facing contract stays small while curation improves behind it. New capability arrives as additive fields or as features that can be switched off. Settings are not part of the contract: two instances with different settings behave differently, but the same agent code runs against both.
 
 ## Not in the Core
 
@@ -86,6 +87,7 @@ The following are not part of the core and are not on by default. They are not r
 - Vector indices, embeddings
 - Summarization, hierarchical memory, merging fragments into "higher-level knowledge"
 - Reinforcement, access history, decay
-- Model judgment on the read or write path
 
-The condition is the same for all of them: fragments remain the single source of truth, and whatever the feature computes is a derived cache that can be deleted and rebuilt. An embedding index is fine if it can be thrown away; it is not fine if the fragments stop being sufficient without it. A summarizer that proposes a merged fragment for the agent to `remember` is fine; one that silently rewrites fragments is not.
+The condition is the same for all of them: fragments remain the single source of truth, and whatever the feature computes is a derived cache that can be deleted and rebuilt. An embedding index is fine if it can be thrown away; it is not fine if the fragments stop being sufficient without it.
+
+A model now reads and curates memory, so its judgment is part of the path rather than a feature beside it. The condition still holds: the model writes through the same core operations as the owner, under the caller's source, and every change it makes is a record the owner can read, audit, and undo.

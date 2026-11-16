@@ -1,6 +1,6 @@
 # RFC 0003: A benchmark for recall alone
 
-- Status: Proposed
+- Status: Historical
 - Created: 2026-10-22
 - Discussion: [Amp thread](https://ampcode.com/threads/T-01a16128-22a6-71f2-9eb1-df4bdcfc0364)
 - Implementation: lands with this RFC, in `eval/longmemeval/`. It replaces the whole-system harness on branch `eval/longmemeval-baseline`, whose run `baseline-1021` stays there.

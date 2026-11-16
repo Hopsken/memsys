@@ -1,6 +1,6 @@
 # RFC 0002: Recall as a pipeline
 
-- Status: Proposed
+- Status: Superseded by [RFC 0006](0006-natural-language-memory.md)
 - Created: 2026-09-28
 - Revised: 2026-09-29, 2026-10-23
 - Discussion: pull request #51, pull request #62, [Amp thread](https://ampcode.com/threads/T-01a16769-1429-7192-876b-ddd66f368083)

@@ -1,0 +1,90 @@
+# Scripted recall and note run
+
+## System prompt (shared by both calls)
+You are the memory of one person, shared by every AI agent they use.
+
+<memory_snapshot> holds their memories as of a cutoff, one memory per line. <recent_updates> holds every change made after that cutoff, oldest first. Each line carries a ref in square brackets and where it came from: from:user is the person; from:persona:<id> and from:agent:<name> are an agent writing on their behalf.
+
+Memory holds what another source cannot give back: what the person said, chose, prefers, decided, or learned; corrections and lessons. It does not hold what another source can be reread for, such as code, docs, or a tool's output; store the conclusion instead. Keep the person's decisions apart from an agent's suggestions: a memory written by an agent stays a suggestion until the person confirms it, and uncertainty stays in the text.
+
+A memory that turns out wrong or outdated is revised in place, not duplicated. A memory that is wrong beyond revising, duplicated, or that the person asked to forget is forgotten.
+
+<memory_snapshot>
+No memories yet.
+</memory_snapshot>
+
+<recent_updates>
+[<ref-1>] from:user remember at <time>: Prefers pnpm over npm
+[<ref-2>] from:agent:Laptop script remember at <time>: Uses npm for this one old repo
+[<ref-3>] from:agent:Laptop script remember at <time>: Deploys run through wrangler
+</recent_updates>
+
+## Recall
+### Model input
+Current time: <time>
+
+<caller_context>
+Which package manager does this person prefer, and how do deploys run?
+</caller_context>
+
+Answer the caller's request from the memory above. When memory does not hold the answer, say so plainly instead of filling the gap from general knowledge. Write a few short sentences of prose, with no refs and no lists. Do not call tools.
+### Answer
+You prefer pnpm over npm. Deploys run through wrangler.
+
+## Note
+### Model input
+system:
+You are the memory of one person, shared by every AI agent they use.
+
+<memory_snapshot> holds their memories as of a cutoff, one memory per line. <recent_updates> holds every change made after that cutoff, oldest first. Each line carries a ref in square brackets and where it came from: from:user is the person; from:persona:<id> and from:agent:<name> are an agent writing on their behalf.
+
+Memory holds what another source cannot give back: what the person said, chose, prefers, decided, or learned; corrections and lessons. It does not hold what another source can be reread for, such as code, docs, or a tool's output; store the conclusion instead. Keep the person's decisions apart from an agent's suggestions: a memory written by an agent stays a suggestion until the person confirms it, and uncertainty stays in the text.
+
+A memory that turns out wrong or outdated is revised in place, not duplicated. A memory that is wrong beyond revising, duplicated, or that the person asked to forget is forgotten.
+
+<memory_snapshot>
+No memories yet.
+</memory_snapshot>
+
+<recent_updates>
+[<ref-1>] from:user remember at <time>: Prefers pnpm over npm
+[<ref-2>] from:agent:Laptop script remember at <time>: Uses npm for this one old repo
+[<ref-3>] from:agent:Laptop script remember at <time>: Deploys run through wrangler
+</recent_updates>
+
+user:
+Current time: <time>
+
+<caller_context>
+I live in Singapore now. I still prefer pnpm, and npm is only for that one old repo.
+</caller_context>
+
+Decide whether the caller's context holds anything that belongs in memory, then use the tools to add, revise, or forget memories. Keep each memory to one short idea, in words a later question would use. When nothing belongs, make no tool call. Finish with one short sentence about what changed, or that nothing did.
+### After turn 1
+assistant:
+toolCall remember {"fragment":"Lives in Singapore"}
+
+toolResult:
+remember: Stored <ref-4>.
+### After turn 2
+assistant:
+toolCall revise {"fragment":"Prefers pnpm; npm only for the one old repo","ref":"<ref-1>"}
+
+toolResult:
+revise: Revised <ref-1>.
+### After turn 3
+assistant:
+toolCall forget {"ref":"<ref-2>"}
+
+toolResult:
+forget: Forgot <ref-2>.
+### Receipt
+Memory updated: remembered 1 memory, revised 1 memory, forgot 1 memory.
+
+## Memory log after the run
+{"v":1,"ref":"<ref-1>","fragment":"Prefers pnpm over npm","at":"<time>","op":"remember","source":"user"}
+{"v":1,"ref":"<ref-2>","fragment":"Uses npm for this one old repo","at":"<time>","op":"remember","source":"agent:Laptop script"}
+{"v":1,"ref":"<ref-3>","fragment":"Deploys run through wrangler","at":"<time>","op":"remember","source":"agent:Laptop script"}
+{"v":1,"ref":"<ref-4>","fragment":"Lives in Singapore","at":"<time>","op":"remember","source":"agent:Laptop script"}
+{"v":1,"ref":"<ref-1>","fragment":"Prefers pnpm; npm only for the one old repo","at":"<time>","op":"revise","source":"agent:Laptop script"}
+{"v":1,"ref":"<ref-2>","fragment":null,"at":"<time>","op":"forget","source":"agent:Laptop script"}
