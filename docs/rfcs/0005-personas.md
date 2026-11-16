@@ -38,7 +38,7 @@ Both goals must hold before agents can see the source of a memory in `recall`. T
 
 - A **persona** is an agent identity in a memory space. It has an id, a name, and an archived flag. A persona exists without any connection, for example after an import or after the agent stops.
 - A **connection** is a credential that lets an agent call `/mcp`. It is either an OAuth consent for one client or an API key. A connection can belong to one persona.
-- The **source** of a log record is the value of its `source` field.
+- A log record's **source** is where the change came from: `user`, `agent:<name>`, or `persona:<id>`.
 
 ## Decisions
 
