@@ -60,13 +60,13 @@ Recall before work that depends on the user or their world, once per topic, with
 
 For a dinner for the user's parents, make one call. Set `context` to that plan. Use the cues `parents food dislikes`, `dinner restaurant`, and `#family`.
 
-A memory that points at a source tells you where to look. Reread the source before you rely on it.
+A memory that names a file, URL, or tool tells you where to look. Reread it before you rely on it.
 
 ## Keeping memory right
 
-`by` is who last wrote the text down. `user` is the person. Any other name is one of their agents. `by` says who wrote it down, not who said the fact. Read the fragment for that. A missing `by` is not the user. Do not invent a writer.
+`source` is where the current version came from: `user` is the person; any other name is one of their agents. It does not prove who first said the fact. Read the fragment for that. A missing `source` is not the user. Do not invent a source.
 
-When a recalled memory is wrong or outdated, `revise` it by `ref`, whoever wrote it. Keep what still holds, and say what changed. Do not `remember` a contradicting fragment beside it. Recall would return both as true.
+When a recalled memory is wrong or outdated, `revise` it by `ref`, whatever its source. Keep what still holds, and say what changed. Do not `remember` a contradicting fragment beside it. Recall would return both as true.
 
 When two memories disagree, prefer what the user says now, then an explicit statement over an inference, then the later decision. A later `at` does not settle the conflict by itself. Revise the memory that lost. When the conflict matters and you cannot settle it, show both and ask.
 

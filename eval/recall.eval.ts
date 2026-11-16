@@ -26,9 +26,9 @@ const CONCURRENCY = 4;
 
 const corpus: Fragment[] = fragments.map(({ date, fragment, id }) => ({
   at: `${date}T12:00:00.000Z`,
-  by: null,
   fragment,
   ref: id,
+  source: null,
 }));
 
 const proxy = await getPlatformProxy<{ AI: Ai }>({

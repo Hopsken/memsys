@@ -32,7 +32,7 @@ export const personaIdSchema = z
 
 export const personaNameSchema = z.string().trim().min(1).max(64);
 
-export const authorSchema = z.union([
+export const sourceSchema = z.union([
   z.literal("user"),
   z.templateLiteral(["agent:", z.string().max(256)]),
   z.templateLiteral(["persona:", personaIdSchema]),
@@ -57,26 +57,26 @@ export const personaRecordSchema = z
 
 export const fragmentSchema = z.object({
   at: atSchema,
-  by: authorSchema.nullable(),
   fragment: fragmentTextSchema,
   ref: refSchema,
+  source: sourceSchema.nullable(),
 });
 
 export const versionSchema = z.object({
   at: atSchema,
-  by: authorSchema.nullable(),
   fragment: fragmentTextSchema.nullable(),
   op: opSchema,
   ref: refSchema,
+  source: sourceSchema.nullable(),
 });
 
 export const logRecordSchema = z
   .object({
     at: atSchema.transform((value) => Date.parse(value)),
-    by: authorSchema.optional(),
     fragment: fragmentTextSchema.nullable(),
     op: opSchema.optional(),
     ref: refSchema,
+    source: sourceSchema.optional(),
     v: z.literal(1),
   })
   .refine(
@@ -87,7 +87,7 @@ export const logRecordSchema = z
   );
 
 export type Op = z.infer<typeof opSchema>;
-export type Author = z.infer<typeof authorSchema>;
+export type Source = z.infer<typeof sourceSchema>;
 export type Persona = z.infer<typeof personaSchema>;
 export type PersonaRecord = z.infer<typeof personaRecordSchema>;
 export type Fragment = z.infer<typeof fragmentSchema>;

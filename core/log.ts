@@ -8,23 +8,24 @@ import {
   personaRecordSchema,
 } from "./model";
 import type {
-  Author,
   Fragment,
   LogRecord,
   Op,
   Persona,
   PersonaRecord,
+  Source,
 } from "./model";
 
 export interface Row {
   at: number;
-  by: Author | null;
   fragment: string | null;
   op: Op;
   ref: string;
+  source: Source | null;
 }
 
-type Snapshot = Omit<Row, "by" | "op"> & Partial<Pick<Row, "by" | "op">>;
+type Snapshot = Omit<Row, "op" | "source"> &
+  Partial<Pick<Row, "op" | "source">>;
 
 const impliedOp = (text: string | null, previous?: string | null): Op => {
   if (text === null) {
@@ -119,15 +120,15 @@ export const parseLog = (
   const last = new Map<string, string | null>();
   const rows = parsed
     .toSorted((a, b) => a.at - b.at)
-    .map(({ at, by = null, fragment: text, op, ref }): Row => {
+    .map(({ at, fragment: text, op, ref, source = null }): Row => {
       const previous = last.has(ref) ? last.get(ref) : undefined;
       last.set(ref, text);
       return {
         at,
-        by,
         fragment: text,
         op: op ?? impliedOp(text, previous),
         ref,
+        source,
       };
     });
   return { personas: [...personas.values()], rows };
@@ -184,7 +185,7 @@ export const serializeLog = (
   personas.map(serializePersona).join("") +
   [...rows]
     .toSorted((a, b) => a.at - b.at || a.ref.localeCompare(b.ref))
-    .map(({ at, by, fragment: text, op, ref }) => {
+    .map(({ at, fragment: text, op, ref, source }) => {
       // oxlint-disable-next-line sort-keys
       const record: LogRecord = {
         v: 1,
@@ -192,7 +193,7 @@ export const serializeLog = (
         fragment: text,
         at: new Date(at).toISOString(),
         ...(op && { op }),
-        ...(by && { by }),
+        ...(source && { source }),
       };
       return `${JSON.stringify(record)}\n`;
     })
@@ -200,12 +201,12 @@ export const serializeLog = (
 
 export const replay = (
   rows: Iterable<
-    Pick<Row, "at" | "fragment" | "ref"> & Partial<Pick<Row, "by">>
+    Pick<Row, "at" | "fragment" | "ref"> & Partial<Pick<Row, "source">>
   >
 ) => {
   const corpus = new Map<string, Fragment>();
   const latestAtByRef = new Map<string, number>();
-  for (const { at, by = null, fragment: text, ref } of rows) {
+  for (const { at, fragment: text, ref, source = null } of rows) {
     if (at <= (latestAtByRef.get(ref) ?? Number.NEGATIVE_INFINITY)) {
       continue;
     }
@@ -215,9 +216,9 @@ export const replay = (
     } else {
       corpus.set(ref, {
         at: new Date(at).toISOString(),
-        by,
         fragment: text,
         ref,
+        source,
       });
     }
   }

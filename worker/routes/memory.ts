@@ -4,7 +4,7 @@ import {
   listInputSchema,
   restoreInputSchema,
 } from "@core";
-import type { Author, ImportFormat } from "@core";
+import type { ImportFormat, Source } from "@core";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
 
@@ -31,8 +31,10 @@ export const memory = new Hono<AppEnv>()
   .get(
     "/activity",
     validator("query", (value, c) => {
-      const query: { by?: Author | undefined; cursor?: string | undefined } =
-        toRpcObject(value);
+      const query: {
+        cursor?: string | undefined;
+        source?: Source | undefined;
+      } = toRpcObject(value);
       if (!activityInputSchema.safeParse(query).success) {
         return c.json({ error: "Invalid activity query" }, 400);
       }
@@ -43,16 +45,16 @@ export const memory = new Hono<AppEnv>()
       return c.json(await c.get("memory").activity(c.req.valid("query")));
     }
   )
-  .get("/authors", async (c) => {
+  .get("/sources", async (c) => {
     c.header("Cache-Control", "no-store");
-    return c.json(await c.get("memory").authors());
+    return c.json(await c.get("memory").sources());
   })
   .get(
     "/fragments",
     validator("query", (value, c) => {
       const query: {
-        by?: Author | undefined;
         cursor?: string | undefined;
+        source?: Source | undefined;
         tag?: string[] | undefined;
       } = toRpcObject({ ...value, tag: c.req.queries("tag") });
       if (!listInputSchema.safeParse(query).success) {
@@ -89,7 +91,7 @@ export const memory = new Hono<AppEnv>()
   .post("/remember", validate("json", inputSchemas.remember), async (c) => {
     const result = await c
       .get("memory")
-      .remember(c.req.valid("json"), c.get("author"));
+      .remember(c.req.valid("json"), c.get("source"));
     return c.json(unwrap(result), 201);
   })
   .post("/recall", validate("json", recallInputSchema), async (c) => {
@@ -99,7 +101,7 @@ export const memory = new Hono<AppEnv>()
   .post("/revise", validate("json", inputSchemas.revise), async (c) => {
     const result = await c
       .get("memory")
-      .revise(c.req.valid("json"), c.get("author"));
+      .revise(c.req.valid("json"), c.get("source"));
     return c.json(unwrap(result));
   })
   .get("/export", async (c) => {
@@ -137,6 +139,6 @@ export const memory = new Hono<AppEnv>()
   .post("/forget", validate("json", inputSchemas.forget), async (c) => {
     const result = await c
       .get("memory")
-      .forget(c.req.valid("json"), c.get("author"));
+      .forget(c.req.valid("json"), c.get("source"));
     return c.json(unwrap(result));
   });

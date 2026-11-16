@@ -35,41 +35,41 @@ describe("Activity", () => {
     const { body } = await activity(user);
     expect(body.nextCursor).toBeNull();
     expect(
-      body.entries.map(({ by, fragment, op, previous, ref }) => ({
-        by,
+      body.entries.map(({ fragment, op, previous, ref, source }) => ({
         fragment,
         op,
         previous,
         ref,
+        source,
       }))
     ).toStrictEqual([
       {
-        by: "user",
         fragment: null,
         op: "forget",
         previous: "Prefers pnpm",
         ref: saved.ref,
+        source: "user",
       },
       {
-        by: "user",
         fragment: "Another",
         op: "remember",
         previous: null,
         ref: other.ref,
+        source: "user",
       },
       {
-        by: "agent:test",
         fragment: "Prefers pnpm",
         op: "revise",
         previous: "Prefers npm",
         ref: saved.ref,
+        source: "agent:test",
       },
       {
-        by: "agent:test",
         fragment: "Prefers npm",
         op: "remember",
         previous: null,
         ref: saved.ref,
+        source: "agent:test",
       },
     ]);
   });
@@ -96,7 +96,9 @@ describe("Activity", () => {
     const all = [...first.body.entries, ...second.body.entries];
     expect(new Set(all.map(({ ref }) => ref)).size).toBe(60);
     expect(
-      all.map(({ by, fragment, op }) => `${fragment} ${op} ${by}`).toSorted()
+      all
+        .map(({ fragment, op, source }) => `${fragment} ${op} ${source}`)
+        .toSorted()
     ).toStrictEqual(lines.map((line) => `${line} remember user`).toSorted());
   });
 

@@ -84,7 +84,7 @@ export const dev =
     .use(
       "/__dev/eval/:space/*",
       (c, next) => {
-        c.set("author", "agent:eval");
+        c.set("source", "agent:eval");
         c.set("scopes", new Set([MEMORY_READ, MEMORY_WRITE]));
         return next();
       },

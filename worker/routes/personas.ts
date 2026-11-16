@@ -26,12 +26,14 @@ export const personas = new Hono<AppEnv>()
   .get("/", async (c) => {
     c.header("Cache-Control", "no-store");
     const memory = c.get("memory");
-    const [list, authors, assigned] = await Promise.all([
+    const [list, sources, assigned] = await Promise.all([
       memory.personas(),
-      memory.authors(),
+      memory.sources(),
       listConnectionPersonas(c.env.DB, c.get("userId")),
     ]);
-    const lastChangeAt = new Map(authors.map(({ by, lastAt }) => [by, lastAt]));
+    const lastChangeAt = new Map(
+      sources.map(({ lastAt, source }) => [source, lastAt])
+    );
     return c.json(
       list.map((persona) => ({
         ...persona,

@@ -52,7 +52,7 @@ describe("Memory persistence", () => {
       truncated: false,
     });
     await expect(memory.list({})).resolves.toStrictEqual({
-      fragments: [{ ...revised.value, by: "user", versions: 2 }],
+      fragments: [{ ...revised.value, source: "user", versions: 2 }],
       nextCursor: null,
     });
   });
@@ -78,7 +78,7 @@ describe("Memory persistence", () => {
         second
       );
       sql.exec(
-        "DELETE FROM __drizzle_migrations WHERE name IN ('20260927062704_fragment_log', '20260927110735_activity_ops')"
+        "DELETE FROM __drizzle_migrations WHERE name IN ('20260927062704_fragment_log', '20260927110735_activity_ops', '20261116091431_by_to_source')"
       );
     });
     await evictDurableObject(memory);
@@ -86,16 +86,16 @@ describe("Memory persistence", () => {
       fragments: [
         {
           at: "2026-02-01T00:00:00.000Z",
-          by: null,
           fragment: "Revised",
           ref: "hjkmnpq",
+          source: null,
           versions: 1,
         },
         {
           at: "2026-01-01T00:00:00.000Z",
-          by: null,
           fragment: "Old #memsys",
           ref: "abcdefg",
+          source: null,
           versions: 1,
         },
       ],
@@ -108,6 +108,62 @@ describe("Memory persistence", () => {
         "",
       ].join("\n")
     );
+  });
+
+  it("keeps existing records when the source column is renamed", async () => {
+    const memory = env.MEMORY.getByName("source-migration");
+    await memory.list({});
+    await runInDurableObject(memory, (_, state) => {
+      const { sql } = state.storage;
+      sql.exec("DROP TABLE records");
+      sql.exec(
+        "CREATE TABLE records (at integer NOT NULL, by text, fragment text, op text NOT NULL, ref text NOT NULL, PRIMARY KEY (ref, at))"
+      );
+      sql.exec("CREATE INDEX records_at_ref_idx ON records (at, ref)");
+      sql.exec(
+        "INSERT INTO records VALUES (1, 'persona:seedwrk', 'Deploys go through wrangler', 'remember', 'abcdefg'), (2, 'user', 'Prefers pnpm', 'remember', 'hjkmnpq'), (3, NULL, 'Imported long ago', 'remember', 'klmnpqr')"
+      );
+      sql.exec(
+        "DELETE FROM __drizzle_migrations WHERE name = '20261116091431_by_to_source'"
+      );
+    });
+    await evictDurableObject(memory);
+    const renamed = await runInDurableObject(memory, (_, state) =>
+      state.storage.sql
+        .exec("SELECT at, source FROM records ORDER BY at")
+        .toArray()
+    );
+    expect(renamed).toStrictEqual([
+      { at: 1, source: "persona:seedwrk" },
+      { at: 2, source: "user" },
+      { at: 3, source: null },
+    ]);
+    await expect(memory.list({})).resolves.toStrictEqual({
+      fragments: [
+        {
+          at: new Date(3).toISOString(),
+          fragment: "Imported long ago",
+          ref: "klmnpqr",
+          source: null,
+          versions: 1,
+        },
+        {
+          at: new Date(2).toISOString(),
+          fragment: "Prefers pnpm",
+          ref: "hjkmnpq",
+          source: "user",
+          versions: 1,
+        },
+        {
+          at: new Date(1).toISOString(),
+          fragment: "Deploys go through wrangler",
+          ref: "abcdefg",
+          source: "persona:seedwrk",
+          versions: 1,
+        },
+      ],
+      nextCursor: null,
+    });
   });
 
   it("gives each earlier record the op its place in the log implies", async () => {
@@ -123,7 +179,7 @@ describe("Memory persistence", () => {
         "INSERT INTO records VALUES (1, 'First', 'abcdefg'), (2, 'Second', 'abcdefg'), (3, NULL, 'abcdefg'), (4, 'First', 'abcdefg'), (5, 'Second', 'abcdefg'), (2, 'Other', 'hjkmnpq')"
       );
       sql.exec(
-        "DELETE FROM __drizzle_migrations WHERE name = '20260927110735_activity_ops'"
+        "DELETE FROM __drizzle_migrations WHERE name IN ('20260927110735_activity_ops', '20261116091431_by_to_source')"
       );
     });
     await evictDurableObject(memory);
@@ -131,7 +187,9 @@ describe("Memory persistence", () => {
     if (!history.ok) {
       throw new Error(history.error.reason);
     }
-    expect(history.value.versions.map(({ by, op }) => [op, by])).toStrictEqual([
+    expect(
+      history.value.versions.map(({ op, source }) => [op, source])
+    ).toStrictEqual([
       ["revise", null],
       ["restore", null],
       ["forget", null],

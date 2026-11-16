@@ -1,5 +1,5 @@
 import { fragmentTextSchema, inputSchemas } from "@core";
-import type { Author, Fragment } from "@core";
+import type { Fragment, Source } from "@core";
 import {
   McpServer,
   WebStandardStreamableHTTPServerTransport,
@@ -29,28 +29,28 @@ const toolResult = <T>(value: Result<T, Failure>): CallToolResult =>
     ? { content: [{ text: JSON.stringify(value.value), type: "text" }] }
     : { content: [{ text: value.error.message, type: "text" }], isError: true };
 
-const vouchedAuthorNames = async (memory: MemoryService) => {
+const vouchedSourceNames = async (memory: MemoryService) => {
   const personas = await memory.personas();
-  return new Map<Author, string>([
+  return new Map<Source, string>([
     ["user", "user"],
-    ...personas.map((persona): [Author, string] => [
+    ...personas.map((persona): [Source, string] => [
       `persona:${persona.id}`,
       persona.name,
     ]),
   ]);
 };
 
-const withVouchedAuthor = <T extends Fragment>(
-  { by, ...fragment }: T,
-  names: ReadonlyMap<Author, string>
+const withVouchedSource = <T extends Fragment>(
+  { source, ...fragment }: T,
+  names: ReadonlyMap<Source, string>
 ) => {
-  const name = by === null ? undefined : names.get(by);
-  return name === undefined ? fragment : { ...fragment, by: name };
+  const name = source === null ? undefined : names.get(source);
+  return name === undefined ? fragment : { ...fragment, source: name };
 };
 
 const createMcpServer = (
   memory: MemoryService,
-  author: Author,
+  source: Source,
   scopes: ReadonlySet<Scope>,
   ownerInstructions: string
 ) => {
@@ -76,10 +76,10 @@ const createMcpServer = (
         }),
       },
       async (input) => {
-        const written = await memory.remember(input, author);
-        const names = await vouchedAuthorNames(memory);
+        const written = await memory.remember(input, source);
+        const names = await vouchedSourceNames(memory);
         return toolResult(
-          written.ok ? ok(withVouchedAuthor(written.value, names)) : written
+          written.ok ? ok(withVouchedSource(written.value, names)) : written
         );
       }
     );
@@ -100,14 +100,14 @@ const createMcpServer = (
       async (input) => {
         const [recalled, names] = await Promise.all([
           memory.recall(input),
-          vouchedAuthorNames(memory),
+          vouchedSourceNames(memory),
         ]);
         return toolResult(
           recalled.ok
             ? ok({
                 ...recalled.value,
                 fragments: recalled.value.fragments.map((item) =>
-                  withVouchedAuthor(item, names)
+                  withVouchedSource(item, names)
                 ),
               })
             : recalled
@@ -136,10 +136,10 @@ const createMcpServer = (
         }),
       },
       async (input) => {
-        const written = await memory.revise(input, author);
-        const names = await vouchedAuthorNames(memory);
+        const written = await memory.revise(input, source);
+        const names = await vouchedSourceNames(memory);
         return toolResult(
-          written.ok ? ok(withVouchedAuthor(written.value, names)) : written
+          written.ok ? ok(withVouchedSource(written.value, names)) : written
         );
       }
     );
@@ -150,7 +150,7 @@ const createMcpServer = (
         description: TOOLS.forget.description,
         inputSchema: inputSchemas.forget,
       },
-      async (input) => toolResult(await memory.forget(input, author))
+      async (input) => toolResult(await memory.forget(input, source))
     );
   }
   return server;
@@ -177,11 +177,11 @@ export const mcp = new Hono<AppEnv>().all("/", async (c) => {
     return c.json({ error: "Stateless MCP supports POST only" }, 405);
   }
   const memory = c.get("memory");
-  const author = c.get("author");
+  const source = c.get("source");
   const scopes = c.get("scopes");
   const { settings } = await memory.settings();
   const factory = () =>
-    createMcpServer(memory, author, scopes, settings.instructions);
+    createMcpServer(memory, source, scopes, settings.instructions);
   if (await isLegacyRequest(c.req.raw)) {
     return await answerLegacyClientWithPlainJson(factory(), c.req.raw);
   }

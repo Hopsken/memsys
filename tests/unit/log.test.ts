@@ -11,19 +11,25 @@ describe("Fragment log", () => {
     const rows: Row[] = [
       {
         at: at(22),
-        by: "agent:Claude Code",
         fragment: 'Line one\nline two 😀 "quoted"',
         op: "remember",
         ref: "abcdefg",
+        source: "agent:Claude Code",
       },
       {
         at: at(21),
-        by: null,
         fragment: "é".repeat(FRAGMENT_MAX),
         op: "remember",
         ref: "hjkmnpq",
+        source: null,
       },
-      { at: at(23), by: "user", fragment: null, op: "forget", ref: "hjkmnpq" },
+      {
+        at: at(23),
+        fragment: null,
+        op: "forget",
+        ref: "hjkmnpq",
+        source: "user",
+      },
     ];
     const text = serializeLog([], rows);
     expect(text).toMatch(/\n$/u);
@@ -32,7 +38,7 @@ describe("Fragment log", () => {
       `{"v":1,"ref":"hjkmnpq","fragment":"${"é".repeat(FRAGMENT_MAX)}","at":"2026-09-21T08:00:00.000Z","op":"remember"}`
     );
     expect(text.split("\n")[2]).toBe(
-      '{"v":1,"ref":"hjkmnpq","fragment":null,"at":"2026-09-23T08:00:00.000Z","op":"forget","by":"user"}'
+      '{"v":1,"ref":"hjkmnpq","fragment":null,"at":"2026-09-23T08:00:00.000Z","op":"forget","source":"user"}'
     );
     expect(parseLog(text)).toStrictEqual({
       personas: [],
@@ -50,10 +56,10 @@ describe("Fragment log", () => {
       rows: [
         {
           at: at(21),
-          by: null,
           fragment: "Hi",
           op: "remember",
           ref: "abcdefg",
+          source: null,
         },
       ],
     });
@@ -101,8 +107,8 @@ describe("Fragment log", () => {
       "op",
     ],
     [
-      '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","by":"You"}',
-      "by",
+      '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","source":"You"}',
+      "source",
     ],
     [
       '{"v":1,"ref":"0000000","fragment":"Hi","at":"2026-09-21T08:00:00.000Z"}',
@@ -133,11 +139,16 @@ describe("Fragment log", () => {
     const rows = [
       {
         at: at(24),
-        by: "user" as const,
         fragment: "Back again",
         ref: "abcdefg",
+        source: "user" as const,
       },
-      { at: at(21), by: "agent:a" as const, fragment: "First", ref: "abcdefg" },
+      {
+        at: at(21),
+        fragment: "First",
+        ref: "abcdefg",
+        source: "agent:a" as const,
+      },
       { at: at(23), fragment: null, ref: "abcdefg" },
       { at: at(22), fragment: "Second", ref: "abcdefg" },
       { at: at(21), fragment: "Gone", ref: "hjkmnpq" },
@@ -147,9 +158,9 @@ describe("Fragment log", () => {
     expect([...corpus.values()]).toStrictEqual([
       {
         at: "2026-09-24T08:00:00.000Z",
-        by: "user",
         fragment: "Back again",
         ref: "abcdefg",
+        source: "user",
       },
     ]);
     expect(latestAtByRef).toStrictEqual(

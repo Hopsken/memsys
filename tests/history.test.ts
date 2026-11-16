@@ -52,17 +52,17 @@ describe("History and restore", () => {
     expect(versions.slice(1)).toStrictEqual([
       {
         at: second.at,
-        by: "user",
         fragment: "Second",
         op: "revise",
         ref: saved.ref,
+        source: "user",
       },
       {
         at: saved.at,
-        by: "user",
         fragment: "First",
         op: "remember",
         ref: saved.ref,
+        source: "user",
       },
     ]);
     await expect(
@@ -86,7 +86,12 @@ describe("History and restore", () => {
     await expect(list(user)).resolves.toStrictEqual({
       fragments: [
         withVersions(
-          { at: restored.at, by: "user", fragment: "Original", ref: saved.ref },
+          {
+            at: restored.at,
+            fragment: "Original",
+            ref: saved.ref,
+            source: "user",
+          },
           3
         ),
       ],
@@ -106,8 +111,8 @@ describe("History and restore", () => {
     await post("/api/forget", { ref: saved.ref }, user);
     await expect(list(user)).resolves.toMatchObject({ fragments: [] });
     await expect(restore(user, saved.ref, saved.at)).resolves.toMatchObject({
-      by: "user",
       op: "restore",
+      source: "user",
     });
     await expect(list(user)).resolves.toMatchObject({
       fragments: [{ fragment: "Keep this #memsys", ref: saved.ref }],

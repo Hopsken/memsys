@@ -1,6 +1,6 @@
 import type { Failure, Issue, Result } from "@lib/result";
 
-import type { Author, Fragment, Persona, Version } from "./model";
+import type { Fragment, Persona, Source, Version } from "./model";
 
 export type NotFound = Failure<
   "not-found",
@@ -63,9 +63,9 @@ export interface AnchorCount {
   fragmentCount: number;
 }
 
-export interface AuthorSummary {
-  by: Author;
+export interface SourceSummary {
   lastAt: string;
+  source: Source;
 }
 
 export interface Diagnostics {
@@ -78,15 +78,15 @@ export interface Diagnostics {
 export interface MemoryCore {
   remember: (
     input: { fragment: string },
-    by: Author
+    source: Source
   ) => Result<Fragment, InvalidInput | NotFound>;
   revise: (
     input: { fragment: string; ref: string },
-    by: Author
+    source: Source
   ) => Result<Fragment, InvalidInput | NotFound>;
   forget: (
     input: { ref: string },
-    by: Author
+    source: Source
   ) => Result<{ ref: string }, NotFound>;
   restore: (input: { at: number; ref: string }) => Result<Restored, NotFound>;
   purge: (input: { ref: string }) => Result<{ ref: string }, NotFound>;
@@ -98,16 +98,16 @@ export interface MemoryCore {
 
   get: (refs: string[]) => Fragment[];
   list: (input: {
-    by?: Author | undefined;
     cursor?: string | undefined;
+    source?: Source | undefined;
     tag?: string[] | undefined;
   }) => FragmentPage;
   history: (input: { ref: string }) => Result<History, NotFound>;
   activity: (input: {
-    by?: Author | undefined;
     cursor?: string | undefined;
+    source?: Source | undefined;
   }) => ActivityPage;
-  authors: () => AuthorSummary[];
+  sources: () => SourceSummary[];
   forgotten: () => ForgottenList;
 
   search: (terms: string[]) => SearchHit[];

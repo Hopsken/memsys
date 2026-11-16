@@ -147,7 +147,7 @@ const PersonaRow = ({ persona }: { persona: Persona }) => {
   const queryClient = useQueryClient();
   const [renaming, setRenaming] = useState(false);
   const navigate = useNavigate();
-  const activity = `/activity?${new URLSearchParams({ by: `persona:${persona.id}` })}`;
+  const activity = `/activity?${new URLSearchParams({ source: `persona:${persona.id}` })}`;
   const archived = persona.archivedAt !== null;
   const archive = useMutation({
     mutationFn: () =>

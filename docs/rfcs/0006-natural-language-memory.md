@@ -40,7 +40,7 @@ Both tools run synchronously in the initial version to keep the system simple. M
 
 Outside agents never see fragment identifiers, `#anchor` conventions, or storage validation rules.
 
-On `recall`, the subagent reasons over the memory space and answers from stored memories rather than general world knowledge. On `note`, the subagent receives internal `remember`, `revise`, and `forget` tools backed by the core and runs them under the caller's authenticated author. It decides whether incoming context warrants a change and how to apply it, for example ignoring transient noise or revising an outdated preference in place instead of adding a duplicate.
+On `recall`, the subagent reasons over the memory space and answers from stored memories rather than general world knowledge. On `note`, the subagent receives internal `remember`, `revise`, and `forget` tools backed by the core and runs them under the caller's authenticated source. It decides whether incoming context warrants a change and how to apply it, for example ignoring transient noise or revising an outdated preference in place instead of adding a duplicate.
 
 Exact reply phrasing on `recall`, curation guidelines on `note`, and safety bounds stay open to iteration in the subagent's prompt and runtime rather than fixed in this RFC.
 
@@ -67,11 +67,12 @@ The prompt layout below targets `DeepSeek-V4.1-Flash-1017`, which combines causa
 
 - **Core.** The core keeps the append-only fragment log, personas, metadata, version history, restore, purge, import, and export. It drops lexical and anchor-association search indexes, and provides snapshot-plus-delta reads for prompt assembly.
 - **Settings.** Custom owner instructions steer the subagent directly instead of relying on outside callers to obey MCP instructions, and owner fragment-length limits continue to bound the fragments that the subagent writes. Relevance-filter strictness is removed because the subagent now owns retrieval.
-- **Web UI.** Fragment browsing, tag and author filtering, Activity auditing, version restore, and import or export stay unchanged, while the recall preview queries the subagent directly.
+- **Web UI.** Fragment browsing, tag and source filtering, Activity auditing, version restore, and import or export stay unchanged, while the recall preview queries the subagent directly.
 
 ## Migration
 
 - MCP replaces the five fragment and tag tools with `recall` and `note`, and updates server instructions and companion skills to match.
 - The subagent replaces the lexical-and-anchor recall pipeline and the external relevance filter.
 - Settings drop relevance-filter strictness while preserving custom instructions and owner fragment-length limits.
-- Stored fragment and persona records do not change, so existing memory spaces and NDJSON exports stay compatible without a data migration.
+- One data migration: the `records.by` column is renamed to `records.source`. It renames the column in place and keeps every row's value, so existing memory spaces need no re-import. The core, the HTTP API, NDJSON, and MCP all call the field `source`.
+- NDJSON records keep `v` 1 and name the field `source` instead of `by`. The format has not shipped, so the rename starts no new version and needs no compatibility layer: a file exported before it would import its records without provenance.

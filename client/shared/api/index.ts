@@ -4,8 +4,6 @@ export type {
   ActivityEntry,
   ActivityPage,
   Assignment,
-  Author,
-  AuthorSummary,
   Connection,
   ForgottenFragment,
   ForgottenList,
@@ -21,6 +19,8 @@ export type {
   Settings,
   SettingsMergePatch,
   SettingsView,
+  Source,
+  SourceSummary,
   Strictness,
   Version,
 } from "./client";

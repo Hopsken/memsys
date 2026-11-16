@@ -7,12 +7,12 @@ import { useEffect } from "react";
 import { Link, Outlet, useLocation } from "react-router";
 
 import { MemoryLength } from "@/entities/memory";
-import { authorLabel, Byline, usePersonas } from "@/entities/persona";
+import { SourceLine, sourceLabel, usePersonas } from "@/entities/persona";
 import { SessionExpired } from "@/features/auth";
-import { AuthorFilter, useAuthorParam } from "@/features/author-filter";
+import { SourceFilter, useSourceParam } from "@/features/source-filter";
 import { TaggedText, useTags } from "@/features/tag-filter";
 import { api, isExpired } from "@/shared/api";
-import type { Author, FragmentPage, ListedFragment } from "@/shared/api";
+import type { FragmentPage, ListedFragment, Source } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
 import { listCard, listCardLink } from "@/shared/ui/list-card";
@@ -40,10 +40,10 @@ const latestPerRef = (pages: FragmentPage[]) => {
 
 const FragmentRow = ({
   item,
-  onSelectAuthor,
+  onSelectSource,
 }: {
   item: ListedFragment;
-  onSelectAuthor: (by: Author) => void;
+  onSelectSource: (source: Source) => void;
 }) => {
   const open = useOpenHistory();
   const to = `${item.ref}${useLocation().search}`;
@@ -52,9 +52,13 @@ const FragmentRow = ({
       <div className={listCardLink} onClick={open(to)}>
         <div className="text-muted-foreground flex min-h-7 flex-wrap items-center justify-between gap-x-4 text-xs">
           <span className="flex flex-wrap items-center gap-x-1.5">
-            {item.by === null ? null : (
+            {item.source === null ? null : (
               <>
-                <Byline by={item.by} onSelect={onSelectAuthor} withBy={false} />
+                <SourceLine
+                  onSelect={onSelectSource}
+                  source={item.source}
+                  withPrefix={false}
+                />
                 <span aria-hidden="true">·</span>
               </>
             )}
@@ -83,15 +87,21 @@ const FragmentRow = ({
   );
 };
 
-const EmptyList = ({ by, tags }: { by: Author | null; tags: string[] }) => {
+const EmptyList = ({
+  source,
+  tags,
+}: {
+  source: Source | null;
+  tags: string[];
+}) => {
   const personas = usePersonas();
-  if (by !== null) {
-    const name = authorLabel(by, personas.data)?.name ?? "this agent";
+  if (source !== null) {
+    const name = sourceLabel(source, personas.data)?.name ?? "this agent";
     return (
       <p className="text-muted-foreground rounded-xl border border-dashed px-6 py-12 text-center text-sm">
         {tags.length > 0
-          ? `No memories by ${name} with these tags.`
-          : `No memories by ${name}.`}
+          ? `No memories from ${name} with these tags.`
+          : `No memories from ${name}.`}
       </p>
     );
   }
@@ -134,12 +144,12 @@ const EmptyList = ({ by, tags }: { by: Author | null; tags: string[] }) => {
 
 export const FragmentsView = () => {
   const tags = useTags();
-  const [by, setBy] = useAuthorParam();
+  const [source, setSource] = useSourceParam();
   const query = useInfiniteQuery<
     FragmentPage,
     Error,
     InfiniteData<FragmentPage>,
-    (string | Author | null | { tag: string[] })[],
+    (string | Source | null | { tag: string[] })[],
     string | null
   >({
     getNextPageParam: (page) => page.nextCursor,
@@ -150,15 +160,15 @@ export const FragmentsView = () => {
         api.fragments.$get(
           {
             query: {
-              by: by ?? undefined,
               cursor: pageParam ?? undefined,
+              source: source ?? undefined,
               tag: tags,
             },
           },
           { init: { signal } }
         )
       ),
-    queryKey: ["fragments", by, { tag: tags }],
+    queryKey: ["fragments", source, { tag: tags }],
   });
   const items = latestPerRef(query.data?.pages ?? []);
   useReturnFocus();
@@ -174,7 +184,7 @@ export const FragmentsView = () => {
   return (
     <>
       <FilterBar>
-        <AuthorFilter by={by} onChange={setBy} />
+        <SourceFilter onChange={setSource} source={source} />
       </FilterBar>
       {query.isError ? (
         <Alert className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -215,11 +225,15 @@ export const FragmentsView = () => {
           </div>
         ) : null}
         {query.isSuccess && items.length === 0 ? (
-          <EmptyList by={by} tags={tags} />
+          <EmptyList source={source} tags={tags} />
         ) : null}
         <ul className="space-y-2">
           {items.map((item) => (
-            <FragmentRow item={item} key={item.ref} onSelectAuthor={setBy} />
+            <FragmentRow
+              item={item}
+              key={item.ref}
+              onSelectSource={setSource}
+            />
           ))}
         </ul>
       </section>

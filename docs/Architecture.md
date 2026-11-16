@@ -56,7 +56,7 @@ Any future "let's add X" starts here. Features are code in this repo, not plugin
 - The durable state is an append-only log of fragment snapshots; `forget` appends a record with no text. The current corpus is its replay. Only the user can delete records, by purging a fragment.
 - Tags are derived from the text at read time and never stored.
 - Every index — tag counts, IDF tables, virtual directories — is a cache computed from the corpus. Deleting it loses nothing.
-- Export and import move the log verbatim — ref, text, time, and the personas its authors refer to — between instances. Import is a user migrating memory, not an agent writing: it runs core validation but not the owner's length limits, only adds, and is not exposed over MCP.
+- Export and import move the log verbatim — ref, text, time, and the personas its records refer to — between instances. Import is a user migrating memory, not an agent writing: it runs core validation but not the owner's length limits, only adds, and is not exposed over MCP.
 
 ## Core
 
@@ -64,7 +64,7 @@ Four tools, the minimal complete operation set of a memory: write, change, forge
 
 - **The contract** — tool names, input schemas, output shape, field meanings — is meant to hold for years. New fields are additive, with defaults that reproduce prior behavior.
 - **`recall` is one function** called by the memory service: match the cue, spread to associations, rank them, filter them at the owner's strictness, cut to the result size ([RFC 0002](rfcs/0002-recall-contract.md) fixes the contract). The agent sends only `cue` and `context`.
-- **`recall` returns one list**, most relevant first; on equal relevance, cue matches come before associations. An item's `via` (the shared anchors) is both its kind and the reason it was associated. `truncated` means a more specific cue would bring back memories that were left out. A fragment's `by` is the author of its current version. The core stores the raw author; the MCP route shows it to agents only when the user vouches for that author: `user`, or a persona's current name. An `agent:<name>` is omitted, because the client picks that name and it would reach every other agent.
+- **`recall` returns one list**, most relevant first; on equal relevance, cue matches come before associations. An item's `via` (the shared anchors) is both its kind and the reason it was associated. `truncated` means a more specific cue would bring back memories that were left out. A fragment's `source` names where its current version came from. The core stores the raw source; the MCP route shows it to agents only when the user vouches for that source: `user`, or a persona's current name. An `agent:<name>` is omitted, because the client picks that name and it would reach every other agent.
 - **Core carries information only a feature uses.** `context` (what the agent is doing) is accepted on every recall; only the relevance filter reads it.
 - **Core keeps an absolute safety ceiling; the owner's limits sit under it.** No setting can let an unbounded fragment in. Tool descriptions carry no instance-specific numbers; warnings and rejections do.
 
@@ -100,7 +100,7 @@ Each type belongs to the module that owns its meaning. `lib/` holds rules both s
 
 The client infers the Worker API's types from the Worker and runs none of its code; it never imports the core.
 
-`core/` is the memory core: the fragment log, its search and anchor indexes, the personas the log's authors refer to ([RFC 0005](rfcs/0005-personas.md)), and untyped metadata by key, in one Durable Object per memory space. It knows nothing of recall policy, settings, models, or HTTP, and apps reach it only through its entry point ([RFC 0004](rfcs/0004-memory-core.md)).
+`core/` is the memory core: the fragment log, its search and anchor indexes, the personas its records refer to ([RFC 0005](rfcs/0005-personas.md)), and untyped metadata by key, in one Durable Object per memory space. It knows nothing of recall policy, settings, models, or HTTP, and apps reach it only through its entry point ([RFC 0004](rfcs/0004-memory-core.md)).
 
 `worker/` is laid out as routes, services, and clients. Routes speak HTTP and MCP; services hold the rules and import no HTTP or platform API; clients call outside services; middlewares sign the caller in, then open the caller's memory space. Every call to a memory space goes through one service per request, so none skips the Worker's rules, and only one module touches the memory binding and puts services together with their clients. Only per-request values, who is calling and what they may do, travel with the request; routes pass the caller to each write, so the memory service is about a memory space, not a caller.
 

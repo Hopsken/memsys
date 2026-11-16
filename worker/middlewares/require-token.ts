@@ -1,4 +1,4 @@
-import type { Author } from "@core";
+import type { Source } from "@core";
 import type { Context } from "hono";
 import { createMiddleware } from "hono/factory";
 
@@ -35,12 +35,12 @@ const insufficientScope = (c: Context<AppEnv>) => {
   return c.json({ error: "Insufficient scope" }, 403);
 };
 
-const authorOf = async (
+const sourceOf = async (
   c: Context<AppEnv>,
   userId: string,
   connection: ConnectionKey,
   name: string | null | undefined
-): Promise<Author> => {
+): Promise<Source> => {
   const personaId = await personaOf(c.env.DB, userId, connection);
   return personaId === null ? `agent:${name ?? ""}` : `persona:${personaId}`;
 };
@@ -63,8 +63,8 @@ export const requireToken = createMiddleware<AppEnv>(async (c, next) => {
     }
     const userId = verified.key.referenceId;
     c.set(
-      "author",
-      await authorOf(
+      "source",
+      await sourceOf(
         c,
         userId,
         apiKeyConnection(verified.key.id),
@@ -83,8 +83,8 @@ export const requireToken = createMiddleware<AppEnv>(async (c, next) => {
     return insufficientScope(c);
   }
   c.set(
-    "author",
-    await authorOf(
+    "source",
+    await sourceOf(
       c,
       verified.userId,
       oauthConnection(verified.clientId),

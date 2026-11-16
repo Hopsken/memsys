@@ -105,7 +105,11 @@ describe("Fragment export and import", () => {
     );
     const history = await records(source, "?history=true");
     expect(
-      history.map(({ by, fragment, op }) => [fragment, op, by])
+      history.map(({ fragment, op, source: writtenBy }) => [
+        fragment,
+        op,
+        writtenBy,
+      ])
     ).toStrictEqual([
       ["Before", "remember", "user"],
       ["After", "revise", "user"],

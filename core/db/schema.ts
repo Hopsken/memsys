@@ -6,17 +6,17 @@ import {
   text,
 } from "drizzle-orm/sqlite-core";
 
-import type { Author, Op } from "../model";
+import type { Op, Source } from "../model";
 import type { Metadata } from "../types";
 
 export const records = sqliteTable(
   "records",
   {
     at: integer().notNull(),
-    by: text().$type<Author>(),
     fragment: text(),
     op: text().$type<Op>().notNull(),
     ref: text().notNull(),
+    source: text().$type<Source>(),
   },
   (table) => [
     primaryKey({ columns: [table.ref, table.at] }),

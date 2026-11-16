@@ -6,11 +6,11 @@ import { Activity, ArrowDown } from "lucide-react";
 import { Link, Outlet } from "react-router";
 
 import { MemoryLength, OpBadge } from "@/entities/memory";
-import { authorLabel, Byline, usePersonas } from "@/entities/persona";
+import { SourceLine, sourceLabel, usePersonas } from "@/entities/persona";
 import { SessionExpired } from "@/features/auth";
-import { AuthorFilter, useAuthorParam } from "@/features/author-filter";
+import { SourceFilter, useSourceParam } from "@/features/source-filter";
 import { api, isExpired } from "@/shared/api";
-import type { ActivityEntry, ActivityPage, Author } from "@/shared/api";
+import type { ActivityEntry, ActivityPage, Source } from "@/shared/api";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
 import { listCard, listCardLink } from "@/shared/ui/list-card";
@@ -54,10 +54,10 @@ const EntryText = ({ entry }: { entry: ActivityEntry }) => {
 
 const EntryRow = ({
   entry,
-  onSelectAuthor,
+  onSelectSource,
 }: {
   entry: ActivityEntry;
-  onSelectAuthor: (by: Author) => void;
+  onSelectSource: (source: Source) => void;
 }) => {
   const open = useOpenHistory();
   const to = `${entry.ref}?${new URLSearchParams({ at: entry.at })}`;
@@ -68,7 +68,7 @@ const EntryRow = ({
         <div className="text-muted-foreground flex min-h-7 flex-wrap items-center justify-between gap-x-4 text-xs">
           <span className="flex flex-wrap items-center gap-x-1.5">
             <OpBadge op={entry.op} />
-            <Byline by={entry.by} onSelect={onSelectAuthor} />
+            <SourceLine onSelect={onSelectSource} source={entry.source} />
             <span aria-hidden="true">·</span>
             <time
               dateTime={entry.at}
@@ -95,9 +95,10 @@ const EntryRow = ({
 };
 
 export const ActivityView = () => {
-  const [by, setBy] = useAuthorParam();
+  const [source, setSource] = useSourceParam();
   const personas = usePersonas();
-  const filteredName = by === null ? null : authorLabel(by, personas.data);
+  const filteredName =
+    source === null ? null : sourceLabel(source, personas.data);
   const query = useInfiniteQuery<
     ActivityPage,
     Error,
@@ -110,11 +111,16 @@ export const ActivityView = () => {
     queryFn: ({ pageParam, signal }) =>
       parseResponse(
         api.activity.$get(
-          { query: { by: by ?? undefined, cursor: pageParam ?? undefined } },
+          {
+            query: {
+              cursor: pageParam ?? undefined,
+              source: source ?? undefined,
+            },
+          },
           { init: { signal } }
         )
       ),
-    queryKey: ["activity", by],
+    queryKey: ["activity", source],
   });
   const days = byDay(query.data?.pages.flatMap((page) => page.entries) ?? []);
   useReturnFocus();
@@ -144,8 +150,8 @@ export const ActivityView = () => {
         </Alert>
       ) : null}
 
-      <AuthorFilter by={by} className="mb-1" onChange={setBy} />
-      {by?.startsWith("persona:") ? (
+      <SourceFilter className="mb-1" onChange={setSource} source={source} />
+      {source?.startsWith("persona:") ? (
         <p className="text-muted-foreground mt-2 mb-1 text-xs">
           Earlier changes from its apps show under the app’s name.
         </p>
@@ -163,14 +169,14 @@ export const ActivityView = () => {
             ))}
           </div>
         ) : null}
-        {query.isSuccess && days.length === 0 && by !== null ? (
+        {query.isSuccess && days.length === 0 && source !== null ? (
           <p className="text-muted-foreground rounded-xl border border-dashed px-6 py-12 text-center text-sm">
             {filteredName?.name === "you"
               ? "You haven’t changed anything yet."
-              : `No changes by ${filteredName?.name ?? "this agent"} yet.`}
+              : `No changes from ${filteredName?.name ?? "this agent"} yet.`}
           </p>
         ) : null}
-        {query.isSuccess && days.length === 0 && by === null ? (
+        {query.isSuccess && days.length === 0 && source === null ? (
           <div className="rounded-xl border border-dashed px-6 py-16 text-center">
             <Activity
               aria-hidden="true"
@@ -200,7 +206,7 @@ export const ActivityView = () => {
                 <EntryRow
                   entry={entry}
                   key={`${entry.ref}-${entry.at}`}
-                  onSelectAuthor={setBy}
+                  onSelectSource={setSource}
                 />
               ))}
             </ul>

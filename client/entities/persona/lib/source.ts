@@ -1,30 +1,30 @@
-import type { Author, Persona } from "@/shared/api";
+import type { Persona, Source } from "@/shared/api";
 
-export interface AuthorLabel {
+export interface SourceLabel {
   name: string;
 }
 
-export const isAuthor = (value: string | null): value is Author =>
+export const isSource = (value: string | null): value is Source =>
   value !== null &&
   (value === "user" ||
     value.startsWith("agent:") ||
     value.startsWith("persona:"));
 
 // Null while the personas are still loading, so a persona's id never shows.
-export const authorLabel = (
-  by: Author,
+export const sourceLabel = (
+  source: Source,
   personas: Persona[] | undefined
-): AuthorLabel | null => {
-  if (by === "user") {
+): SourceLabel | null => {
+  if (source === "user") {
     return { name: "you" };
   }
-  if (by.startsWith("persona:")) {
+  if (source.startsWith("persona:")) {
     if (!personas) {
       return null;
     }
-    const persona = personas.find(({ id }) => `persona:${id}` === by);
+    const persona = personas.find(({ id }) => `persona:${id}` === source);
     return { name: persona?.name ?? "an unknown agent" };
   }
-  const name = by.slice("agent:".length).trim();
+  const name = source.slice("agent:".length).trim();
   return { name: name || "an AI tool" };
 };
