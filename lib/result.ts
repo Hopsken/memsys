@@ -8,7 +8,7 @@ export interface Issue {
   path: string[];
 }
 
-export type Code = "invalid" | "not-found" | "unavailable";
+export type Code = "conflict" | "invalid" | "not-found" | "unavailable";
 
 export interface Failure<C extends Code = Code, R extends string = string> {
   code: C;

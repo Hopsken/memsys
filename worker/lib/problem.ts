@@ -6,6 +6,7 @@ import type { Code, Failure, Result } from "@lib/result";
 const RETRY_AFTER_SECONDS = "5";
 
 const STATUS_BY_CODE = {
+  conflict: 409,
   invalid: 422,
   "not-found": 404,
   unavailable: 503,

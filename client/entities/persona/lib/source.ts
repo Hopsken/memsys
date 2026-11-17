@@ -7,6 +7,7 @@ export interface SourceLabel {
 export const isSource = (value: string | null): value is Source =>
   value !== null &&
   (value === "user" ||
+    value === "system" ||
     value.startsWith("agent:") ||
     value.startsWith("persona:"));
 
@@ -17,6 +18,9 @@ export const sourceLabel = (
 ): SourceLabel | null => {
   if (source === "user") {
     return { name: "you" };
+  }
+  if (source === "system") {
+    return { name: "memsys" };
   }
   if (source.startsWith("persona:")) {
     if (!personas) {

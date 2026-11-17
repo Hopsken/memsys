@@ -109,3 +109,4 @@ export default {
 };
 
 export { MemoryDO } from "@core/do";
+export { TidyDO } from "./tidy/do";

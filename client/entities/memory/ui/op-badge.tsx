@@ -9,7 +9,7 @@ const LABELS = {
   revise: "Edited",
 } satisfies Record<Op, string>;
 
-const BADGES = {
+export const OP_COLORS = {
   forget: "bg-amber-500/15 text-amber-800 dark:text-amber-300",
   remember: "bg-teal-500/10 text-teal-800 dark:text-teal-300",
   restore: "bg-violet-500/15 text-violet-800 dark:text-violet-300",
@@ -17,7 +17,7 @@ const BADGES = {
 } satisfies Record<Op, string>;
 
 export const OpBadge = ({ op }: { op: Op }) => (
-  <span className={cn("rounded-md px-1.5 py-0.5 font-medium", BADGES[op])}>
+  <span className={cn("rounded-md px-1.5 py-0.5 font-medium", OP_COLORS[op])}>
     {LABELS[op]}
   </span>
 );

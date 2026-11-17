@@ -36,6 +36,7 @@ export const personaNameSchema = z.string().trim().min(1).max(64);
 
 export const sourceSchema = z.union([
   z.literal("user"),
+  z.literal("system"),
   z.templateLiteral(["agent:", z.string().max(256)]),
   z.templateLiteral(["persona:", personaIdSchema]),
 ]);

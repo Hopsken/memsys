@@ -96,7 +96,7 @@ const receipt = (counts: Counts) => {
     : `Memory updated: ${parts.join(", ")}.`;
 };
 
-const failed = (cause: string, counts?: Counts): MemoryUnavailable =>
+export const failed = (cause: string, counts?: Counts): MemoryUnavailable =>
   memoryUnavailable(
     !/api key|unauthori[sz]ed|401|403/iu.test(cause),
     counts && writeCount(counts) + counts.forgotten > 0
@@ -104,13 +104,13 @@ const failed = (cause: string, counts?: Counts): MemoryUnavailable =>
       : undefined
   );
 
-const textOf = (message: AssistantMessage) =>
+export const textOf = (message: AssistantMessage) =>
   message.content
     .flatMap((block) => (block.type === "text" ? [block.text] : []))
     .join("\n")
     .trim();
 
-const errorOf = (message: AssistantMessage | undefined) =>
+export const errorOf = (message: AssistantMessage | undefined) =>
   message?.role === "assistant" && message.stopReason === "error"
     ? message.errorMessage
     : undefined;
@@ -124,7 +124,10 @@ interface Runner {
   ) => AssistantMessageEventStream;
 }
 
-const createRunner = (apiKey: string, baseUrl?: string): Runner | null => {
+export const createRunner = (
+  apiKey: string,
+  baseUrl?: string
+): Runner | null => {
   const models = createModels({
     authContext: {
       env: (name) =>
@@ -141,12 +144,13 @@ interface RunOptions {
   beforeToolCall?: ConstructorParameters<typeof Agent>[0]["beforeToolCall"];
   finishTurn?: ConstructorParameters<typeof Agent>[0]["finishTurn"];
   message: string;
+  signal?: AbortSignal;
   system: string;
   toolChoice: "auto" | "none";
   tools: AgentTool[];
 }
 
-const run = async (subject: Runner, options: RunOptions) => {
+export const run = async (subject: Runner, options: RunOptions) => {
   const agent = new Agent({
     initialState: {
       model: subject.model,
@@ -165,13 +169,14 @@ const run = async (subject: Runner, options: RunOptions) => {
     }),
     ...(options.finishTurn && { finishTurn: options.finishTurn }),
   });
+  options.signal?.addEventListener("abort", () => agent.abort());
   await agent.prompt(options.message);
   return agent.state.messages.findLast(
     (message) => message.role === "assistant"
   );
 };
 
-const toolResult = (text: string, isError = false) => ({
+export const toolResult = (text: string, isError = false) => ({
   content: [{ text, type: "text" as const }],
   details: undefined,
   ...(isError && { isError: true }),
