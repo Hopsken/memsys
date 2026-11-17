@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { openMemory } from "../worker/memory";
+import { providers } from "../worker/services/memory/provider";
 import { faux } from "./faux-provider";
 import { scripted, useFauxModel } from "./subagent";
 import type { ModelRequest } from "./subagent";
@@ -170,6 +171,25 @@ describe("Memory subagent", () => {
       answer: "I don't have any memories yet.",
       requests: 0,
     });
+  });
+
+  it("passes the configured endpoint to the model provider", async () => {
+    const memory = openMemory("endpoint");
+    await seeded(memory, 1);
+    const script = scripted();
+    faux.setResponses([script.text("It is there.")]);
+    const { create } = providers;
+    const endpoints: (string | undefined)[] = [];
+    providers.create = (baseUrl) => {
+      endpoints.push(baseUrl);
+      return faux.provider;
+    };
+    try {
+      await memory.recall({ context: "anything" });
+    } finally {
+      providers.create = create;
+    }
+    expect(endpoints).toStrictEqual(["https://gateway.memsys.test"]);
   });
 
   it("starts the cutoff on the first write to an empty memory", async () => {

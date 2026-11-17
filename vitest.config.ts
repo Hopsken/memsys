@@ -47,6 +47,7 @@ export default defineConfig(async (): Promise<ViteUserConfig> => {
                   BETTER_AUTH_SECRET:
                     "test-secret-with-enough-entropy-0123456789",
                   DEEPSEEK_API_KEY: "test-deepseek-key",
+                  DEEPSEEK_BASE_URL: "https://gateway.memsys.test",
                   EMAIL_FROM: "memsys <memsys@memsys.test>",
                   PUBLIC_URL: "https://memsys.test",
                   RESEND_API_KEY: "test-resend-key",

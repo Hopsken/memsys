@@ -124,7 +124,7 @@ interface Runner {
   ) => AssistantMessageEventStream;
 }
 
-const createRunner = (apiKey: string): Runner | null => {
+const createRunner = (apiKey: string, baseUrl?: string): Runner | null => {
   const models = createModels({
     authContext: {
       env: (name) =>
@@ -132,7 +132,7 @@ const createRunner = (apiKey: string): Runner | null => {
       fileExists: () => Promise.resolve(false),
     },
   });
-  models.setProvider(createProvider());
+  models.setProvider(createProvider(baseUrl));
   const model = models.getModel(MODEL_PROVIDER, MODEL_ID);
   return model ? { model, stream: models.streamSimple.bind(models) } : null;
 };
@@ -179,11 +179,13 @@ const toolResult = (text: string, isError = false) => ({
 
 export class Subagent {
   readonly #apiKey: string;
+  readonly #baseUrl: string | undefined;
   readonly #memory: MemoryService;
 
-  constructor(memory: MemoryService, apiKey: string) {
+  constructor(memory: MemoryService, apiKey: string, baseUrl?: string) {
     this.#memory = memory;
     this.#apiKey = apiKey;
+    this.#baseUrl = baseUrl;
   }
 
   async recall(
@@ -192,7 +194,7 @@ export class Subagent {
     if ((await this.#memory.count()) === 0) {
       return ok({ answer: EMPTY_ANSWER });
     }
-    const subject = createRunner(this.#apiKey);
+    const subject = createRunner(this.#apiKey, this.#baseUrl);
     if (!subject) {
       return err(failed("The DeepSeek model is not available"));
     }
@@ -226,7 +228,7 @@ export class Subagent {
     context: string,
     source: Source
   ): Promise<Result<{ receipt: string }, Failure | MemoryUnavailable>> {
-    const subject = createRunner(this.#apiKey);
+    const subject = createRunner(this.#apiKey, this.#baseUrl);
     if (!subject) {
       return err(failed("The DeepSeek model is not available"));
     }

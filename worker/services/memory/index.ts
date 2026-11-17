@@ -47,10 +47,10 @@ export class MemoryService {
   readonly #settings: SettingsService;
   readonly #subagent: Subagent;
 
-  constructor(memory: Memory, apiKey: string) {
+  constructor(memory: Memory, apiKey: string, baseUrl?: string) {
     this.#memory = memory;
     this.#settings = new SettingsService(memory);
-    this.#subagent = new Subagent(this, apiKey);
+    this.#subagent = new Subagent(this, apiKey, baseUrl);
   }
 
   async remember(input: { fragment: string }, source: Source) {
