@@ -2,114 +2,58 @@
 
 A durable memory for AI agents, in plain language. One person's memory serves every agent they connect.
 
-Agents use two tools. `recall` asks what memory holds for the task and answers in prose. `note` hands over conversation context, and memory decides what to keep, revise, or forget. A model reads and curates an append-only log, so each agent no longer needs to learn storage rules, identifiers, or tags. The person reads, edits, imports, and audits the same memory in the web UI.
+Agents use two tools. `recall` asks what memory holds for the task and answers in prose. `note` hands over conversation context, and memory decides what to keep, revise, or forget. The person reads, edits, imports, and audits the same memory in the web UI.
 
-To connect an agent, add `https://<hostname>/mcp` as an MCP server and sign in when it asks. Agents that cannot sign in use an API key from **Settings → MCP** instead (see [Sign-in and MCP access](#sign-in-and-mcp-access)).
+## Connect an agent
 
-[Project Vision](docs/VISION.md) [Architecture](docs/Architecture.md)
-
-## Web UI
-
-Sign in at `/login` with a one-time code sent to your email. The search icon in the header asks memory the same way an agent does and shows the prose answer. `/` opens **Activity** (`/activity`, `GET /api/activity`): every record in the log across fragments, newest first and grouped by day, each marked with what it did (new, edited, forgotten, restored) and where it came from (you or the named agent). **Memories** (`/memories`) lists current fragments; click a #tag to list only fragments carrying it, and more tags to narrow further (`GET /api/fragments?tag=a&tag=b`; `#a` also matches `#a/b`). Click an entry in either to see every version of that fragment and use or restore an earlier one (`GET /api/fragments/:ref/history`, `POST /api/fragments/:ref/restore`); using an earlier version of a live fragment is recorded as an edit, and only bringing back a forgotten one as a restore. Forgotten fragments are listed at `/forgotten` (`GET /api/fragments/forgotten`). **Settings** (`/settings`) has a tab each for MCP (connected apps and API keys), features (memory length limits and instructions for the memory model), import and export, and your account. Fragments are created, revised, and forgotten through a connected agent's `note` or through the web UI's JSON API; restoring a version and deleting a fragment for good, history included, are only possible from the web UI (`POST /api/purge`).
-
-Memory is an append-only log: `revise` and `forget` add a record instead of changing or deleting one (see [RFC 0001](docs/rfcs/0001-append-only-fragment-log.md)). To move memory to another instance, use **Export** under **Settings → Data** to download it as NDJSON, one record per line (`GET /api/export`, or `?history=true` for the whole log), then **Import** that file on the other instance (`POST /api/import` with `Content-Type: application/x-ndjson`, up to 10 MB). Import keeps each fragment's ref, text, times, and source, and each record's `op` when the file has it. Every export starts with your agents (one `persona` record each), and import adds the ones this memory does not have yet; which app or key belongs to an agent is not exported. It only adds: a ref this memory already knows, even a forgotten one, is skipped when its text matches and reported and left unchanged when it does not, and text already in memory is skipped. A plain text file (`Content-Type: text/plain`) imports each non-empty line as a new fragment. Import runs core validation but not your length limits, and stores nothing if any line is invalid. Neither operation is available over MCP.
-
-The app uses Vite, React, Tailwind CSS 4, and shadcn/ui in `client/`. The memory core, a Durable Object that stores and replays the fragment log, lives in `core/`. Hono, authentication, MCP, and the memory model live in `worker/`, built on the core. The Cloudflare Vite plugin serves both from one origin. The browser keeps its session in an HTTP-only cookie and sends same-origin requests.
-
-## How it works
-
-Agents connect over MCP at `/mcp` (stateless Streamable HTTP) with an OAuth access token or an API key. MCP exposes two tools: `recall` and `note`. The web UI uses its own JSON API under `/api/` for the owner's reads, edits, and settings.
-
-Both tools run synchronously through DeepSeek V4.1 Flash. Its system prompt holds memsys's rules, the owner's instructions, a frozen snapshot of memories up to a cutoff, and the log records written after that cutoff; the caller's context and the instruction for this call come last. `recall` disables tools and answers from the memory in prose. `note` enables `remember`, `revise`, and `forget` under the caller's source, bounded at 8 turns, 10 writes, and 3 forgets; it returns a receipt with counts, never memory text. Writes already made stay if a later turn fails, and the error says so.
-
-The first read fixes the cutoff at the end of the log. It advances only when the update list grows past its bound, after a purge or import, so repeated calls reuse one cached prefix. Changing the owner's instructions or the tool set starts a new prefix without moving the cutoff. Length limits and owner instructions live under **Settings → Features**; the core itself rejects fragments over 1000 characters. [Architecture](docs/Architecture.md) covers where behavior lives, the prompt layout, failure rules, and permissions.
-
-## Storage
-
-Two stores, each with its own Drizzle schema and migrations:
-
-- **D1** (`DB`) is the Worker's database: users, sessions, sign-in codes, rate-limit counters, API keys, and OAuth clients, consents, and signing keys. Schema in `worker/db/schema.ts`, migrations in `migrations/`, applied by `wrangler d1 migrations`.
-- **One SQLite Durable Object per user** holds that user's memory. Schema in `core/db/schema.ts`, migrations in `core/migrations/`, bundled into the object.
-
-A memory space id names each memory object. For now every user has one default space whose id is their Better Auth user id (`defaultSpace` in `worker/memory.ts`). A session, an OAuth access token, and an API key all resolve to it, so REST and MCP reach the same object. Clients cannot select another user's memory space.
-
-In the memory object, `records` holds the fragment log, each record with the action that wrote it (`op`: `remember`, `revise`, `forget`, or `restore`) and where it came from (`source`: `user`; `persona:` and an agent's id when the app or API key belongs to an agent ([RFC 0005](docs/rfcs/0005-personas.md)); otherwise `agent:` and the app or API key name at the time; null for records written before it was kept); `personas` holds the agents the owner named, which are archived but never deleted; `metadata` holds JSON documents by key: the owner's settings under `settings`, and the snapshot cutoff under `logCursor`. Drizzle migrations run inside `blockConcurrencyWhile` before the object accepts requests. The object then replays the log into a map of current fragments. Writes append to SQLite before updating the map. Object eviction removes only memory; the next instance rebuilds it from SQLite. The core has no search index: every read replays the log.
-
-For future schema changes:
-
-```sh
-pnpm db:generate descriptive-migration-name          # D1
-pnpm db:generate:core descriptive-migration-name     # memory core
-```
-
-Commit the generated SQL and snapshot, plus the memory object's migration bundle. `pnpm dev` applies D1 migrations locally; `pnpm deploy` applies them remotely before deploying. Memory object migrations run when each object starts. Wrangler's `v1` migration registers the SQLite object class; it is separate from SQL schema migrations.
-
-## Sign-in and MCP access
-
-[Better Auth](https://www.better-auth.com/) runs in the Worker under `/api/auth` and reads D1 directly. There are three credentials, and each reaches only its own side:
-
-| Credential | Held by | Reaches |
-| --- | --- | --- |
-| Session cookie, from an emailed one-time code | The browser | The web UI and `/api/*`: memory, settings, API key and app management |
-| OAuth access token, from signing in through an agent | An agent | `/mcp` only, limited to the scopes the user allowed |
-| API key (`memsys_…`), a Better Auth API key | An agent | `/mcp` only, limited to the access chosen when the key was created |
-
-Neither agent credential stands in for a session, so an agent cannot change settings, create API keys, or manage apps, and a session cookie does not open `/mcp`.
-
-**OAuth.** Better Auth's MCP plugin makes the Worker an OAuth 2.1 authorization server for `/mcp`. A request without a token gets a 401 whose `WWW-Authenticate` header points to `/.well-known/oauth-protected-resource/mcp`; from there the agent finds the authorization server, registers itself (a Client ID Metadata Document or dynamic client registration), and sends the user to `/login` and then `/consent`. Two scopes decide which tools the agent sees: `memory:read` for `recall`, `memory:write` for `note`. A connection needs at least one to enter `/mcp`, and the UI creates API keys with write access by default; uncheck it for a read-only key. Access tokens are JWTs for the `/mcp` audience that last an hour; memsys adds `offline_access` to every authorization request, since apps such as ChatGPT ask only for the scopes `/mcp` lists, so any agent registered for refresh tokens can refresh them. `/mcp` also checks on every call that the consent still exists, so disconnecting an app under **Settings → MCP** takes effect at once and ends its refresh tokens.
-
-**API keys** are for agents that cannot sign in. They are stored hashed; the web UI shows each one once, when it is created. Revoking a key takes effect on the next request.
-
-Sign-in codes go out through [Resend](https://resend.com/). memsys is invite-only: an address without an account gets a code only with a usable invite code, and creating the account uses up one use of that invite. New users open an invite link (`/join/<code>`) or enter the code at `/join`; existing users sign in at `/login` and never need one. `pnpm invite --remote` creates a code in the production database and prints its link (`--uses` and `--days` set how many accounts it can create and when it expires, by default 1 and 7); `pnpm invite --remote --list` shows every code and how much of it is used. Both use your Wrangler login, as `pnpm deploy` does; set `PUBLIC_URL` to print full links. Sign-in routes and invite checks are rate limited per client address, with counters in D1.
-
-Connect an agent with the URL alone and sign in when it asks, for example in Claude Code:
+Add `https://<hostname>/mcp` as an MCP server and sign in when it asks:
 
 ```sh
 claude mcp add --transport http memsys https://<hostname>/mcp
 ```
 
-Or with an API key as a bearer header:
+Agents that cannot sign in use an API key from **Settings → MCP** instead:
 
 ```sh
 claude mcp add --transport http memsys https://<hostname>/mcp \
   --header "Authorization: Bearer memsys_…"
 ```
 
-Before the first deployment:
+`memory:read` grants `recall` and `memory:write` grants `note`; a connection needs at least one.
 
-1. After the first deploy, add a custom domain to the Worker in the Cloudflare dashboard (**Settings → Domains & Routes**). `wrangler.jsonc` names no domain, and deploys leave the one you add in place.
-2. Create the database with `pnpm exec wrangler d1 create memsys` and add its `database_id` to `wrangler.jsonc`.
-3. Verify a sending domain in Resend.
-4. Set the Worker's variables in the Cloudflare dashboard (**Workers & Pages → memsys → Settings → Variables and Secrets**); `.dev.vars.example` lists them all. `PUBLIC_URL` is that custom domain's origin (e.g. `https://memsys.example.com`), and `EMAIL_FROM` an address on the Resend domain. Store `BETTER_AUTH_SECRET` (at least 32 random characters, e.g. `openssl rand -base64 32`), `RESEND_API_KEY`, and `DEEPSEEK_API_KEY` as secrets. Set `DEEPSEEK_BASE_URL` only when model calls should go through an OpenAI-compatible gateway instead of `https://api.deepseek.com`. `wrangler.jsonc` sets `keep_vars`, so deploys leave them alone; nothing instance-specific lives in the repository.
-5. Run `pnpm check`, then deploy when approved with `pnpm deploy`.
-6. Connect an MCP client by signing in, and another with an API key. Check `recall` and `note`, that a read-only key sees only `recall`, that a key with write sees both tools, and that `/api/*` rejects both credentials.
+## Run it locally
 
-`workers.dev` and preview URLs are disabled.
-
-## Development and checks
-
-Node.js 24 and pnpm 12 are pinned through Mise. Hono handles routing; Zod schemas are shared by REST, MCP, and the object. Drizzle handles SQLite. Vitest tests run in the Workers runtime.
+Node.js 24 and pnpm 12, pinned through Mise.
 
 ```sh
 mise install
 pnpm install --frozen-lockfile
 cp .dev.vars.example .dev.vars
-pnpm check       # Types, tests, production build, lint, format check
-pnpm dev         # Apply local D1 migrations, then Vite frontend and local Worker
+pnpm dev      # apply local D1 migrations, then serve http://localhost:5173
+pnpm check    # types, tests, build, lint, format
 ```
 
-`pnpm dev` uses local D1 and Durable Object storage. Copy `.dev.vars.example` to the ignored `.dev.vars`: it sets a development `BETTER_AUTH_SECRET` and `PUBLIC_URL`, and leaves `DEEPSEEK_API_KEY` blank for you to fill in. The memory model calls DeepSeek directly, so `recall` and `note` need that key; set `DEEPSEEK_BASE_URL` to send those calls to an OpenAI-compatible gateway instead. `pnpm invite` creates an invite code in the local database. With `RESEND_API_KEY` or `EMAIL_FROM` empty, a dev build prints sign-in codes in the dev server log instead of emailing them; a production build refuses to sign in without both. Open `/` on the development server and sign in.
+Fill in `DEEPSEEK_API_KEY` in `.dev.vars` for `recall` and `note`. While `RESEND_API_KEY` and `EMAIL_FROM` are empty, sign-in codes print in the dev server log, and the sign-in page offers **Sign in as dev@memsys.test**. [Development](docs/Development.md) covers the dev routes, the seed corpus, migrations, and tests.
 
-The sign-in page on the dev server also offers **Sign in as dev@memsys.test**, which opens `/__dev/log-me-in/<email>?returnTo=<path>`. That route signs the browser in as any address without a sign-in code or invite, creating the account the first time, and returns to `returnTo` when it is a path on the same origin, otherwise to `/`. A new account starts with a fixed eight-fragment corpus (`worker/lib/dev-corpus.ts`) so the UI and the memory model have something to read.
+## Deploy
 
-With the dev server running, `pnpm db:seed` adds that corpus to `dev@memsys.test`'s memory again (memories already there are skipped); set `SEED_EMAIL` for another user who has signed in, and `SEED_URL` if the server is not on `http://localhost:5173`. These routes skip sign-in, so anyone with access to the dev server can use them; do not store sensitive data there.
+memsys runs on Cloudflare Workers with D1 and one SQLite Durable Object per person. `pnpm deploy` builds, applies D1 migrations remotely, and deploys.
 
-The printed codes and the dev routes (`worker/routes/dev.ts`) exist only in dev builds: they sit behind `import.meta.env.DEV`, which `vite build` replaces with `false`, so the deployed bundle contains neither and `/__dev/*` answers 404.
+The first deploy also needs a D1 database, a verified Resend domain, a custom domain, and the Worker's variables and secrets. [Deployment](docs/Deployment.md) lists them, along with invite codes and the access model.
 
-`.dev.vars` is not deployed. `pnpm typegen` reads `.dev.vars.example` to type the Worker's secrets, so add new secrets there too.
+## Layout
 
-Tests use real email sign-in, sessions, API keys, OAuth sign-in, D1, SQLite objects, object eviction, and MCP protocol requests. The Resend request and the memory model are replaced: sign-in reads its code from the fake Resend response, and the model runs against a scripted provider that keeps the real provider and model ids. No Cloudflare account or model key is needed.
+- `client/` — the web UI: Vite, React, Tailwind CSS 4, and shadcn/ui in Feature-Sliced Design layers.
+- `worker/` — Hono routes, Better Auth, MCP, and the memory model.
+- `core/` — the memory core: a SQLite Durable Object that stores and replays the fragment log.
+- `lib/` — rules both sides compute the same way.
+- `docs/` — design documents and RFCs.
 
-Tests are grouped by behavior in `tests/`: authentication and HTTP safety, REST and MCP contracts, the model's prompt, caps, and failures, edits and length limits, persistence, pagination, settings, and the development seed. A snapshot file under `tests/artifacts/` covers one full scripted recall and note run. `helpers.ts` contains only shared request and authentication setup. Keep assertions on returned data, rejected requests, identity isolation, and persisted results. Test matching and pagination edge cases with pure functions; test transport and storage behavior through their public interfaces. Do not lock tests to prose, generated schema formatting, cursor encoding, or SQL layout.
+## Docs
 
-`worker-configuration.d.ts` is generated and ignored. Keep secrets in ignored `.dev.vars` files. `pnpm build` builds `dist/client` and `dist/memsys` locally; it does not deploy or run migrations. `pnpm deploy` builds, applies D1 migrations remotely, and deploys. Check a live email sign-in after the first deployment.
+- [Vision](docs/VISION.md) — why memsys exists and what it will not become.
+- [Architecture](docs/Architecture.md) — where a piece of behavior lives.
+- [Portability](docs/Portability.md) — export a memory, or import one from another instance.
+- [Deployment](docs/Deployment.md) — a first deploy, secrets, invitations, and access.
+- [Development](docs/Development.md) — local setup, dev sign-in, migrations, and tests.
+- [RFCs](docs/rfcs/) — design decisions with their alternatives.
