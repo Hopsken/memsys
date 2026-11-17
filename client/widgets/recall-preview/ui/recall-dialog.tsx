@@ -31,7 +31,7 @@ const RecallError = ({
     <Alert className="flex flex-wrap items-center justify-between gap-3">
       <AlertDescription className="text-foreground min-w-0 flex-1">
         Couldn’t reach your memories.
-        {problem.error ? (
+        {problem.error && problem.retry === undefined ? (
           <span className="text-muted-foreground mt-1 block text-xs [overflow-wrap:anywhere]">
             {problem.error}
           </span>
@@ -85,12 +85,12 @@ const RecallPanel = ({
     <>
       <form className="flex gap-2 border-b px-5 py-4" onSubmit={submit}>
         <Input
-          aria-label="What your AI is working on"
+          aria-label="Ask your memory"
           autoComplete="off"
           className="h-9"
           maxLength={8000}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder="What your AI is working on"
+          placeholder="A question, or what your AI is working on"
           ref={contextInput}
           value={draft}
         />
@@ -105,7 +105,7 @@ const RecallPanel = ({
       >
         {request === null ? (
           <p className="text-muted-foreground py-10 text-center text-sm">
-            Ask as your AI would to see what memory answers.
+            Ask a question to see what your memory answers.
           </p>
         ) : null}
         {isExpired(query.error) ? <SessionExpired /> : null}
@@ -142,9 +142,9 @@ export const RecallPreview = ({ className }: { className?: string }) => {
       <DialogTrigger
         render={
           <button
-            aria-label="What your AI recalls"
+            aria-label="Ask your memory"
             className={className}
-            title="What your AI recalls"
+            title="Ask your memory"
           />
         }
       >
@@ -156,7 +156,7 @@ export const RecallPreview = ({ className }: { className?: string }) => {
         showCloseButton={false}
       >
         <DialogHeader className="min-h-15 flex-row items-center gap-3 border-b py-3 pr-3 pl-5">
-          <DialogTitle className="flex-1">What your AI recalls</DialogTitle>
+          <DialogTitle className="flex-1">Ask your memory</DialogTitle>
           <DialogClose
             render={
               <Button aria-label="Close" size="icon-sm" variant="ghost" />
