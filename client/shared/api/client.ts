@@ -32,7 +32,6 @@ export type ForgottenList = InferResponseType<
 >;
 export type ForgottenFragment = ForgottenList["fragments"][number];
 export type ImportResult = InferResponseType<typeof api.import.$post, 200>;
-export type RecallResult = InferResponseType<typeof api.recall.$post, 200>;
 export type SettingsView = InferResponseType<typeof api.settings.$get, 200>;
 export type Settings = SettingsView["settings"];
 export type SettingsMergePatch = {

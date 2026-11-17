@@ -13,7 +13,6 @@ export type {
   ListedFragment,
   Op,
   Persona,
-  RecallResult,
   Restored,
   Settings,
   SettingsMergePatch,

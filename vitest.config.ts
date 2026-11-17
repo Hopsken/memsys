@@ -53,9 +53,6 @@ export default defineConfig(async (): Promise<ViteUserConfig> => {
                   TEST_MIGRATIONS: migrations,
                 },
               },
-              // Without this, the AI binding opens a remote session that needs
-              // Cloudflare credentials.
-              remoteBindings: false,
               wrangler: { configPath: "./wrangler.jsonc" },
             }),
           ],
