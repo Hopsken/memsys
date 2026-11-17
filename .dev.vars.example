@@ -5,5 +5,8 @@ BETTER_AUTH_SECRET=local-development-secret-change-me-0123456789
 EMAIL_FROM="memsys <memsys@example.com>"
 RESEND_API_KEY=
 
+# DeepSeek key for the memory model (recall and note).
 DEEPSEEK_API_KEY=
+# Optional: an OpenAI-compatible endpoint that serves deepseek-flash, instead of
+# https://api.deepseek.com.
 DEEPSEEK_BASE_URL=
