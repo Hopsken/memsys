@@ -212,7 +212,7 @@ const FeaturesForm = ({ view }: { view: SettingsView }) => {
             >
               <p id="instructions-hint">
                 {instructionsError ??
-                  "Used only by memsys’s memory model. They are never sent to your connected AI."}
+                  "Used by the memory model on every recall and note."}
               </p>
               <span className="font-mono whitespace-nowrap tabular-nums">
                 {draft.instructions.length} / {INSTRUCTIONS_MAX}
@@ -283,10 +283,6 @@ export const FeaturesView = () => {
 
   return (
     <section aria-busy={query.isFetching} aria-label="Features">
-      <p className="text-muted-foreground mb-4 text-sm">
-        Recall and note send your memories to DeepSeek, the model that reads and
-        curates them.
-      </p>
       {query.isError ? (
         <Alert className="flex flex-wrap items-center justify-between gap-3">
           <AlertDescription className="text-foreground">
