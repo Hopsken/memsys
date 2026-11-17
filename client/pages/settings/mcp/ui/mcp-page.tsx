@@ -170,7 +170,7 @@ const CreateApiKeyForm = ({
 }) => {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
-  const [write, setWrite] = useState(false);
+  const [write, setWrite] = useState(true);
   const create = useMutation({
     mutationFn: (json: { name: string; write: boolean }) =>
       parseResponse(api["api-keys"].$post({ json })),
