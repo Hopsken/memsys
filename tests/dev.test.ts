@@ -1,4 +1,3 @@
-import type { Fragment } from "@core";
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
@@ -7,9 +6,6 @@ import { corpus } from "../worker/lib/dev-corpus";
 import { list, ORIGIN, post, useAuth } from "./helpers";
 import type { User } from "./helpers";
 
-const label = (text: string) =>
-  `f${corpus.findIndex((item) => item.fragment === text) + 1}`;
-
 describe("Development seed", () => {
   const signIn = useAuth();
 
@@ -17,24 +13,18 @@ describe("Development seed", () => {
     const user = await signIn();
     await post("/api/remember", { fragment: "Kept beside the seed" }, user);
     const seeded = await post("/api/dev/seed", { email: user.email }, null);
-    const recalled = await post("/api/recall", { cues: "US West" }, user);
-    const { fragments } = await recalled.json<{
-      fragments: (Fragment & { via?: string[] })[];
-    }>();
     await expect(seeded.json()).resolves.toStrictEqual({
       conflicts: [],
       imported: 8,
       skipped: 0,
     });
+    const { fragments } = await list(user);
+    expect(fragments).toHaveLength(9);
+    const stored = new Set(fragments.map(({ fragment }) => fragment));
     expect(
-      fragments.map(({ fragment, via }) => [label(fragment), via])
-    ).toStrictEqual([
-      ["f2", undefined],
-      ["f1", ["cloudflare", "memsys"]],
-      ["f7", ["d1", "memsys"]],
-      ["f4", ["memsys"]],
-      ["f6", ["memsys"]],
-    ]);
+      corpus.filter(({ fragment }) => fragment !== null && stored.has(fragment))
+    ).toHaveLength(8);
+    expect(stored.has("Kept beside the seed")).toBeTruthy();
   });
 
   it("refuses to seed an address that has not signed in", async () => {

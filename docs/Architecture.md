@@ -6,119 +6,107 @@ A change that only moves a number or adds a setting should not need an edit here
 
 ## Glossary
 
-- **fragment** — one short, atomic, self-contained text; the unit of memory.
-- **anchor / tag** — a `#word` inside fragment text; extracted, never stored.
-- **recalled** — fragments that match the cue's words.
-- **associated** — fragments sharing an anchor with a recalled fragment.
-- **hub** — an anchor on a large share of the corpus; connects everything, discriminates nothing.
-- **instance** — one user's memory: fragments plus settings.
-- **feature** — behavior the owner can switch off or tune under **Settings → Features**.
+- **memory** — one person's durable record: every fragment they kept and every change to it.
+- **fragment** — one short, atomic, self-contained piece of text; the unit of memory.
+- **source** — where a version of a fragment came from: the person, or one of their agents.
+- **snapshot** — the frozen list of current fragments a model reads at the start of its prompt.
+- **update** — a log record written after the snapshot cutoff, rendered in order after it.
+- **memory model** — the model call that reads memory on `recall` and curates it on `note`.
+- **owner** — the person whose memory this is, signed into the web UI.
+
+## Shape
+
+One person has one memory. Their agents share it through two MCP tools: `recall` asks a question and gets prose; `note` hands over conversation context and gets a receipt. The owner reads and edits the same memory in the web UI.
+
+The durable record is an append-only log. `note`, the web UI, and import add records; nothing rewrites an older one. What the owner reads, what the memory model reads, and what export writes all derive from that log.
 
 ## Layers
 
 ```
-┌──────────────────────────────────────────────────────┐
-│  Model — volatile, outside the system, swapped        │
-│  every generation                                    │
-├──────────────────────────────────────────────────────┤
-│  Per-instance settings — which features are on and   │
-│  how they are tuned                                  │
-├──────────────────────────────────────────────────────┤
-│  Core — remember · revise · forget · recall,         │
-│  list_tags; contract stable for years                │
-├──────────────────────────────────────────────────────┤
-│  Durable layer — fragments are the only truth;       │
-│  tags and every index are rebuildable caches         │
-└──────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│ Interfaces — MCP tools, the owner's web API, the UI      │
+├──────────────────────────────────────────────────────────┤
+│ Memory model — one model reading and curating memory     │
+├──────────────────────────────────────────────────────────┤
+│ Memory service — owner settings, length limits, prompt   │
+├──────────────────────────────────────────────────────────┤
+│ Core — the log, replay, versions, metadata, import/export│
+├──────────────────────────────────────────────────────────┤
+│ Durable object — SQLite: the only truth                  │
+└──────────────────────────────────────────────────────────┘
 ```
 
-The analogy is a file system: the durable layer is bytes on disk, the core is the syscall interface. We borrow exactly one thing — _everything derives from the bytes_ — and deliberately not hierarchy, directories, or permissions. Fragments stay flat.
+Each layer may call the one below it. The core knows nothing about models, settings, HTTP, or the UI. The memory model reaches the log only through the memory service, and the memory service reaches it only through the core.
 
 ### The placement test
 
-> **Does the owner have a reason to turn it off or tune it?** Yes → a feature with a setting. No → always on, or removed.
+> **Is this about how a model reads or changes memory, or about what the memory can prove it holds?**
 
-A reason is something the owner can weigh: money, latency, how strict a check is. "It might be worse" is not one; that is for the eval to decide, and then the behavior is kept or removed for everyone.
+Rules that shape a model's reading or curation belong with the memory model. Rules about what is stored, when a version exists, and how it is replayed belong with the core. Anything the owner decides for themselves belongs in settings.
 
-|                                  | Owner's reason to change it | Place     |
-| -------------------------------- | --------------------------- | --------- |
-| `remember` / `revise` / `forget` | none                        | always on |
-| `recall`, tag listing            | none                        | always on |
-| ranking associations             | none                        | always on |
-| length limits                    | how short memories must be  | feature   |
-| model-based relevance filtering  | strictness                  | feature   |
+## The log
 
-Any future "let's add X" starts here. Features are code in this repo, not plugins: there is no registry, no hooks, and no loading ([RFC 0004](rfcs/0004-memory-core.md)).
+- A fragment is text, a ref, a source, and the time it was written.
+- `revise` appends a new version; `forget` appends a record with no text. The current corpus is the replay of the log.
+- Only the owner deletes records, by purging a fragment in the web UI. Purging also discards the snapshot cutoff, because the log no longer has the same shape.
+- Import adds records without rewriting existing ones; it discards the snapshot cutoff too. Export writes the log verbatim.
+- Personas name the owner's agents. A record's source is `user`, a persona, or the agent name at the time it wrote.
 
-## Durable layer
+## Reading memory
 
-- A fragment is text plus a `ref` and the time `at` it was written. Nothing else.
-- The durable state is an append-only log of fragment snapshots; `forget` appends a record with no text. The current corpus is its replay. Only the user can delete records, by purging a fragment.
-- Tags are derived from the text at read time and never stored.
-- Every index — tag counts, IDF tables, virtual directories — is a cache computed from the corpus. Deleting it loses nothing.
-- Export and import move the log verbatim — ref, text, time, and the personas its records refer to — between instances. Import is a user migrating memory, not an agent writing: it runs core validation but not the owner's length limits, only adds, and is not exposed over MCP.
+`recall` takes what the caller is working on and answers in prose. It never writes.
 
-## Core
+The memory model does not search. It reads a prompt that holds the memory in two parts:
 
-Four tools, the minimal complete operation set of a memory: write, change, forget, bring back.
+1. The owner's instructions and memsys's rules.
+2. A frozen snapshot of current fragments up to a cutoff, then every log record after that cutoff, in order.
 
-- **The contract** — tool names, input schemas, output shape, field meanings — is meant to hold for years. New fields are additive, with defaults that reproduce prior behavior.
-- **`recall` is one function** called by the memory service: match the cue, spread to associations, rank them, filter them at the owner's strictness, cut to the result size ([RFC 0002](rfcs/0002-recall-contract.md) fixes the contract). The agent sends only `cue` and `context`.
-- **`recall` returns one list**, most relevant first; on equal relevance, cue matches come before associations. An item's `via` (the shared anchors) is both its kind and the reason it was associated. `truncated` means a more specific cue would bring back memories that were left out. A fragment's `source` names where its current version came from. The core stores the raw source; the MCP route shows it to agents only when the user vouches for that source: `user`, or a persona's current name. An `agent:<name>` is omitted, because the client picks that name and it would reach every other agent.
-- **Core carries information only a feature uses.** `context` (what the agent is doing) is accepted on every recall; only the relevance filter reads it.
-- **Core keeps an absolute safety ceiling; the owner's limits sit under it.** No setting can let an unbounded fragment in. Tool descriptions carry no instance-specific numbers; warnings and rejections do.
+The first read sets the cutoff at the end of the log. The snapshot must not be rebuilt while that cutoff holds: it is the cached prefix the model pays for once and reuses. New writes append to the update list, far from the start of the prompt. When the update list grows past its bound, or after a purge or import, the cutoff advances: the next read folds every update into a new snapshot. Between folds, the prefix is byte-stable for the same owner instructions and tool set.
 
-## Recall
+The caller's words and the current time come after the snapshot, and the instruction for this call (`recall` or `note`) comes last, where the model attends most closely.
 
-```
-match → spread → rank → relevance filter → cut
-```
+`recall` and `note` share the model, the thinking level, the system prompt, and the declared write tools. Only tool choice differs: `recall` disables tools, `note` allows them. One prompt shape keeps the cached prefix valid across both calls.
 
-Each step is a typed function with its own bounds. Only the cut knows the result size, which it counts in tokens, not fragments. `truncated` is set when a step drops a cue match, or when the cut drops anything the filter kept. An association dropped before the filter is not reported, since a better cue does not bring it back through spreading; one the filter kept is reachable by the anchor in its `via`. A new step is a new function call here, kept if the eval shows it helps.
+## Writing memory
 
-## Write path
+Two paths write:
 
-```
-core validation → the owner's length limits → too long: store nothing, return the reason
-                                            → otherwise: store, return with any warning
-```
+- **The memory model on `note`** decides whether the context holds anything worth keeping and uses the core's write operations. It works under the caller's source, and the owner's length limits apply to what it stores. Its tool loop is bounded by turns, writes, and deletes. A write that has already happened stays if a later turn fails, and the error says what changed.
+- **The owner in the web UI** writes, revises, restores, imports, and purges directly. These are human actions, not agent tooling, and the REST endpoints behind them are the owner's, not part of MCP.
 
-Rejection reasons must be actionable enough for the agent to fix its input in one retry. Import is a user migrating memory: it runs core validation only.
+The receipt for `note` is computed from what actually happened, not written by the model, so it cannot overstate or invent a change. It reports counts only; it never repeats memory content.
+
+## Settings
+
+- The owner's instructions are prepended to the memory model's system prompt, after memsys's rules and before the snapshot. Changing them changes the cached prefix, by design.
+- Length limits bound every fragment the memory model stores, with a warning between the two numbers and a refusal above the higher one. The core also keeps an absolute ceiling no setting can raise.
+- A missing setting means its default; a stored value that no longer parses falls back on its own.
+
+## Permissions
+
+`memory:read` grants `recall`; `memory:write` grants `note`. A connection needs at least one of them to enter MCP. Tools are gated by actual scopes, so a write-only connection has `note` alone; no special case turns it into read access. The owner's session never uses these scopes: it manages settings, keys, and connections that agents cannot reach.
 
 ## Failure
 
-A feature that judges candidates fails the call rather than passing on what it did not check: an unfiltered list would read as a checked one. It retries within its own deadline first, and its error says whether retrying the call can help.
+`recall` and `note` run synchronously. When the model fails, the call fails: a `recall` returns no answer rather than a guess, and a `note` reports the failure along with the changes already applied. Recall never falls back to an unfiltered list, because that would read as an answer memory never gave.
 
 ## Boundaries
 
 ```
-client ──────────────▶ lib, worker (types only)
+client ──────────────▶ lib, worker types only
 worker ──▶ core ─────▶ lib
 ```
 
-Each type belongs to the module that owns its meaning. `lib/` holds rules both sides must compute the same way, including the analyzer the core indexes with, and generic code such as results. It never imports the core, the Worker, or the client.
-
-The client infers the Worker API's types from the Worker and runs none of its code; it never imports the core.
-
-`core/` is the memory core: the fragment log, its search and anchor indexes, the personas its records refer to ([RFC 0005](rfcs/0005-personas.md)), and untyped metadata by key, in one Durable Object per memory space. It knows nothing of recall policy, settings, models, or HTTP, and apps reach it only through its entry point ([RFC 0004](rfcs/0004-memory-core.md)).
-
-`worker/` is laid out as routes, services, and clients. Routes speak HTTP and MCP; services hold the rules and import no HTTP or platform API; clients call outside services; middlewares sign the caller in, then open the caller's memory space. Every call to a memory space goes through one service per request, so none skips the Worker's rules, and only one module touches the memory binding and puts services together with their clients. Only per-request values, who is calling and what they may do, travel with the request; routes pass the caller to each write, so the memory service is about a memory space, not a caller.
-
-Failures are values with a canonical code, a reason, and a message written where they are made ([RFC 0004](rfcs/0004-memory-core.md)). Only the code decides the HTTP status, in one place. Lint enforces all of these boundaries.
-
-Features do **not** extend core tool inputs. The same call must never fail on one instance and succeed on another because of a setting's shape; settings change result quality, not the calling convention.
+- The client renders the worker's API, uses shared library code, and runs none of the worker's or core's code.
+- The worker holds the routes, the memory service, and the memory model. Only one module opens a memory space and assembles its services, so no path skips the worker's rules.
+- The core owns the log and its replay. It exposes writes, reads, history, metadata, personas, import, and export; it has no search index and no notion of relevance.
+- A shared library holds rules both sides must compute the same way and generic code such as results. It imports nothing above it.
 
 ## Invariants
 
-1. **Fragments are the only truth.** Recall reads a snapshot of the corpus and never writes.
-2. **Model judgments are never written to the durable layer.**
-3. **The core contract does not change because a feature is on.** Features change result quality, not the calling convention.
-4. **The agent cannot change settings.** Settings are not exposed over MCP, and the agent's credential reaches only MCP: settings and credential management need the user's own session. An injected agent cannot switch off its own guardrails.
-
-## Per-instance settings
-
-- One typed object, kept as a metadata document in the memory object, separate from fragments.
-- A missing field means its default, so a document saved before a field existed still loads, and a field that no longer parses falls back to its default on its own; it never takes the instance down.
-- A save takes a JSON Merge Patch: given fields replace stored ones, `null` returns a field to its default. The last save of a field wins.
-- Changes apply on the next request.
-- The defaults are the minimal instance for a good-enough model.
+1. **The log is the only truth.** Every current fragment, every version, and every prompt is derived from it.
+2. **Recall never writes.** Only `note`, the owner, and import add records.
+3. **A receipt describes effects, not intentions.** Counts come from the writes that happened.
+4. **The prefix is stable between folds.** Snapshot content does not move when new records arrive.
+5. **The agent cannot change settings.** Settings are not exposed over MCP, and an agent credential reaches only MCP.
+6. **Provenance is auditable.** Every record carries its source, and the UI shows it.

@@ -37,8 +37,8 @@ describe("HTTP request safety", () => {
           jsonrpc: "2.0",
           method: "tools/call",
           params: {
-            arguments: { fragment: "Injected memory" },
-            name: "remember",
+            arguments: { context: "Injected memory" },
+            name: "note",
           },
         },
       };

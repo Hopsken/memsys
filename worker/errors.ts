@@ -6,19 +6,30 @@ export type InvalidSettings = Failure<"invalid", "invalid-settings"> & {
   issues: Issue[];
 };
 
-export type RelevanceUnavailable = Failure<
-  "unavailable",
-  "relevance-unavailable"
-> & { retry: boolean };
+export type MemoryUnavailable = Failure<"unavailable", "memory-unavailable"> & {
+  retry: boolean;
+};
 
-export const RELEVANCE_UNAVAILABLE =
-  "The relevance filter is unavailable, and retrying will not help. Tell the owner that memsys recall is down.";
-export const RELEVANCE_RETRY =
-  "The relevance filter could not check the memories. Retry this recall shortly.";
+export const MEMORY_UNAVAILABLE =
+  "The memory model is unavailable, and retrying will not help. Tell the owner that memsys is down.";
+export const MEMORY_RETRY =
+  "The memory model could not answer. Retry this call shortly.";
+export const MEMORY_RETRY_APPLIED =
+  "The memory model could not answer. Retry this call shortly; changes already made stay.";
 
-export const relevanceUnavailable = (retry: boolean): RelevanceUnavailable => ({
+const failureMessage = (retry: boolean, applied: string | undefined) => {
+  if (!retry) {
+    return MEMORY_UNAVAILABLE;
+  }
+  return applied ? MEMORY_RETRY_APPLIED : MEMORY_RETRY;
+};
+
+export const memoryUnavailable = (
+  retry: boolean,
+  applied?: string
+): MemoryUnavailable => ({
   code: "unavailable",
-  message: retry ? RELEVANCE_RETRY : RELEVANCE_UNAVAILABLE,
-  reason: "relevance-unavailable",
+  message: [applied, failureMessage(retry, applied)].filter(Boolean).join(" "),
+  reason: "memory-unavailable",
   retry,
 });

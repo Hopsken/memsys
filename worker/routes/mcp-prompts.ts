@@ -1,46 +1,23 @@
-export const SERVER_INSTRUCTIONS = `Memsys is one person's long-term memory, shared by all their agents. Fragments are short, atomic, self-contained; #anchors link related ones.
+export const SERVER_INSTRUCTIONS = `Memsys is one person's long-term memory, shared by all their agents.
 
-Store what no other source keeps: what the user said, chose, or prefers; decisions and why; lessons; corrections. Do not copy what you can reread (code, docs, a tool): store the conclusion and where it lives. Mark what the user decided and what you suggested; keep uncertainty.
-
-Recall with short cues, one per angle, in one call. When a memory turns out wrong or outdated, revise it instead of adding a contradicting one.`;
-
-const FRAGMENT_PARAMETER =
-  "One atomic fragment, a few sentences at most; longer ones may be warned about or rejected.";
+Call \`recall\` before a task that depends on what the person has said, chosen, or learned before; it answers in prose. Call \`note\` when a conversation produces something worth keeping; memory decides what to add, revise, or forget and replies with a short receipt. Both run synchronously.`;
 
 export const TOOLS = {
-  remember: {
+  note: {
     description:
-      "Store one memory: what the user told you or this conversation produced, not a copy of something you can reread. Make it stand alone, in words a future cue would use. One idea per fragment; #anchors link related ones.",
+      "Hand over conversation context worth keeping. Memory decides what to add, change, or forget, and replies with a short receipt.",
     parameters: {
-      fragment: FRAGMENT_PARAMETER,
+      context:
+        "What happened in this conversation that memory might need: what the user said, chose, or corrected, and what you learned.",
     },
   },
 
   recall: {
     description:
-      "Recall memories with short cues, one per angle. `source` is who wrote it down: `user` or one of their agents. `via` lists the #anchors a memory was associated through. `truncated: true` means some matches were left out: recall again with narrower cues or an #anchor from `via`.",
+      "Ask what memory holds for your current task. Answers in prose, from the user's own memories; it never changes them.",
     parameters: {
       context:
-        "What you are working on right now. Give it whenever you have a task: it helps pick the memories that matter for it.",
-      cues: "One cue per angle: distinctive words, a phrase, or #anchors. Alternative wordings share a cue; different facets get their own.",
+        "What you are working on right now, in enough detail for memory to know what matters.",
     },
-  },
-
-  list_tags: {
-    description:
-      "List every #anchor in use. Reuse one when writing; recall by one when words alone miss.",
-  },
-
-  revise: {
-    description:
-      "Replace a memory, by ref, when it is wrong or outdated. Keep what still holds and say what changed.",
-    parameters: {
-      fragment: FRAGMENT_PARAMETER,
-    },
-  },
-
-  forget: {
-    description:
-      "Delete a memory by ref when it is wrong beyond revising, a duplicate (keep one), or the user asked to forget it.",
   },
 } as const;

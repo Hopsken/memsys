@@ -13,10 +13,17 @@ import { AgentDialog, AgentName } from "./agent-dialog";
 
 export const CONNECTIONS = ["connections"];
 
-export const access = (scopes: string[]) =>
-  scopes.includes("memory:write")
-    ? "Can read and change your memories"
-    : "Can read your memories";
+export const access = (scopes: string[]) => {
+  const read = scopes.includes("memory:read");
+  const write = scopes.includes("memory:write");
+  if (read && write) {
+    return "Can read and change your memories";
+  }
+  if (read) {
+    return "Can read your memories";
+  }
+  return write ? "Can change your memories" : "No access";
+};
 
 const ConnectionRow = ({ connection }: { connection: Connection }) => {
   const queryClient = useQueryClient();

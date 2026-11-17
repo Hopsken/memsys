@@ -1,4 +1,5 @@
 import type { Fragment, ImportFormat, Memory, Metadata, Source } from "@core";
+import { z } from "zod";
 
 import { fragmentLength } from "@lib/fragment";
 import { err, ok } from "@lib/result";
@@ -7,14 +8,17 @@ import type { Result } from "@lib/result";
 import type { TooLong } from "../../errors";
 import { SettingsService } from "../settings";
 import type { Settings } from "../settings";
-import { recall } from "./recall";
-import type { Judge, RecallInput } from "./recall";
+import { Subagent } from "./subagent";
 
-export {
-  recallContextSchema,
-  recallCuesSchema,
-  recallInputSchema,
-} from "./recall";
+export const MAX_CONTEXT = 8000;
+
+export const memoryContextSchema = z.string().trim().min(1).max(MAX_CONTEXT);
+
+export const memoryInputSchema = z
+  .object({ context: memoryContextSchema })
+  .strict();
+
+export type MemoryInput = z.infer<typeof memoryInputSchema>;
 
 export type Written = Fragment & { warnings?: string[] };
 
@@ -26,13 +30,13 @@ const checkOwnerLengthLimits = (
   if (length > refuse) {
     return err({
       code: "invalid",
-      message: `Fragment contains ${length} characters, above the limit of ${refuse}. Store a conclusion, or store nothing.`,
+      message: `Memory contains ${length} characters, above the limit of ${refuse}. Store a conclusion, or store nothing.`,
       reason: "too-long",
     });
   }
   if (length > warn) {
     return ok(
-      `Fragment contains ${length} characters, above the recommended ${warn}.`
+      `Memory contains ${length} characters, above the recommended ${warn}.`
     );
   }
   return ok(null);
@@ -41,12 +45,12 @@ const checkOwnerLengthLimits = (
 export class MemoryService {
   readonly #memory: Memory;
   readonly #settings: SettingsService;
-  readonly #judge: Judge;
+  readonly #subagent: Subagent;
 
-  constructor(memory: Memory, judge: Judge) {
+  constructor(memory: Memory, apiKey: string, baseUrl?: string) {
     this.#memory = memory;
-    this.#judge = judge;
     this.#settings = new SettingsService(memory);
+    this.#subagent = new Subagent(this, apiKey, baseUrl);
   }
 
   async remember(input: { fragment: string }, source: Source) {
@@ -85,6 +89,22 @@ export class MemoryService {
     return await this.#memory.list(input);
   }
 
+  async readLog(input: Parameters<Memory["readLog"]>[0]) {
+    return await this.#memory.readLog(input);
+  }
+
+  async count() {
+    return await this.#memory.count();
+  }
+
+  async readMetadata(key: string) {
+    return await this.#memory.readMetadata(key);
+  }
+
+  async patchMetadata(key: string, patch: Metadata) {
+    return await this.#memory.patchMetadata(key, patch);
+  }
+
   async history(input: { ref: string }) {
     return await this.#memory.history(input);
   }
@@ -117,13 +137,12 @@ export class MemoryService {
     return await this.#memory.forgotten();
   }
 
-  async recall(input: RecallInput) {
-    return await recall(this.#memory, input, this.#judge);
+  async recall(input: MemoryInput) {
+    return await this.#subagent.recall(input.context);
   }
 
-  async listTags() {
-    const anchors = await this.#memory.anchors();
-    return anchors.map(({ anchor }) => anchor);
+  async note(input: MemoryInput, source: Source) {
+    return await this.#subagent.note(input.context, source);
   }
 
   async settings() {

@@ -1,5 +1,4 @@
-import { fragmentTextSchema, inputSchemas } from "@core";
-import type { Fragment, Source } from "@core";
+import type { Source } from "@core";
 import {
   McpServer,
   WebStandardStreamableHTTPServerTransport,
@@ -10,147 +9,70 @@ import type { CallToolResult } from "@modelcontextprotocol/server";
 import { Hono } from "hono";
 import { z } from "zod";
 
-import { ok } from "@lib/result";
 import type { Failure, Result } from "@lib/result";
 
 import { MEMORY_READ, MEMORY_WRITE } from "../lib/better-auth";
 import type { Scope } from "../lib/better-auth";
 import type { MemoryService } from "../services/memory";
-import {
-  recallContextSchema,
-  recallCuesSchema,
-  recallInputSchema,
-} from "../services/memory";
+import { memoryContextSchema } from "../services/memory";
 import type { AppEnv } from "../types";
 import { SERVER_INSTRUCTIONS, TOOLS } from "./mcp-prompts";
 
-const toolResult = <T>(value: Result<T, Failure>): CallToolResult =>
+const prose = <T extends { answer?: string; receipt?: string }>(
+  value: Result<T, Failure>
+): CallToolResult =>
   value.ok
-    ? { content: [{ text: JSON.stringify(value.value), type: "text" }] }
+    ? {
+        content: [
+          {
+            text: value.value.answer ?? value.value.receipt ?? "",
+            type: "text",
+          },
+        ],
+      }
     : { content: [{ text: value.error.message, type: "text" }], isError: true };
-
-const vouchedSourceNames = async (memory: MemoryService) => {
-  const personas = await memory.personas();
-  return new Map<Source, string>([
-    ["user", "user"],
-    ...personas.map((persona): [Source, string] => [
-      `persona:${persona.id}`,
-      persona.name,
-    ]),
-  ]);
-};
-
-const withVouchedSource = <T extends Fragment>(
-  { source, ...fragment }: T,
-  names: ReadonlyMap<Source, string>
-) => {
-  const name = source === null ? undefined : names.get(source);
-  return name === undefined ? fragment : { ...fragment, source: name };
-};
 
 const createMcpServer = (
   memory: MemoryService,
   source: Source,
-  scopes: ReadonlySet<Scope>,
-  ownerInstructions: string
+  scopes: ReadonlySet<Scope>
 ) => {
-  const canRead = scopes.has(MEMORY_READ);
-  const canWrite = scopes.has(MEMORY_WRITE);
   const server = new McpServer(
     { name: "memsys", version: "0.1.0" },
-    {
-      instructions: [SERVER_INSTRUCTIONS, ownerInstructions.trim()]
-        .filter(Boolean)
-        .join("\n\n"),
-    }
+    { instructions: SERVER_INSTRUCTIONS }
   );
-  if (canWrite) {
-    server.registerTool(
-      "remember",
-      {
-        description: TOOLS.remember.description,
-        inputSchema: inputSchemas.remember.extend({
-          fragment: fragmentTextSchema.describe(
-            TOOLS.remember.parameters.fragment
-          ),
-        }),
-      },
-      async (input) => {
-        const written = await memory.remember(input, source);
-        const names = await vouchedSourceNames(memory);
-        return toolResult(
-          written.ok ? ok(withVouchedSource(written.value, names)) : written
-        );
-      }
-    );
-  }
-  if (canRead) {
+  if (scopes.has(MEMORY_READ)) {
     server.registerTool(
       "recall",
       {
         annotations: { readOnlyHint: true },
         description: TOOLS.recall.description,
-        inputSchema: recallInputSchema.extend({
-          context: recallContextSchema.describe(
-            TOOLS.recall.parameters.context
-          ),
-          cues: recallCuesSchema.describe(TOOLS.recall.parameters.cues),
-        }),
+        inputSchema: z
+          .object({
+            context: memoryContextSchema.describe(
+              TOOLS.recall.parameters.context
+            ),
+          })
+          .strict(),
       },
-      async (input) => {
-        const [recalled, names] = await Promise.all([
-          memory.recall(input),
-          vouchedSourceNames(memory),
-        ]);
-        return toolResult(
-          recalled.ok
-            ? ok({
-                ...recalled.value,
-                fragments: recalled.value.fragments.map((item) =>
-                  withVouchedSource(item, names)
-                ),
-              })
-            : recalled
-        );
-      }
-    );
-    server.registerTool(
-      "list_tags",
-      {
-        annotations: { readOnlyHint: true },
-        description: TOOLS.list_tags.description,
-        inputSchema: z.object({}).strict(),
-      },
-      async () => toolResult(ok(await memory.listTags()))
+      async (input) => prose(await memory.recall(input))
     );
   }
-  if (canWrite) {
+  if (scopes.has(MEMORY_WRITE)) {
     server.registerTool(
-      "revise",
-      {
-        description: TOOLS.revise.description,
-        inputSchema: inputSchemas.revise.extend({
-          fragment: fragmentTextSchema.describe(
-            TOOLS.revise.parameters.fragment
-          ),
-        }),
-      },
-      async (input) => {
-        const written = await memory.revise(input, source);
-        const names = await vouchedSourceNames(memory);
-        return toolResult(
-          written.ok ? ok(withVouchedSource(written.value, names)) : written
-        );
-      }
-    );
-    server.registerTool(
-      "forget",
+      "note",
       {
         annotations: { destructiveHint: true },
-        description: TOOLS.forget.description,
-        inputSchema: inputSchemas.forget,
+        description: TOOLS.note.description,
+        inputSchema: z
+          .object({
+            context: memoryContextSchema.describe(
+              TOOLS.note.parameters.context
+            ),
+          })
+          .strict(),
       },
-      async (input) => toolResult(await memory.forget(input, source))
+      async (input) => prose(await memory.note(input, source))
     );
   }
   return server;
@@ -179,9 +101,7 @@ export const mcp = new Hono<AppEnv>().all("/", async (c) => {
   const memory = c.get("memory");
   const source = c.get("source");
   const scopes = c.get("scopes");
-  const { settings } = await memory.settings();
-  const factory = () =>
-    createMcpServer(memory, source, scopes, settings.instructions);
+  const factory = () => createMcpServer(memory, source, scopes);
   if (await isLegacyRequest(c.req.raw)) {
     return await answerLegacyClientWithPlainJson(factory(), c.req.raw);
   }

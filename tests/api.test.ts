@@ -4,33 +4,43 @@ import type { JSONValue } from "hono/utils/types";
 import { describe, expect, it } from "vitest";
 
 import worker from "../worker/index";
+import { faux } from "./faux-provider";
 import { getList, list, post, useAuth, withVersions } from "./helpers";
+import { scripted, useFauxModel } from "./subagent";
 
 describe("Fragment HTTP API", () => {
   const signIn = useAuth();
+  useFauxModel();
 
   it("creates and replaces text while preserving identity", async () => {
     const user = await signIn();
     const saved = await post("/api/remember", { fragment: "Original" }, user);
-    expect(saved.status).toBe(201);
     const item = await saved.json<Fragment>();
     const revised = await post(
       "/api/revise",
       { fragment: "Changed design #project/b", ref: item.ref },
       user
     );
-    expect(revised.status).toBe(200);
     const next = await revised.json<Fragment>();
+    expect([saved.status, revised.status]).toStrictEqual([201, 200]);
     expect(next).toMatchObject({
       fragment: "Changed design #project/b",
       ref: item.ref,
     });
     expect(Date.parse(next.at)).toBeGreaterThan(Date.parse(item.at));
-    const found = await post("/api/recall", { cues: "changed design" }, user);
-    await expect(found.json()).resolves.toMatchObject({
-      fragments: [{ fragment: "Changed design #project/b", ref: item.ref }],
-      truncated: false,
+    const script = scripted();
+    faux.setResponses([script.text("The design changed.")]);
+    const found = await post(
+      "/api/recall",
+      { context: "changed design" },
+      user
+    );
+    await expect(found.json()).resolves.toStrictEqual({
+      answer: "The design changed.",
     });
+    expect(JSON.stringify(script.requests[0]?.context.messages)).toContain(
+      "Changed design #project/b"
+    );
   });
 
   it("deletes a fragment and reports missing refs", async () => {
@@ -156,14 +166,10 @@ describe("Fragment HTTP API", () => {
     ["/api/remember", { fragment: "x".repeat(33_000) }, 413],
     ["/api/remember", { fragment: "x", space: "another-user" }, 400],
     ["/api/revise", { fragment: "", ref: "7x9c2pa" }, 400],
-    ["/api/recall", { cues: " " }, 400],
-    [
-      "/api/recall",
-      { cues: Array.from({ length: 5 }, () => "x".repeat(201)) },
-      400,
-    ],
-    ["/api/recall", { cues: "x", limit: 10 }, 400],
-    ["/api/recall", { associate: false, cues: "x" }, 400],
+    ["/api/recall", { context: " " }, 400],
+    ["/api/recall", { context: "x".repeat(8001) }, 400],
+    ["/api/recall", { context: "x", limit: 10 }, 400],
+    ["/api/recall", { associate: false, context: "x" }, 400],
     ["/api/forget", { ref: "invalid!" }, 400],
   ] satisfies [string, JSONValue, number][])(
     "rejects invalid request %#",

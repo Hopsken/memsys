@@ -3,18 +3,8 @@ import { evictDurableObject, runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
-import { openMemory } from "../worker/memory";
-
-const recall = async (cue: string) => {
-  const result = await openMemory("persistence").recall({ cues: [cue] });
-  if (!result.ok) {
-    throw new Error(result.error.reason);
-  }
-  return result.value;
-};
-
 describe("Memory persistence", () => {
-  it("preserves writes, edits, and deletion after eviction without changing memory on recall", async () => {
+  it("preserves writes, edits, and deletion after eviction", async () => {
     const memory = env.MEMORY.getByName("persistence");
     const remember = async (fragment: string): Promise<Fragment> => {
       const result = await memory.remember({ fragment }, "user");
@@ -26,9 +16,11 @@ describe("Memory persistence", () => {
     const seed = await remember("Durable objects #Programming");
     const neighbor = await remember("Workers #program");
     await evictDurableObject(memory);
-    await expect(recall(" DURABLE\nobjects ")).resolves.toStrictEqual({
-      fragments: [seed, { ...neighbor, via: ["program"] }],
-      truncated: false,
+    await expect(memory.list({})).resolves.toMatchObject({
+      fragments: [
+        { fragment: "Workers #program", ref: neighbor.ref },
+        { fragment: "Durable objects #Programming", ref: seed.ref },
+      ],
     });
     const revised = await memory.revise(
       { fragment: "Workers #changed", ref: neighbor.ref },
@@ -38,23 +30,47 @@ describe("Memory persistence", () => {
       throw new Error(revised.error.reason);
     }
     await evictDurableObject(memory);
-    await expect(recall("Durable objects")).resolves.toStrictEqual({
-      fragments: [seed],
-      truncated: false,
-    });
-    await expect(recall("Workers")).resolves.toMatchObject({
-      fragments: [{ ...revised.value, fragment: "Workers #changed" }],
+    await expect(memory.list({})).resolves.toMatchObject({
+      fragments: [
+        { fragment: "Workers #changed", ref: neighbor.ref },
+        { fragment: "Durable objects #Programming" },
+      ],
     });
     await memory.forget({ ref: seed.ref }, "user");
     await evictDurableObject(memory);
-    await expect(recall("Durable objects")).resolves.toStrictEqual({
-      fragments: [],
-      truncated: false,
-    });
     await expect(memory.list({})).resolves.toStrictEqual({
       fragments: [{ ...revised.value, source: "user", versions: 2 }],
       nextCursor: null,
     });
+    const snapshot = await memory.readLog({});
+    expect({
+      fragments: snapshot.fragments.map(({ fragment }) => fragment),
+      records: snapshot.records,
+    }).toStrictEqual({
+      fragments: ["Workers #changed"],
+      records: [],
+    });
+    const log = await memory.readLog({ after: 0 });
+    expect(log.records.map(({ fragment }) => fragment)).toStrictEqual([
+      "Durable objects #Programming",
+      "Workers #program",
+      "Workers #changed",
+      null,
+    ]);
+  });
+
+  it("gives every new record a globally increasing timestamp", async () => {
+    const memory = env.MEMORY.getByName("timestamps");
+    const results = await Promise.all(
+      Array.from({ length: 20 }, (_, index) =>
+        memory.remember({ fragment: `Item ${index}` }, "user")
+      )
+    );
+    const times = results.flatMap((result) =>
+      result.ok ? [Date.parse(result.value.at)] : []
+    );
+    expect(new Set(times).size).toBe(times.length);
+    expect(times).toStrictEqual(times.toSorted((a, b) => a - b));
   });
 
   it("migrates each fragment to one record written at its last update", async () => {

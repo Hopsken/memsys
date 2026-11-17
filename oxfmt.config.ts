@@ -6,8 +6,6 @@ export default defineConfig({
   ignorePatterns: [
     "**/migrations/*/snapshot.json",
     "worker-configuration.d.ts",
-    "eval/results.md",
-    "eval/longmemeval/hub/**",
   ],
   sortImports: {
     ignoreCase: true,

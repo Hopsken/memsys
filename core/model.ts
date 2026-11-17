@@ -2,6 +2,8 @@ import { z } from "zod";
 
 import { FRAGMENT_MAX, fragmentLength } from "@lib/fragment";
 
+export const LOG_CURSOR_KEY = "logCursor";
+
 export const REF_ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz";
 export const REF_LENGTH = 7;
 

@@ -47,20 +47,11 @@ export interface ImportResult {
   skipped: number;
 }
 
-export interface SearchHit {
-  fragment: Fragment;
-  score: number;
-  matchedTerms: string[];
-}
-
-export interface Association {
-  fragment: Fragment;
-  via: string[];
-}
-
-export interface AnchorCount {
-  anchor: string;
-  fragmentCount: number;
+export interface LogRead {
+  /** The latest record's `at`, in milliseconds. */
+  cursor: number;
+  fragments: Fragment[];
+  records: Version[];
 }
 
 export interface SourceSummary {
@@ -102,6 +93,7 @@ export interface MemoryCore {
     source?: Source | undefined;
     tag?: string[] | undefined;
   }) => FragmentPage;
+  readLog: (input: { after?: number | undefined }) => LogRead;
   history: (input: { ref: string }) => Result<History, NotFound>;
   activity: (input: {
     cursor?: string | undefined;
@@ -110,11 +102,7 @@ export interface MemoryCore {
   sources: () => SourceSummary[];
   forgotten: () => ForgottenList;
 
-  search: (terms: string[]) => SearchHit[];
-  associated: (keys: string[]) => Association[];
-  anchors: () => AnchorCount[];
   count: () => number;
-  snapshot: () => Fragment[];
 
   personas: () => Persona[];
   createPersona: (input: { name: string }) => Result<Persona, InvalidInput>;

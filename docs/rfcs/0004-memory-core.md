@@ -1,6 +1,6 @@
 # RFC 0004: A memory core, and apps built on it
 
-- Status: Proposed
+- Status: Updated by [RFC 0006](0006-natural-language-memory.md)
 - Created: 2026-10-23
 - Revised: 2026-10-24
 - Discussion: [Amp thread](https://ampcode.com/threads/T-01a16953-7f79-7339-b52f-f803d00bd08c)

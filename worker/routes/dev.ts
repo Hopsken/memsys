@@ -3,14 +3,11 @@ import { Hono } from "hono";
 import { setSignedCookie } from "hono/cookie";
 import { z } from "zod";
 
-import { MEMORY_READ, MEMORY_WRITE, getAuth } from "../lib/better-auth";
+import { getAuth } from "../lib/better-auth";
 import { corpusLog } from "../lib/dev-corpus";
 import { unwrap } from "../lib/problem";
 import { defaultSpace, openMemory } from "../memory";
-import { openMemorySpace } from "../middlewares/open-memory";
 import type { AppEnv } from "../types";
-import { mcp } from "./mcp";
-import { settings } from "./settings";
 
 const seedInputSchema = z.object({ email: z.email() });
 
@@ -80,24 +77,4 @@ export const dev =
       return c.redirect(
         sameOriginPath(c.req.query("returnTo"), new URL(c.req.url).origin)
       );
-    })
-    .use(
-      "/__dev/eval/:space/*",
-      (c, next) => {
-        c.set("source", "agent:eval");
-        c.set("scopes", new Set([MEMORY_READ, MEMORY_WRITE]));
-        return next();
-      },
-      openMemorySpace((c) => `eval:${c.req.param("space")}`)
-    )
-    .route("/__dev/eval/:space/mcp", mcp)
-    .route("/__dev/eval/:space/settings", settings)
-    .get("/__dev/eval/:space/export", async (c) =>
-      c.text(await c.get("memory").exportLog({ history: true }))
-    )
-    .post("/__dev/eval/:space/import", async (c) => {
-      const result = await c
-        .get("memory")
-        .importLog({ content: await c.req.text(), format: "ndjson" });
-      return c.json(unwrap(result));
     });

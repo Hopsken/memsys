@@ -5,7 +5,6 @@ import { Navigate, NavLink, Outlet } from "react-router";
 import { authClient } from "@/shared/api";
 import { buttonVariants } from "@/shared/ui/button";
 import { Logo } from "@/shared/ui/logo";
-import { MemoryHistoryDialog } from "@/widgets/memory-history";
 import { RecallPreview } from "@/widgets/recall-preview";
 
 const current =
@@ -49,12 +48,7 @@ export const App = () => {
             </NavLink>
           </nav>
           <nav className="ml-auto flex items-center gap-1">
-            <RecallPreview
-              className={navClass}
-              history={(ref, onClose) => (
-                <MemoryHistoryDialog memoryRef={ref} onClose={onClose} />
-              )}
-            />
+            <RecallPreview className={navClass} />
             <NavLink
               aria-label="Forgotten memories"
               className={navClass}

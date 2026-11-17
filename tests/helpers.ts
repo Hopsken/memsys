@@ -179,6 +179,8 @@ export const call = async (user: User, name: string, args: JSONValue) => {
 export const content = <T>(result: ToolResult): T =>
   JSON.parse(result.content[0]?.text ?? "");
 
+export const text = (result: ToolResult) => result.content[0]?.text ?? "";
+
 export const patchSettings = (user: User, patch: JSONValue) =>
   worker.fetch(
     new Request(`${ORIGIN}/api/settings`, {

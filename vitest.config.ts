@@ -46,15 +46,14 @@ export default defineConfig(async (): Promise<ViteUserConfig> => {
                 bindings: {
                   BETTER_AUTH_SECRET:
                     "test-secret-with-enough-entropy-0123456789",
+                  DEEPSEEK_API_KEY: "test-deepseek-key",
+                  DEEPSEEK_BASE_URL: "https://gateway.memsys.test",
                   EMAIL_FROM: "memsys <memsys@memsys.test>",
                   PUBLIC_URL: "https://memsys.test",
                   RESEND_API_KEY: "test-resend-key",
                   TEST_MIGRATIONS: migrations,
                 },
               },
-              // Without this, the AI binding opens a remote session that needs
-              // Cloudflare credentials.
-              remoteBindings: false,
               wrangler: { configPath: "./wrangler.jsonc" },
             }),
           ],
@@ -62,10 +61,7 @@ export default defineConfig(async (): Promise<ViteUserConfig> => {
             exclude: [unitTests],
             include: ["tests/**/*.test.ts"],
             name: "worker",
-            setupFiles: [
-              "./tests/apply-migrations.ts",
-              "./tests/workers-ai.ts",
-            ],
+            setupFiles: ["./tests/apply-migrations.ts"],
           },
         },
       ],

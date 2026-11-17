@@ -5,6 +5,7 @@ import { createMiddleware } from "hono/factory";
 import {
   ALL_SCOPES,
   MEMORY_READ,
+  MEMORY_WRITE,
   OAUTH_SCOPES,
   apiKeyScopes,
   getAuth,
@@ -58,7 +59,7 @@ export const requireToken = createMiddleware<AppEnv>(async (c, next) => {
       return pointToOAuthSignIn(c);
     }
     const scopes = apiKeyScopes(verified.key.permissions);
-    if (!scopes.has(MEMORY_READ)) {
+    if (!scopes.has(MEMORY_READ) && !scopes.has(MEMORY_WRITE)) {
       return insufficientScope(c);
     }
     const userId = verified.key.referenceId;
@@ -79,7 +80,7 @@ export const requireToken = createMiddleware<AppEnv>(async (c, next) => {
   if (!verified) {
     return pointToOAuthSignIn(c);
   }
-  if (!verified.scopes.has(MEMORY_READ)) {
+  if (!verified.scopes.has(MEMORY_READ) && !verified.scopes.has(MEMORY_WRITE)) {
     return insufficientScope(c);
   }
   c.set(

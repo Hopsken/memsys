@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 
 import worker from "../worker/index";
 import {
-  call,
   createInvite,
   getList,
   list,
@@ -16,6 +15,7 @@ import {
   withVersions,
 } from "./helpers";
 import type { User } from "./helpers";
+import { scripted, useFauxModel } from "./subagent";
 
 const get = (path: string, headers: Record<string, string> = {}) =>
   worker.fetch(new Request(`${ORIGIN}${path}`, { headers }), env);
@@ -33,6 +33,7 @@ const createToken = async (user: User, name: string) => {
 
 describe("Authentication", () => {
   const signIn = useAuth();
+  useFauxModel();
 
   it("fails closed without a session or token", async () => {
     await expect(getList(null)).resolves.toMatchObject({ status: 401 });
@@ -163,6 +164,7 @@ describe("Authentication", () => {
       .bind(JSON.stringify({ memory: ["write"] }), legacy.id)
       .run();
     const writeOnly = await tools({ Authorization: `Bearer ${legacy.key}` });
+    const writeOnlyNames = await toolNames(legacy.key);
 
     expect({
       legacy: await toolNames(user.token),
@@ -170,19 +172,19 @@ describe("Authentication", () => {
         apiKeys.map(({ name, permissions }) => [name, permissions])
       ),
       reader: await toolNames(reader.key),
-      writeOnly: writeOnly.status,
+      writeOnly: [writeOnly.status, writeOnlyNames],
       writer: await toolNames(writer.key),
     }).toStrictEqual({
-      legacy: ["forget", "list_tags", "recall", "remember", "revise"],
+      legacy: ["note", "recall"],
       listed: {
         legacy: null,
         reader: { memory: ["read"] },
         test: null,
         writer: { memory: ["read", "write"] },
       },
-      reader: ["list_tags", "recall"],
-      writeOnly: 403,
-      writer: ["forget", "list_tags", "recall", "remember", "revise"],
+      reader: ["recall"],
+      writeOnly: [200, ["note"]],
+      writer: ["note", "recall"],
     });
     await expect(
       post("/api/api-keys", { name: "x", write: true }, null, {
@@ -214,11 +216,12 @@ describe("Authentication", () => {
       alice
     );
     const item = await saved.json<Fragment>();
-    const found = await post("/api/recall", { cues: "Private" }, bob);
+    const script = scripted();
+    const found = await post("/api/recall", { context: "Private" }, bob);
     await expect(found.json()).resolves.toStrictEqual({
-      fragments: [],
-      truncated: false,
+      answer: "I don't have any memories yet.",
     });
+    expect(script.requests).toHaveLength(0);
     await expect(list(bob)).resolves.toStrictEqual({
       fragments: [],
       nextCursor: null,
@@ -228,9 +231,6 @@ describe("Authentication", () => {
       post("/api/forget", { ref: item.ref }, bob),
     ]);
     expect(results.map((result) => result.status)).toStrictEqual([404, 404]);
-    await expect(
-      call(bob, "revise", { fragment: "stolen", ref: item.ref })
-    ).resolves.toMatchObject({ isError: true });
     await expect(list(alice)).resolves.toStrictEqual({
       fragments: [withVersions(item)],
       nextCursor: null,
