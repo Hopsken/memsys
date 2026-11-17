@@ -10,8 +10,8 @@ memsys is a durable memory for AI agents: a user's history should outlive any si
 
 Tenets guide how decisions are made. Ideally we honor all of them all the time. When two conflict, the one earlier in the list wins.
 
-1. **Durable.** The memory layer outlives the model. It stores only model-independent content — natural-language fragments and explicit, human-readable tags. Fragments are the single source of truth.
-2. **Faithful.** What is stored is what was written. The system never summarizes, merges, reinforces, decays, or forgets on its own.
+1. **Durable.** The memory layer outlives the model. It stores only model-independent content — natural-language fragments. Tags are part of their text, not a separate store. Fragments are the single source of truth.
+2. **Faithful.** What is stored is what was written. The system never summarizes, merges, reinforces, or decays memory. A forget is recorded, never erased; the owner can read and restore it.
 3. **Composable.** The tool contract is small, orthogonal, and stable, in the way Bash is.
 4. **Inspectable.** A person can read the entire memory and every change, and audit which source produced each. Recall is a model's reading of that memory, not a deterministic trace; its answer can be checked against the log.
 5. **Accessible.** Any model with basic tool use can use memsys for everyday needs. Stronger models get more out of the same primitives; we do not chase parity for weak models, nor compatibility with every model.
@@ -69,7 +69,7 @@ Push is a convention, not a mechanism. memsys's tool descriptions, AGENTS.md, cu
 ### Layers
 
 - **Durable store.** The append-only log of fragments. Tags are read from the text when needed, never stored.
-- **Core.** The log and four operations on it: `remember`, `revise`, `forget`, and replay. The minimal complete set — write, change, forget, read back. Remove any one and it stops being a memory system.
+- **Core.** The log and its operations: `remember`, `revise`, `forget`, `restore`, and replay. `remember`, `revise`, and `forget` are the minimal write set; replay and restore read the log back.
 - **Subagent.** The model that reads the memory for `recall` and curates it for `note`. It reads through the core and writes only through the core's operations, under the caller's source.
 - **Features.** Everything else: how the subagent reads and curates, how writes are checked. Features read fragments; they change them only through the core write operations.
 - **Per-instance settings.** Which features are on and how they are tuned belongs to the user's instance, like temperature belongs to a harness. The agent cannot see or change them.

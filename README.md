@@ -82,7 +82,7 @@ Before the first deployment:
 3. Verify a sending domain in Resend.
 4. Set the Worker's variables in the Cloudflare dashboard (**Workers & Pages → memsys → Settings → Variables and Secrets**); `.dev.vars.example` lists them all. `PUBLIC_URL` is that custom domain's origin (e.g. `https://memsys.example.com`), and `EMAIL_FROM` an address on the Resend domain. Store `BETTER_AUTH_SECRET` (at least 32 random characters, e.g. `openssl rand -base64 32`), `RESEND_API_KEY`, and `DEEPSEEK_API_KEY` as secrets. `wrangler.jsonc` sets `keep_vars`, so deploys leave them alone; nothing instance-specific lives in the repository.
 5. Run `pnpm check`, then deploy when approved with `pnpm deploy`.
-6. Connect an MCP client by signing in, and another with an API key. Check `recall` and `note`, that a read-only grant sees only `recall`, that a write-only key sees only `note`, and that `/api/*` rejects both credentials.
+6. Connect an MCP client by signing in, and another with an API key. Check `recall` and `note`, that a read-only key sees only `recall`, that a key with write sees both tools, and that `/api/*` rejects both credentials.
 
 `workers.dev` and preview URLs are disabled.
 
@@ -98,7 +98,7 @@ pnpm check       # Types, tests, production build, lint, format check
 pnpm dev         # Apply local D1 migrations, then Vite frontend and local Worker
 ```
 
-`pnpm dev` uses local D1 and Durable Object storage. Copy `.dev.vars.example` to the ignored `.dev.vars`: it sets a development `BETTER_AUTH_SECRET`, `PUBLIC_URL`, and `DEEPSEEK_API_KEY`. The memory model calls DeepSeek directly, so `recall` and `note` need that key. `pnpm invite` creates an invite code in the local database. With `RESEND_API_KEY` or `EMAIL_FROM` empty, a dev build prints sign-in codes in the dev server log instead of emailing them; a production build refuses to sign in without both. Open `/` on the development server and sign in.
+`pnpm dev` uses local D1 and Durable Object storage. Copy `.dev.vars.example` to the ignored `.dev.vars`: it sets a development `BETTER_AUTH_SECRET` and `PUBLIC_URL`, and leaves `DEEPSEEK_API_KEY` blank for you to fill in. The memory model calls DeepSeek directly, so `recall` and `note` need that key. `pnpm invite` creates an invite code in the local database. With `RESEND_API_KEY` or `EMAIL_FROM` empty, a dev build prints sign-in codes in the dev server log instead of emailing them; a production build refuses to sign in without both. Open `/` on the development server and sign in.
 
 The sign-in page on the dev server also offers **Sign in as dev@memsys.test**, which opens `/__dev/log-me-in/<email>?returnTo=<path>`. That route signs the browser in as any address without a sign-in code or invite, creating the account the first time, and returns to `returnTo` when it is a path on the same origin, otherwise to `/`. A new account starts with a fixed eight-fragment corpus (`worker/lib/dev-corpus.ts`) so the UI and the memory model have something to read.
 
