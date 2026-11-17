@@ -11,7 +11,7 @@ memsys is a durable memory for AI agents: a user's history should outlive any si
 Tenets guide how decisions are made. Ideally we honor all of them all the time. When two conflict, the one earlier in the list wins.
 
 1. **Durable.** The memory layer outlives the model. It stores only model-independent content — natural-language fragments. Tags are part of their text, not a separate store. Fragments are the single source of truth.
-2. **Faithful.** What is stored is what was written. The system never summarizes, merges, reinforces, or decays memory. A forget is recorded, never erased; the owner can read and restore it.
+2. **Faithful.** What is stored is what was written. The system never summarizes, merges, reinforces, or decays memory. An agent's forget is a record, not an erase; the owner can read and restore it. Only the owner can permanently delete history.
 3. **Composable.** The tool contract is small, orthogonal, and stable, in the way Bash is.
 4. **Inspectable.** A person can read the entire memory and every change, and audit which source produced each. Recall is a model's reading of that memory, not a deterministic trace; its answer can be checked against the log.
 5. **Accessible.** Any model with basic tool use can use memsys for everyday needs. Stronger models get more out of the same primitives; we do not chase parity for weak models, nor compatibility with every model.

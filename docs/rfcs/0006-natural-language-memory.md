@@ -75,6 +75,6 @@ The prompt layout below targets `DeepSeek-V4.1-Flash-1017`, which combines causa
 - The subagent replaces the lexical-and-anchor recall pipeline and the external relevance filter.
 - The old eval harness is retired: `eval/` and `pnpm eval` are gone, with no v1 replacement.
 - Settings drop relevance-filter strictness while preserving custom instructions and owner fragment-length limits.
-- Deployments set `DEEPSEEK_API_KEY`; every `recall` and `note` calls DeepSeek.
+- Deployments set `DEEPSEEK_API_KEY`; recall with memories and note call DeepSeek. Recall of an empty memory answers locally.
 - One data migration: the `records.by` column is renamed to `records.source`. It renames the column in place and keeps every row's value, so existing memory spaces need no re-import. The core, the HTTP API, and NDJSON call the field `source`; MCP passes the caller's source on writes and returns no source field.
 - NDJSON records keep `v` 1 and name the field `source` instead of `by`. The format has not shipped, so the rename starts no new version and needs no compatibility layer: a file exported before it would import its records without provenance.
