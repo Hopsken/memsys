@@ -4,6 +4,7 @@ const TABS = [
   { label: "MCP", to: "mcp" },
   { label: "Agents", to: "agents" },
   { label: "Features", to: "features" },
+  { label: "Tidy up", to: "tidy" },
   { label: "Data", to: "data" },
   { label: "Account", to: "account" },
 ];

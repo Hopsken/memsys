@@ -11,6 +11,7 @@ import { AgentsView } from "@/pages/settings/agents";
 import { DataView } from "@/pages/settings/data";
 import { FeaturesView } from "@/pages/settings/features";
 import { ApiKeysView } from "@/pages/settings/mcp";
+import { TidyView } from "@/pages/settings/tidy";
 import { HistoryDialog } from "@/widgets/memory-history";
 
 import { App } from "./layouts/app-layout";
@@ -82,6 +83,11 @@ export const router = createBrowserRouter([
               {
                 element: <Navigate replace to="/settings/features" />,
                 path: "plugins",
+              },
+              {
+                element: <TidyView />,
+                handle: { meta: { title: "Tidy up" } },
+                path: "tidy",
               },
               {
                 element: <DataView />,

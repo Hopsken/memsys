@@ -45,12 +45,20 @@
         "name": "MEMORY",
         "class_name": "MemoryDO",
       },
+      {
+        "name": "TIDY",
+        "class_name": "TidyDO",
+      },
     ],
   },
   "migrations": [
     {
       "tag": "v1",
       "new_sqlite_classes": ["MemoryDO"],
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["TidyDO"],
     },
   ],
   "rules": [

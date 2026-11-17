@@ -50,7 +50,7 @@ Rules that shape a model's reading or curation belong with the memory model. Rul
 - `revise` appends a new version; `forget` appends a record with no text. The current corpus is the replay of the log.
 - Only the owner deletes records, by purging a fragment in the web UI. Purging also discards the snapshot cutoff, because the log no longer has the same shape.
 - Import adds records without rewriting existing ones; it discards the snapshot cutoff too. Export writes the log verbatim.
-- Personas name the owner's agents. A record's source is `user`, a persona, or the agent name at the time it wrote.
+- Personas name the owner's agents. A record's source is `user`, `system` for memsys itself, a persona, or the agent name at the time it wrote.
 
 ## Reading memory
 
@@ -69,10 +69,11 @@ The caller's words and the current time come after the snapshot, and the instruc
 
 ## Writing memory
 
-Two paths write:
+Three paths write:
 
 - **The memory model on `note`** decides whether the context holds anything worth keeping and uses the core's write operations. It works under the caller's source, and the owner's length limits apply to what it stores. Its tool loop is bounded by turns, writes, and deletes. A write that has already happened stays if a later turn fails, and the error says what changed.
 - **The owner in the web UI** writes, revises, restores, imports, and purges directly. These are human actions, not agent tooling, and the REST endpoints behind them are the owner's, not part of MCP.
+- **Tidy up**, started by the owner in the web UI, has the memory model propose changes across the whole memory without writing. Only the changes the owner accepts are written, under the `system` source. One run per memory at a time.
 
 The receipt for `note` is computed from what actually happened, not written by the model, so it cannot overstate or invent a change. It reports counts only; it never repeats memory content.
 

@@ -99,6 +99,11 @@ export const SourceFilter = ({
             <DropdownMenuRadioItem closeOnClick value="user">
               You
             </DropdownMenuRadioItem>
+            {wrote.has("system") ? (
+              <DropdownMenuRadioItem closeOnClick value="system">
+                memsys
+              </DropdownMenuRadioItem>
+            ) : null}
             <SourceGroup
               label="Agents"
               sources={(active ?? []).map(({ id, name }) => ({

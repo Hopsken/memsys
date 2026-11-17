@@ -1,0 +1,136 @@
+# Scripted tidy-up run
+
+## Tools offered
+propose_change
+
+## Model input (after the shared system prompt)
+Current time: <time>
+
+Review the whole memory above as its maintainer. Propose changes only for concrete defects: duplicates, contradictions, memories that a later one made outdated, time-bound memories whose time has passed, an agent's suggestion recorded as the person's decision, copied source material that should be a conclusion plus where to find it, and memories that hold more than one idea.
+
+Each propose_change call is one proposal that the person accepts or rejects as a whole. Put changes that depend on each other in one proposal, such as revising one memory and forgetting its duplicate, or revising a memory and adding the idea split from it. Keep each memory to one short idea, in words a later question would use. Do not add inferences or summaries that no memory states. Give each proposal a one-sentence reason addressed to the person.
+
+When memory needs no change, propose nothing. Finish with one short sentence about what you found.
+
+## Model turns
+assistant:
+toolCall propose_change {"changes":[{"fragment":"Switched from pnpm to bun and prefers it","ref":"<ref-1>","type":"revise"},{"ref":"<ref-2>","type":"forget"}],"reason":"Two memories say the same thing."}
+toolCall propose_change {"changes":[{"ref":"nosuchref","type":"forget"}],"reason":"Unknown memory."}
+toolCall propose_change {"changes":[{"fragment":"Visited Mei","type":"revise"}],"reason":"A revise without a ref."}
+toolCall propose_change {"changes":[{"fragment":"Prefers aisle seats","ref":"<ref-4>","type":"revise"},{"fragment":"No meetings before 10am","type":"remember"}],"reason":"This memory holds two ideas."}
+toolCall propose_change {"changes":[{"fragment":"Visited Mei in Lisbon in November 2026","ref":"<ref-3>","type":"revise"}],"reason":"The trip date has passed."}
+toolCall propose_change {"changes":[{"ref":"<ref-3>","type":"forget"}],"reason":"A second change to the same memory."}
+toolResult:
+propose_change: Recorded proposal 1.
+toolResult:
+propose_change (error): No current memory has the ref nosuchref.
+toolResult:
+propose_change (error): A revise needs the ref of the memory it changes.
+toolResult:
+propose_change: Recorded proposal 2.
+toolResult:
+propose_change: Recorded proposal 3.
+toolResult:
+propose_change (error): Another change already covers <ref-3>. Put each memory in one proposal only.
+
+## Proposals for review
+{
+  "finishedAt": "<time>",
+  "proposals": [
+    {
+      "changes": [
+        {
+          "at": "<time>",
+          "current": "Prefers bun over pnpm",
+          "ref": "<ref-1>",
+          "source": "user",
+          "fragment": "Switched from pnpm to bun and prefers it",
+          "type": "revise"
+        },
+        {
+          "at": "<time>",
+          "current": "Switched to bun last month",
+          "ref": "<ref-2>",
+          "source": "user",
+          "type": "forget"
+        }
+      ],
+      "id": "<id>",
+      "reason": "Two memories say the same thing."
+    },
+    {
+      "changes": [
+        {
+          "at": "<time>",
+          "current": "Prefers aisle seats and no meetings before 10am",
+          "ref": "<ref-4>",
+          "source": "user",
+          "fragment": "Prefers aisle seats",
+          "type": "revise"
+        },
+        {
+          "fragment": "No meetings before 10am",
+          "type": "remember"
+        }
+      ],
+      "id": "<id>",
+      "reason": "This memory holds two ideas."
+    },
+    {
+      "changes": [
+        {
+          "at": "<time>",
+          "current": "Flying to Lisbon next week to visit Mei",
+          "ref": "<ref-3>",
+          "source": "user",
+          "fragment": "Visited Mei in Lisbon in November 2026",
+          "type": "revise"
+        }
+      ],
+      "id": "<id>",
+      "reason": "The trip date has passed."
+    }
+  ],
+  "runId": "<id>",
+  "status": "ready",
+  "summary": "Found a duplicate, a mixed memory, and a past trip."
+}
+
+## Apply result
+{
+  "last": {
+    "applied": 2,
+    "skipped": [
+      {
+        "proposal": {
+          "changes": [
+            {
+              "at": "<time>",
+              "current": "Flying to Lisbon next week to visit Mei",
+              "ref": "<ref-3>",
+              "source": "user",
+              "fragment": "Visited Mei in Lisbon in November 2026",
+              "type": "revise"
+            }
+          ],
+          "id": "<id>",
+          "reason": "The trip date has passed."
+        },
+        "reason": "This memory changed after the review started."
+      }
+    ]
+  },
+  "status": "idle"
+}
+
+## Memory log after applying
+{"v":1,"ref":"<ref-1>","fragment":"Prefers bun over pnpm","at":"<time>","op":"remember","source":"user"}
+{"v":1,"ref":"<ref-2>","fragment":"Switched to bun last month","at":"<time>","op":"remember","source":"user"}
+{"v":1,"ref":"<ref-3>","fragment":"Flying to Lisbon next week to visit Mei","at":"<time>","op":"remember","source":"user"}
+{"v":1,"ref":"<ref-4>","fragment":"Prefers aisle seats and no meetings before 10am","at":"<time>","op":"remember","source":"user"}
+{"v":1,"ref":"<ref-5>","fragment":"Sister Mei lives in Lisbon","at":"<time>","op":"remember","source":"user"}
+{"v":1,"ref":"<ref-3>","fragment":"Flying to Lisbon on Friday","at":"<time>","op":"revise","source":"user"}
+{"v":1,"ref":"<ref-1>","fragment":"Switched from pnpm to bun and prefers it","at":"<time>","op":"revise","source":"system"}
+{"v":1,"ref":"<ref-2>","fragment":null,"at":"<time>","op":"forget","source":"system"}
+{"v":1,"ref":"<ref-4>","fragment":"Prefers aisle seats","at":"<time>","op":"revise","source":"system"}
+{"v":1,"ref":"<ref-6>","fragment":"No meetings before 10am","at":"<time>","op":"remember","source":"system"}
