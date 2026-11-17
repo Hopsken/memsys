@@ -24,14 +24,17 @@ const noteTail = `Decide whether the caller's context holds anything that belong
 const escapeMarkup = (text: string) =>
   text.replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
+const oneLine = (text: string) =>
+  escapeMarkup(text).replaceAll(/\s*[\r\n\u2028\u2029]\s*/gu, " ");
+
 const from = (source: Fragment["source"]) =>
   `from:${escapeMarkup((source ?? "unknown").replaceAll(/\s+/gu, " "))}`;
 
 const renderFragment = ({ at, fragment, ref, source }: Fragment) =>
-  `[${ref}] ${from(source)} written ${at}: ${escapeMarkup(fragment)}`;
+  `[${ref}] ${from(source)} written ${at}: ${oneLine(fragment)}`;
 
 const renderRecord = ({ at, fragment, op, ref, source }: Version) =>
-  `[${ref}] ${from(source)} ${op} at ${at}${fragment === null ? "" : `: ${escapeMarkup(fragment)}`}`;
+  `[${ref}] ${from(source)} ${op} at ${at}${fragment === null ? "" : `: ${oneLine(fragment)}`}`;
 
 const updatedCharacters = (records: readonly Version[]) =>
   records.reduce((sum, record) => sum + (record.fragment?.length ?? 0), 0);
@@ -40,8 +43,10 @@ const needsFold = (records: readonly Version[]) =>
   records.length > MAX_UPDATE_RECORDS ||
   updatedCharacters(records) > MAX_UPDATE_CHARACTERS;
 
-const storedCursor = (metadata: Metadata | null) =>
-  cursorSchema.safeParse(metadata).data?.cursor;
+const storedCursor = (metadata: Metadata | null) => {
+  const cursor = cursorSchema.safeParse(metadata).data?.cursor;
+  return cursor === 0 ? undefined : cursor;
+};
 
 const section = (name: string, lines: readonly string[]) =>
   `<${name}>\n${lines.join("\n")}\n</${name}>`;
@@ -75,7 +80,9 @@ export const prepareSystemPrompt = async (
   const after = storedCursor(await memory.readMetadata(LOG_CURSOR_KEY));
   const log = await memory.readLog({ after });
   if (after === undefined) {
-    await memory.patchMetadata(LOG_CURSOR_KEY, { cursor: log.cursor });
+    if (log.cursor > 0) {
+      await memory.patchMetadata(LOG_CURSOR_KEY, { cursor: log.cursor });
+    }
     return render(instructions, log.fragments, log.records);
   }
   if (!needsFold(log.records)) {
@@ -87,7 +94,7 @@ export const prepareSystemPrompt = async (
 };
 
 export const callerMessage = (context: string, tail: string) =>
-  `Current time: ${new Date().toISOString()}\n\n<caller_context>\n${context}\n</caller_context>\n\n${tail}`;
+  `Current time: ${new Date().toISOString()}\n\n<caller_context>\n${escapeMarkup(context)}\n</caller_context>\n\n${tail}`;
 
 export const recallMessage = (context: string) =>
   callerMessage(context, recallTail);
