@@ -11,9 +11,9 @@ memsys shifts to a natural-language interface and pulls memory curation, retriev
 
 Over MCP, outside agents use two plain-text tools: `recall` to ask for relevant context, and `note` to hand off conversation context worth keeping. Outside agents no longer learn memsys's memory philosophy, fragment identifiers, tags, character limits, or revision rules.
 
-Internally, memsys runs a reasoning model as a subagent over the append-only fragment log, holding the entire memory space in its cached prompt prefix. On `recall`, the subagent reasons over the memory space and replies in prose. On `note`, it runs a tool loop over the core's `remember`, `revise`, and `forget` operations to decide what to add, update, or remove.
+Internally, memsys runs a reasoning model over the append-only fragment log, holding the entire memory space in its cached prompt prefix. On `recall`, the model reasons over the memory space and replies in prose. On `note`, it runs a tool loop over the core's `remember`, `revise`, and `forget` operations to decide what to add, update, or remove.
 
-The append-only fragment log remains the single source of truth. In the web UI, the owner still reads, filters, edits, restores, imports, and exports individual fragments, and audits the subagent's changes in Activity.
+The append-only fragment log remains the single source of truth. In the web UI, the owner still reads, filters, edits, restores, imports, and exports individual fragments, and audits the model's changes in Activity.
 
 ## Why
 
@@ -36,24 +36,24 @@ MCP exposes two tools, gated by existing connection scopes:
 
 Both tools run synchronously in the initial version to keep the system simple. Moving `note` to asynchronous background execution remains open once synchronous usage is proven.
 
-### 2. The subagent encapsulates storage and curates through internal tools
+### 2. The memory model encapsulates storage and curates through internal tools
 
 Outside agents never see fragment identifiers, `#anchor` conventions, or storage validation rules.
 
-On `recall`, the subagent reasons over the memory space and answers from stored memories rather than general world knowledge. On `note`, the subagent receives internal `remember`, `revise`, and `forget` tools backed by the core and runs them under the caller's authenticated source. It decides whether incoming context warrants a change and how to apply it, for example ignoring transient noise or revising an outdated preference in place instead of adding a duplicate.
+On `recall`, the memory model reasons over the memory space and answers from stored memories rather than general world knowledge. On `note`, it receives internal `remember`, `revise`, and `forget` tools backed by the core and runs them under the caller's authenticated source. It decides whether incoming context warrants a change and how to apply it, for example ignoring transient noise or revising an outdated preference in place instead of adding a duplicate.
 
-Exact reply phrasing on `recall`, curation guidelines on `note`, and safety bounds stay open to iteration in the subagent's prompt and runtime rather than fixed in this RFC.
+Exact reply phrasing on `recall`, curation guidelines on `note`, and safety bounds stay open to iteration in the model's prompt and runtime rather than fixed in this RFC.
 
-### 3. Model choice and subagent runtime
+### 3. Model choice and runtime
 
-Selecting a model for the subagent comes down to two requirements:
+Selecting a model for this role comes down to two requirements:
 
 1. **Smart enough to reason over context**, acting like an attentive, knowledgeable reader who gives the right answer and exercises sound judgment once the relevant history is in front of them.
 2. **Cheap enough for everyday personal use**, especially on repeated reads over a cached memory prefix.
 
 `DeepSeek-V4.1-Flash-1017` is the initial model because it meets both requirements, pairing strong reasoning and tool use with a million-token context window and low-cost persistent prefix caching.
 
-The subagent runs on `@earendil-works/pi-agent-core`, `@earendil-works/pi-ai`, and `@earendil-works/pi-schema` so the tool loop, schema validation, and provider protocols do not depend on a single vendor API, making future model switches straightforward.
+The model loop runs on `@earendil-works/pi-agent-core`, `@earendil-works/pi-ai`, and `@earendil-works/pi-schema` so the tool loop, schema validation, and provider protocols do not depend on a single vendor API, making future model switches straightforward.
 
 ### 4. Prompt layout for prefix caching and attention
 
@@ -66,13 +66,13 @@ The prompt layout below targets `DeepSeek-V4.1-Flash-1017`, which combines causa
 ### 5. Core indexes, owner settings, and web UI
 
 - **Core.** The core keeps the append-only fragment log, personas, metadata, version history, restore, purge, import, and export. It drops lexical and anchor-association search indexes, and provides snapshot-plus-delta reads for prompt assembly.
-- **Settings.** Custom owner instructions steer the subagent directly instead of relying on outside callers to obey MCP instructions, and owner fragment-length limits continue to bound the fragments that the subagent writes. Relevance-filter strictness is removed because the subagent now owns retrieval.
-- **Web UI.** Fragment browsing, tag and source filtering, Activity auditing, version restore, and import or export stay unchanged, while the recall preview queries the subagent directly.
+- **Settings.** Custom owner instructions steer the memory model directly instead of relying on outside callers to obey MCP instructions, and owner fragment-length limits continue to bound the fragments that it writes. Relevance-filter strictness is removed because the model now owns retrieval.
+- **Web UI.** Fragment browsing, tag and source filtering, Activity auditing, version restore, and import or export stay unchanged, while the recall preview queries the memory model directly.
 
 ## Migration
 
-- MCP replaces the five fragment and tag tools with `recall` and `note`, and updates server instructions. The companion skill is removed because the subagent now owns curation.
-- The subagent replaces the lexical-and-anchor recall pipeline and the external relevance filter.
+- MCP replaces the five fragment and tag tools with `recall` and `note`, and updates server instructions. The companion skill is removed because the model now owns curation.
+- A model call over the log replaces the lexical-and-anchor recall pipeline and the external relevance filter.
 - The old eval harness is retired: `eval/` and `pnpm eval` are gone, with no v1 replacement.
 - Settings drop relevance-filter strictness while preserving custom instructions and owner fragment-length limits.
 - Deployments set `DEEPSEEK_API_KEY`; recall with memories and note call DeepSeek. Recall of an empty memory answers locally.

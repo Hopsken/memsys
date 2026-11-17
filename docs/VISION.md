@@ -70,8 +70,7 @@ Push is a convention, not a mechanism. memsys's tool descriptions, AGENTS.md, cu
 
 - **Durable store.** The append-only log of fragments. Tags are read from the text when needed, never stored.
 - **Core.** The log and its operations: `remember`, `revise`, `forget`, `restore`, and replay. `remember`, `revise`, and `forget` are the minimal write set; replay and restore read the log back.
-- **Subagent.** The model that reads the memory for `recall` and curates it for `note`. It reads through the core and writes only through the core's operations, under the caller's source.
-- **Features.** Everything else: how the subagent reads and curates, how writes are checked. Features read fragments; they change them only through the core write operations.
+- **Features.** How memsys reads and curates memory: the model call behind `recall` and `note`, its prompt, and the checks on what it writes. Features read fragments; they change them only through the core write operations, under the caller's source.
 - **Per-instance settings.** Which features are on and how they are tuned belongs to the user's instance, like temperature belongs to a harness. The agent cannot see or change them.
 
 The test for placing something: _if we remove it, is this still a memory system?_ Yes → a feature, which may get a setting when the owner has a reason to change it. No → core.

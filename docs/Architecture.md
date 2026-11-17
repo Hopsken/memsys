@@ -11,14 +11,14 @@ A change that only moves a number or adds a setting should not need an edit here
 - **source** — where a version of a fragment came from: the person, or one of their agents.
 - **snapshot** — the frozen list of current fragments a model reads at the start of its prompt.
 - **update** — a log record written after the snapshot cutoff, rendered in order after it.
-- **subagent** — the model that reads memory on `recall` and curates it on `note`.
+- **memory model** — the model call that reads memory on `recall` and curates it on `note`.
 - **owner** — the person whose memory this is, signed into the web UI.
 
 ## Shape
 
 One person has one memory. Their agents share it through two MCP tools: `recall` asks a question and gets prose; `note` hands over conversation context and gets a receipt. The owner reads and edits the same memory in the web UI.
 
-The durable record is an append-only log. `note`, the web UI, and import add records; nothing rewrites an older one. What the owner reads, what the subagent reads, and what export writes all derive from that log.
+The durable record is an append-only log. `note`, the web UI, and import add records; nothing rewrites an older one. What the owner reads, what the memory model reads, and what export writes all derive from that log.
 
 ## Layers
 
@@ -26,7 +26,7 @@ The durable record is an append-only log. `note`, the web UI, and import add rec
 ┌──────────────────────────────────────────────────────────┐
 │ Interfaces — MCP tools, the owner's web API, the UI      │
 ├──────────────────────────────────────────────────────────┤
-│ Subagent — one model reading and curating the memory     │
+│ Memory model — one model reading and curating memory     │
 ├──────────────────────────────────────────────────────────┤
 │ Memory service — owner settings, length limits, prompt   │
 ├──────────────────────────────────────────────────────────┤
@@ -36,19 +36,19 @@ The durable record is an append-only log. `note`, the web UI, and import add rec
 └──────────────────────────────────────────────────────────┘
 ```
 
-Each layer may call the one below it. The core knows nothing about models, settings, HTTP, or the UI. The subagent reaches the log only through the memory service, and the memory service reaches it only through the core.
+Each layer may call the one below it. The core knows nothing about models, settings, HTTP, or the UI. The memory model reaches the log only through the memory service, and the memory service reaches it only through the core.
 
 ### The placement test
 
 > **Is this about how a model reads or changes memory, or about what the memory can prove it holds?**
 
-Rules that shape a model's reading or curation belong with the subagent. Rules about what is stored, when a version exists, and how it is replayed belong with the core. Anything the owner decides for themselves belongs in settings.
+Rules that shape a model's reading or curation belong with the memory model. Rules about what is stored, when a version exists, and how it is replayed belong with the core. Anything the owner decides for themselves belongs in settings.
 
 ## The log
 
 - A fragment is text, a ref, a source, and the time it was written.
 - `revise` appends a new version; `forget` appends a record with no text. The current corpus is the replay of the log.
-- Only the owner deletes records, by purging a fragment in the web UI. Purging also discards the subagent's snapshot cutoff, because the log no longer has the same shape.
+- Only the owner deletes records, by purging a fragment in the web UI. Purging also discards the snapshot cutoff, because the log no longer has the same shape.
 - Import adds records without rewriting existing ones; it discards the snapshot cutoff too. Export writes the log verbatim.
 - Personas name the owner's agents. A record's source is `user`, a persona, or the agent name at the time it wrote.
 
@@ -56,7 +56,7 @@ Rules that shape a model's reading or curation belong with the subagent. Rules a
 
 `recall` takes what the caller is working on and answers in prose. It never writes.
 
-The subagent does not search. It reads a prompt that holds the memory in two parts:
+The memory model does not search. It reads a prompt that holds the memory in two parts:
 
 1. The owner's instructions and memsys's rules.
 2. A frozen snapshot of current fragments up to a cutoff, then every log record after that cutoff, in order.
@@ -71,15 +71,15 @@ The caller's words and the current time come after the snapshot, and the instruc
 
 Two paths write:
 
-- **The subagent on `note`** decides whether the context holds anything worth keeping and uses the core's write operations. It works under the caller's source, and the owner's length limits apply to what it stores. Its tool loop is bounded by turns, writes, and deletes. A write that has already happened stays if a later turn fails, and the error says what changed.
+- **The memory model on `note`** decides whether the context holds anything worth keeping and uses the core's write operations. It works under the caller's source, and the owner's length limits apply to what it stores. Its tool loop is bounded by turns, writes, and deletes. A write that has already happened stays if a later turn fails, and the error says what changed.
 - **The owner in the web UI** writes, revises, restores, imports, and purges directly. These are human actions, not agent tooling, and the REST endpoints behind them are the owner's, not part of MCP.
 
 The receipt for `note` is computed from what actually happened, not written by the model, so it cannot overstate or invent a change. It reports counts only; it never repeats memory content.
 
 ## Settings
 
-- The owner's instructions are prepended to the subagent's system prompt, after memsys's rules and before the snapshot. Changing them changes the cached prefix, by design.
-- Length limits bound every fragment the subagent stores, with a warning between the two numbers and a refusal above the higher one. The core also keeps an absolute ceiling no setting can raise.
+- The owner's instructions are prepended to the memory model's system prompt, after memsys's rules and before the snapshot. Changing them changes the cached prefix, by design.
+- Length limits bound every fragment the memory model stores, with a warning between the two numbers and a refusal above the higher one. The core also keeps an absolute ceiling no setting can raise.
 - A missing setting means its default; a stored value that no longer parses falls back on its own.
 
 ## Permissions
@@ -88,7 +88,7 @@ The receipt for `note` is computed from what actually happened, not written by t
 
 ## Failure
 
-The subagent runs synchronously. When the model fails, the call fails: a `recall` returns no answer rather than a guess, and a `note` reports the failure along with the changes already applied. Recall never falls back to an unfiltered list, because that would read as an answer memory never gave.
+`recall` and `note` run synchronously. When the model fails, the call fails: a `recall` returns no answer rather than a guess, and a `note` reports the failure along with the changes already applied. Recall never falls back to an unfiltered list, because that would read as an answer memory never gave.
 
 ## Boundaries
 
@@ -98,7 +98,7 @@ worker ──▶ core ─────▶ lib
 ```
 
 - The client renders the worker's API, uses shared library code, and runs none of the worker's or core's code.
-- The worker holds the routes, the memory service, and the subagent. Only one module opens a memory space and assembles its services, so no path skips the worker's rules.
+- The worker holds the routes, the memory service, and the memory model. Only one module opens a memory space and assembles its services, so no path skips the worker's rules.
 - The core owns the log and its replay. It exposes writes, reads, history, metadata, personas, import, and export; it has no search index and no notion of relevance.
 - A shared library holds rules both sides must compute the same way and generic code such as results. It imports nothing above it.
 
