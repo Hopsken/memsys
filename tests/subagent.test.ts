@@ -1,4 +1,5 @@
 import { LOG_CURSOR_KEY } from "@core";
+import type { Metadata } from "@core";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -42,6 +43,13 @@ const updatesOf = (request: ModelRequest) => {
     start + open.length,
     content.indexOf("</recent_updates>", start)
   );
+};
+
+const cursorOf = (metadata: Metadata | null) => {
+  const parsed = z
+    .object({ cursor: z.int().nonnegative() })
+    .safeParse(metadata);
+  return parsed.success ? parsed.data.cursor : null;
 };
 
 const seeded = async (memory: ReturnType<typeof openMemory>, count: number) => {
@@ -179,11 +187,11 @@ describe("Memory subagent", () => {
     const afterRecall = await memory.readMetadata(LOG_CURSOR_KEY);
     expect({
       afterNote,
-      afterRecall,
+      afterRecall: (cursorOf(afterRecall) ?? 0) > 0,
       snapshot: snapshotOf(recall).includes("First memory"),
     }).toStrictEqual({
       afterNote: null,
-      afterRecall: { cursor: 1 },
+      afterRecall: true,
       snapshot: true,
     });
   });
@@ -209,15 +217,13 @@ describe("Memory subagent", () => {
     const folded = systemOf(at(script.requests, 1));
     expect({
       added: initial.ok && added.every((result) => result.ok),
-      after,
-      before,
+      afterAdvanced: (cursorOf(after) ?? 0) > (cursorOf(before) ?? 0),
       hasFirst: snapshotOf(at(script.requests, 1)).includes("Initial memory"),
       hasLast: snapshotOf(at(script.requests, 1)).includes("Fold 200"),
       noUpdates: folded.content.includes("No changes yet."),
     }).toStrictEqual({
       added: true,
-      after: { cursor: 202 },
-      before: { cursor: 1 },
+      afterAdvanced: true,
       hasFirst: true,
       hasLast: true,
       noUpdates: true,
@@ -243,14 +249,12 @@ describe("Memory subagent", () => {
     const folded = systemOf(at(script.requests, 1));
     expect({
       added: added.every((result) => result.ok),
-      after,
-      before,
+      afterAdvanced: (cursorOf(after) ?? 0) > (cursorOf(before) ?? 0),
       hasLast: snapshotOf(at(script.requests, 1)).includes("39 "),
       noUpdates: folded.content.includes("No changes yet."),
     }).toStrictEqual({
       added: true,
-      after: { cursor: 41 },
-      before: { cursor: 1 },
+      afterAdvanced: true,
       hasLast: true,
       noUpdates: true,
     });
@@ -264,6 +268,7 @@ describe("Memory subagent", () => {
     const script = scripted();
     faux.setResponses([script.text("Before folding.")]);
     await memory.recall({ context: "first" });
+    const firstCursor = await memory.readMetadata(LOG_CURSOR_KEY);
     faux.setResponses([script.text("After folding.")]);
     const revised = await memory.revise(
       { fragment: "Revised memory number 0", ref: firstSeed.ref },
@@ -282,7 +287,8 @@ describe("Memory subagent", () => {
     const cursor = await memory.readMetadata(LOG_CURSOR_KEY);
     expect({
       added: added.ok,
-      cursor,
+      cursorStable:
+        cursorOf(cursor) !== null && cursorOf(cursor) === cursorOf(firstCursor),
       foldHasAllMemories: first.content.includes("Memory number 200"),
       forgotten: forgotten.ok,
       noUpdatesBeforeFold: first.content.includes("No changes yet."),
@@ -304,7 +310,7 @@ describe("Memory subagent", () => {
         forgetAt < rememberAt,
     }).toStrictEqual({
       added: true,
-      cursor: { cursor: 201 },
+      cursorStable: true,
       foldHasAllMemories: true,
       forgotten: true,
       noUpdatesBeforeFold: true,
@@ -335,11 +341,11 @@ describe("Memory subagent", () => {
     const { content } = systemOf(at(script.requests, 1));
     const cursor = await memory.readMetadata(LOG_CURSOR_KEY);
     expect({
-      cursor,
+      cursor: (cursorOf(cursor) ?? 0) > 0,
       hasFirst: content.includes("Memory number 0"),
       hasSecond: content.includes("Memory number 1"),
     }).toStrictEqual({
-      cursor: { cursor: 202 },
+      cursor: true,
       hasFirst: false,
       hasSecond: true,
     });

@@ -59,6 +59,20 @@ describe("Memory persistence", () => {
     ]);
   });
 
+  it("gives every new record a globally increasing timestamp", async () => {
+    const memory = env.MEMORY.getByName("timestamps");
+    const results = await Promise.all(
+      Array.from({ length: 20 }, (_, index) =>
+        memory.remember({ fragment: `Item ${index}` }, "user")
+      )
+    );
+    const times = results.flatMap((result) =>
+      result.ok ? [Date.parse(result.value.at)] : []
+    );
+    expect(new Set(times).size).toBe(times.length);
+    expect(times).toStrictEqual(times.toSorted((a, b) => a - b));
+  });
+
   it("migrates each fragment to one record written at its last update", async () => {
     const memory = env.MEMORY.getByName("migration");
     await memory.list({});

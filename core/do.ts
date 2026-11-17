@@ -126,6 +126,14 @@ const toVersion = ({ at, fragment, op, ref, source }: Row): Version => ({
   source,
 });
 
+const latestAtOf = (rows: Iterable<{ at: number }>, floor = 0): number => {
+  let latest = floor;
+  for (const { at } of rows) {
+    latest = Math.max(latest, at);
+  }
+  return latest;
+};
+
 // Cloudflare offers no API for where a Durable Object lives; a request from
 // inside it reports the data center it runs in.
 const currentColo = async () => {
@@ -145,6 +153,9 @@ export type CoreEnv = Record<never, never>;
 export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   private readonly db;
   private readonly corpus = new Map<string, Fragment>();
+  // The highest `at` in the whole log; each new record lands after it, which
+  // makes `at` a total order and keeps the snapshot cursor unambiguous.
+  private latestAt = 0;
   private latestAtByRef = new Map<string, number>();
   private readonly versions = new Map<string, number>();
   private readonly metadata = new Map<string, Metadata>();
@@ -170,6 +181,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
       this.corpus.set(ref, item);
     }
     this.latestAtByRef = latestAtByRef;
+    this.latestAt = latestAtOf(rows);
     this.versions.clear();
     this.countVersions(rows);
     this.metadata.clear();
@@ -227,12 +239,14 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     }
   }
 
-  private nextAt(ref: string) {
-    return Math.max(Date.now(), (this.latestAtByRef.get(ref) ?? 0) + 1);
+  private nextAt() {
+    const at = Math.max(Date.now(), this.latestAt + 1);
+    this.latestAt = at;
+    return at;
   }
 
   private append(ref: string, fragment: string | null, op: Op, source: Source) {
-    const at = this.nextAt(ref);
+    const at = this.nextAt();
     this.db.insert(records).values({ at, fragment, op, ref, source }).run();
     this.latestAtByRef.set(ref, at);
     this.versions.set(ref, (this.versions.get(ref) ?? 0) + 1);
@@ -350,8 +364,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     this.latestAtByRef.delete(ref);
     this.versions.delete(ref);
     this.corpus.delete(ref);
-    // SQLite may reuse a purged rowid, so a frozen snapshot can no longer be
-    // trusted to describe the same rows.
+    // A purge changes the log, so the next read starts a new snapshot.
     this.clearLogCursor();
     return ok({ ref });
   }
@@ -428,6 +441,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
       }
     });
     this.countVersions(rows);
+    this.latestAt = latestAtOf(rows, this.latestAt);
     const { corpus, latestAtByRef } = replay(rows);
     for (const [ref, at] of latestAtByRef) {
       this.latestAtByRef.set(ref, at);
@@ -481,21 +495,16 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
         fragment: records.fragment,
         op: records.op,
         ref: records.ref,
-        rowid: sql<number>`rowid`,
         source: records.source,
       })
       .from(records)
-      .orderBy(sql`rowid`)
+      .orderBy(records.at, records.ref)
       .all();
-    const cursor = rows.at(-1)?.rowid ?? 0;
+    const cursor = rows.at(-1)?.at ?? 0;
     // With no cursor yet, the whole log is the first snapshot: the prompt
     // starts from current memory instead of replaying every write.
-    const folded = rows.filter(
-      ({ rowid }) => after === undefined || rowid <= after
-    );
-    const updates = rows.filter(
-      ({ rowid }) => after !== undefined && rowid > after
-    );
+    const folded = rows.filter(({ at }) => after === undefined || at <= after);
+    const updates = rows.filter(({ at }) => after !== undefined && at > after);
     return {
       cursor,
       fragments: [...replay(folded).corpus.values()],

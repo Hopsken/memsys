@@ -48,6 +48,7 @@ export interface ImportResult {
 }
 
 export interface LogRead {
+  /** The latest record's `at`, in milliseconds. */
   cursor: number;
   fragments: Fragment[];
   records: Version[];
