@@ -247,7 +247,6 @@ export class Subagent {
     const tools: AgentTool[] = TOOL_DECLARATIONS.map((declaration) => ({
       ...declaration,
       execute: async (_toolCallId, params) => {
-        // SAFETY: the agent validates every call against this tool's schema.
         const input = params as { fragment?: string; ref?: string };
         if (declaration.name === "forget") {
           const deleted = await this.#memory.forget(

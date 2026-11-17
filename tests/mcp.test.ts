@@ -201,7 +201,6 @@ describe("Stateless MCP", () => {
       reasoning: "high",
       toolChoice: "none",
     });
-    // Recall sent no write tool call, and the stored memory is unchanged.
     await expect(list(user)).resolves.toStrictEqual({
       fragments: [withVersions(item, 1, "user")],
       nextCursor: null,

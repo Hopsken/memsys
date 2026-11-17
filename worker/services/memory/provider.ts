@@ -31,8 +31,6 @@ const withEndpoint = (provider: Provider, baseUrl: string): Provider => {
   };
 };
 
-// One place names the model provider. Tests replace the factory to run the
-// subagent against a scripted provider.
 export const providers: ProviderFactory = {
   create: (baseUrl) => {
     const provider = deepseekProvider();

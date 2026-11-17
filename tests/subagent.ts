@@ -17,9 +17,6 @@ export interface ModelRequest {
 
 const real = providers.create;
 
-// The Worker's module graph runs outside Vitest's module registry, so a module
-// mock cannot reach it. It does share this factory object, which lets each test
-// script the model without touching production wiring.
 export const useFauxModel = () => {
   beforeEach(() => {
     providers.create = () => faux.provider;

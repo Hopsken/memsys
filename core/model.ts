@@ -2,8 +2,6 @@ import { z } from "zod";
 
 import { FRAGMENT_MAX, fragmentLength } from "@lib/fragment";
 
-// Holds the timestamp the subagent's frozen snapshot ends at, so later reads
-// can replay it unchanged and append-only updates after it.
 export const LOG_CURSOR_KEY = "logCursor";
 
 export const REF_ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz";

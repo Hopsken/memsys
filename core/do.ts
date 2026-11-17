@@ -153,8 +153,6 @@ export type CoreEnv = Record<never, never>;
 export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   private readonly db;
   private readonly corpus = new Map<string, Fragment>();
-  // The highest `at` in the whole log; each new record lands after it, which
-  // makes `at` a total order and keeps the snapshot cursor unambiguous.
   private latestAt = 0;
   private latestAtByRef = new Map<string, number>();
   private readonly versions = new Map<string, number>();
@@ -364,7 +362,6 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     this.latestAtByRef.delete(ref);
     this.versions.delete(ref);
     this.corpus.delete(ref);
-    // A purge changes the log, so the next read starts a new snapshot.
     this.clearLogCursor();
     return ok({ ref });
   }
@@ -501,8 +498,6 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
       .orderBy(records.at, records.ref)
       .all();
     const cursor = rows.at(-1)?.at ?? 0;
-    // With no cursor yet, the whole log is the first snapshot: the prompt
-    // starts from current memory instead of replaying every write.
     const folded = rows.filter(({ at }) => after === undefined || at <= after);
     const updates = rows.filter(({ at }) => after !== undefined && at > after);
     return {
