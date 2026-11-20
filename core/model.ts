@@ -20,7 +20,7 @@ export const fragmentTextSchema = z
     message: `Fragment must contain at most ${FRAGMENT_MAX} characters (Unicode grapheme clusters).`,
   });
 
-const atSchema = z.iso.datetime({ precision: 3 });
+export const timestampSchema = z.iso.datetime({ precision: 3 });
 
 export const opSchema = z.enum(["remember", "revise", "forget", "restore"]);
 
@@ -42,16 +42,16 @@ export const sourceSchema = z.union([
 ]);
 
 export const personaSchema = z.object({
-  archivedAt: atSchema.nullable(),
-  createdAt: atSchema,
+  archivedAt: timestampSchema.nullable(),
+  createdAt: timestampSchema,
   id: personaIdSchema,
   name: personaNameSchema,
 });
 
 export const personaRecordSchema = z
   .object({
-    archivedAt: atSchema.optional(),
-    createdAt: atSchema,
+    archivedAt: timestampSchema.optional(),
+    createdAt: timestampSchema,
     name: personaNameSchema,
     persona: personaIdSchema,
     v: z.literal(1),
@@ -59,15 +59,18 @@ export const personaRecordSchema = z
   .strict();
 
 export const fragmentSchema = z.object({
-  at: atSchema,
+  createdAt: timestampSchema,
   fragment: fragmentTextSchema,
   ref: refSchema,
   source: sourceSchema.nullable(),
+  updatedAt: timestampSchema,
+  versionId: z.int().positive(),
 });
 
 export const versionSchema = z.object({
-  at: atSchema,
+  createdAt: timestampSchema,
   fragment: fragmentTextSchema.nullable(),
+  id: z.int().positive(),
   op: opSchema,
   ref: refSchema,
   source: sourceSchema.nullable(),
@@ -75,7 +78,7 @@ export const versionSchema = z.object({
 
 export const logRecordSchema = z
   .object({
-    at: atSchema.transform((value) => Date.parse(value)),
+    createdAt: timestampSchema.transform((value) => Date.parse(value)),
     fragment: fragmentTextSchema.nullable(),
     op: opSchema.optional(),
     ref: refSchema,

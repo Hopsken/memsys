@@ -393,6 +393,13 @@ const TidyStatus = ({
         </p>
       );
     }
+    case "outdated": {
+      return (
+        <p className="text-muted-foreground mt-6 text-sm" role="status">
+          The last review came from an older version. Find changes again.
+        </p>
+      );
+    }
     case "failed": {
       return (
         <Alert className="mt-4">

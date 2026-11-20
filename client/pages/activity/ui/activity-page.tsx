@@ -26,13 +26,16 @@ import { formatRelativeDate } from "@lib/date";
 const linkClass =
   "text-foreground underline underline-offset-4 hover:text-foreground/80";
 
-const time = (at: string) =>
-  new Date(at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+const time = (createdAt: string) =>
+  new Date(createdAt).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 
 const byDay = (entries: ActivityEntry[]) => {
   const days: { day: string; entries: ActivityEntry[] }[] = [];
   for (const entry of entries) {
-    const day = new Date(entry.at).toDateString();
+    const day = new Date(entry.createdAt).toDateString();
     const last = days.at(-1);
     if (last?.day === day) {
       last.entries.push(entry);
@@ -60,7 +63,7 @@ const EntryRow = ({
   onSelectSource: (source: Source) => void;
 }) => {
   const open = useOpenHistory();
-  const to = `${entry.ref}?${new URLSearchParams({ at: entry.at })}`;
+  const to = `${entry.ref}?${new URLSearchParams({ id: String(entry.id) })}`;
   const text = entry.fragment ?? entry.previous;
   return (
     <li>
@@ -71,17 +74,17 @@ const EntryRow = ({
             <SourceLine onSelect={onSelectSource} source={entry.source} />
             <span aria-hidden="true">·</span>
             <time
-              dateTime={entry.at}
-              title={new Date(entry.at).toLocaleString()}
+              dateTime={entry.createdAt}
+              title={new Date(entry.createdAt).toLocaleString()}
             >
-              {time(entry.at)}
+              {time(entry.createdAt)}
             </time>
           </span>
           <span className="flex items-center gap-3">
             {text === null ? null : <MemoryLength text={text} />}
             <Link
               className="hover:text-foreground focus-visible:ring-ring/50 rounded-sm font-mono outline-none focus-visible:ring-3"
-              id={memoryId(entry.ref, entry.at)}
+              id={memoryId(entry.ref, entry.id)}
               to={to}
             >
               {entry.ref}
@@ -199,13 +202,13 @@ export const ActivityView = () => {
         {days.map(({ day, entries }) => (
           <section className="pt-6 first:pt-1" key={day}>
             <h2 className="text-muted-foreground pb-2 text-xs font-medium">
-              {formatRelativeDate(entries[0]?.at ?? day)}
+              {formatRelativeDate(entries[0]?.createdAt ?? day)}
             </h2>
             <ul className="space-y-2">
               {entries.map((entry) => (
                 <EntryRow
                   entry={entry}
-                  key={`${entry.ref}-${entry.at}`}
+                  key={entry.id}
                   onSelectSource={setSource}
                 />
               ))}

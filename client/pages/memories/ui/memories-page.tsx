@@ -62,10 +62,17 @@ const FragmentRow = ({
                 <span aria-hidden="true">·</span>
               </>
             )}
-            <time dateTime={item.at} title={new Date(item.at).toLocaleString()}>
+            <time
+              dateTime={item.updatedAt}
+              title={
+                item.versions > 1
+                  ? `Created ${new Date(item.createdAt).toLocaleString()} · Edited ${new Date(item.updatedAt).toLocaleString()}`
+                  : `Created ${new Date(item.createdAt).toLocaleString()}`
+              }
+            >
               {item.versions > 1
-                ? `Edited ${formatRelativeDateInline(item.at)}`
-                : formatRelativeDate(item.at)}
+                ? `Edited ${formatRelativeDateInline(item.updatedAt)}`
+                : formatRelativeDate(item.createdAt)}
             </time>
           </span>
           <span className="flex items-center gap-3">

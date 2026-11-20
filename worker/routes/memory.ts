@@ -82,7 +82,7 @@ export const memory = new Hono<AppEnv>()
     validate("json", restoreInputSchema),
     async (c) => {
       const result = await c.get("memory").restore({
-        at: Date.parse(c.req.valid("json").at),
+        id: c.req.valid("json").id,
         ref: c.req.valid("param").ref,
       });
       return c.json(unwrap(result));

@@ -3,7 +3,7 @@ import type { InfiniteData, QueryClient } from "@tanstack/react-query";
 import { parseResponse } from "hono/client";
 
 import { api } from "@/shared/api";
-import type { FragmentPage, History, Restored } from "@/shared/api";
+import type { FragmentPage, History, ListedFragment } from "@/shared/api";
 
 type ListData = InfiniteData<FragmentPage>;
 
@@ -44,14 +44,14 @@ export const removeFromList = (
 
 const showInList = (
   queryClient: QueryClient,
-  restored: Restored,
+  item: ListedFragment | null,
   positions: Positions
 ) => {
-  const { at, fragment, ref, source, versions } = restored;
-  if (fragment === null) {
+  if (item === null) {
+    void queryClient.invalidateQueries({ queryKey: ["fragments"] });
     return;
   }
-  const item = { at, fragment, ref, source, versions };
+  const { ref, source } = item;
   for (const [key, data] of lists(queryClient)) {
     const position = positions.get(hashKey(key));
     const listed = data?.pages.some(({ fragments }) =>
@@ -93,18 +93,23 @@ const showInList = (
 
 export const restoreVersion = async (
   queryClient: QueryClient,
-  { at, ref }: { at: string; ref: string },
+  { id, ref }: { id: number; ref: string },
   positions: Positions = new Map()
 ) => {
   const restored = await parseResponse(
-    api.fragments[":ref"].restore.$post({ json: { at }, param: { ref } })
+    api.fragments[":ref"].restore.$post({ json: { id }, param: { ref } })
   );
-  const { versions: _, ...version } = restored;
   queryClient.setQueryData<History>(
     ["history", ref],
-    (data) => data && { versions: [version, ...data.versions] }
+    (data) => data && { versions: [restored.version, ...data.versions] }
   );
-  showInList(queryClient, restored, positions);
+  showInList(
+    queryClient,
+    restored.fragment === null
+      ? null
+      : { ...restored.fragment, versions: restored.versions },
+    positions
+  );
   void queryClient.invalidateQueries({ queryKey: ["forgotten"] });
   void queryClient.invalidateQueries({ queryKey: ["activity"] });
   return restored;
@@ -113,7 +118,7 @@ export const restoreVersion = async (
 export const useRestore = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (version: { at: string; ref: string }) =>
+    mutationFn: (version: { id: number; ref: string }) =>
       restoreVersion(queryClient, version),
   });
 };
