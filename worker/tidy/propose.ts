@@ -115,10 +115,10 @@ const describeChange = (
     );
   }
   const before = {
-    at: target.at,
     current: target.fragment,
     ref: input.ref,
     source: target.source,
+    versionId: target.versionId,
   };
   if (input.type === "forget") {
     return ok({ ...before, type: "forget" });

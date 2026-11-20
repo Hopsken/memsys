@@ -1,16 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  gt,
-  isNotNull,
-  lt,
-  max,
-  or,
-  sql,
-} from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, lt, max, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/durable-sqlite";
 import { migrate } from "drizzle-orm/durable-sqlite/migrator";
 import { customAlphabet } from "nanoid";
@@ -28,8 +17,15 @@ import {
   PAGE_SIZE,
   personaInputSchemas,
 } from "./inputs";
-import { parseLog, parseText, replay, serializeLog } from "./log";
-import type { Row } from "./log";
+import {
+  applyRecord,
+  parseLog,
+  parseText,
+  replay,
+  serializeLog,
+  toFragment,
+} from "./log";
+import type { ParsedRow, RefState, Row } from "./log";
 import { mergePatch } from "./merge-patch";
 import migrations from "./migrations/migrations.js";
 import {
@@ -88,9 +84,9 @@ const invalidFile = (issues: Issue[]): InvalidInput => ({
   reason: "invalid-input",
 });
 
-const notFound = (at?: number): { error: NotFound; ok: false } =>
+const notFound = (versionId?: number): { error: NotFound; ok: false } =>
   err(
-    at === undefined
+    versionId === undefined
       ? {
           code: "not-found",
           message: "Fragment not found",
@@ -118,21 +114,21 @@ const toPersona = (row: typeof personas.$inferSelect): Persona => ({
   name: row.name,
 });
 
-const toVersion = ({ at, fragment, op, ref, source }: Row): Version => ({
-  at: new Date(at).toISOString(),
+const toVersion = ({
+  createdAt,
   fragment,
+  id,
+  op,
+  ref,
+  source,
+}: Row): Version => ({
+  createdAt: new Date(createdAt).toISOString(),
+  fragment,
+  id,
   op,
   ref,
   source,
 });
-
-const latestAtOf = (rows: Iterable<{ at: number }>, floor = 0): number => {
-  let latest = floor;
-  for (const { at } of rows) {
-    latest = Math.max(latest, at);
-  }
-  return latest;
-};
 
 // Cloudflare offers no API for where a Durable Object lives; a request from
 // inside it reports the data center it runs in.
@@ -153,8 +149,7 @@ export type CoreEnv = Record<never, never>;
 export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   private readonly db;
   private readonly corpus = new Map<string, Fragment>();
-  private latestAt = 0;
-  private latestAtByRef = new Map<string, number>();
+  private readonly refs = new Map<string, RefState>();
   private readonly versions = new Map<string, number>();
   private readonly metadata = new Map<string, Metadata>();
   private readonly personaById = new Map<string, Persona>();
@@ -172,14 +167,16 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   }
 
   private load() {
-    const rows = this.db.select().from(records).all();
-    const { corpus, latestAtByRef } = replay(rows);
+    const rows = this.db.select().from(records).orderBy(asc(records.id)).all();
+    const { corpus, refs } = replay(rows);
     this.corpus.clear();
     for (const [ref, item] of corpus) {
       this.corpus.set(ref, item);
     }
-    this.latestAtByRef = latestAtByRef;
-    this.latestAt = latestAtOf(rows);
+    this.refs.clear();
+    for (const [ref, state] of refs) {
+      this.refs.set(ref, state);
+    }
     this.versions.clear();
     this.countVersions(rows);
     this.metadata.clear();
@@ -231,24 +228,49 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     );
   }
 
-  private countVersions(rows: Iterable<Row>) {
+  private countVersions(rows: Iterable<{ ref: string }>) {
     for (const { ref } of rows) {
       this.versions.set(ref, (this.versions.get(ref) ?? 0) + 1);
     }
   }
 
-  private nextAt() {
-    const at = Math.max(Date.now(), this.latestAt + 1);
-    this.latestAt = at;
-    return at;
+  private store(row: ParsedRow): Row {
+    const inserted = this.db
+      .insert(records)
+      .values(row)
+      .returning({ createdAt: records.createdAt, id: records.id })
+      .get();
+    if (inserted === undefined) {
+      throw new Error("[DB] an appended record has no id");
+    }
+    return { ...row, ...inserted };
   }
 
-  private append(ref: string, fragment: string | null, op: Op, source: Source) {
-    const at = this.nextAt();
-    this.db.insert(records).values({ at, fragment, op, ref, source }).run();
-    this.latestAtByRef.set(ref, at);
-    this.versions.set(ref, (this.versions.get(ref) ?? 0) + 1);
-    return at;
+  private project(row: Row) {
+    this.versions.set(row.ref, (this.versions.get(row.ref) ?? 0) + 1);
+    const state = applyRecord(this.refs.get(row.ref), row);
+    this.refs.set(row.ref, state);
+    const item = toFragment(row.ref, state);
+    if (item === null) {
+      this.corpus.delete(row.ref);
+    } else {
+      this.corpus.set(row.ref, item);
+    }
+  }
+
+  private insert(row: ParsedRow): Row {
+    const stored = this.store(row);
+    this.project(stored);
+    return stored;
+  }
+
+  private append(
+    ref: string,
+    fragment: string | null,
+    op: Op,
+    source: Source
+  ): Row {
+    return this.insert({ fragment, op, ref, source });
   }
 
   private write(
@@ -257,16 +279,16 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     op: Op,
     source: Source
   ): Fragment {
-    const at = this.append(ref, fragment, op, source);
-    const item = { at: new Date(at).toISOString(), fragment, ref, source };
-    this.corpus.set(item.ref, item);
+    this.append(ref, fragment, op, source);
+    const item = this.corpus.get(ref);
+    if (item === undefined) {
+      throw new Error(`[DB] ${ref} has no fragment after a write`);
+    }
     return item;
   }
 
-  private remove(ref: string, source: Source) {
-    const at = this.append(ref, null, "forget", source);
-    this.corpus.delete(ref);
-    return at;
+  private remove(ref: string, source: Source): Row {
+    return this.append(ref, null, "forget", source);
   }
 
   remember(
@@ -281,12 +303,7 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
       return personaNotFound();
     }
     return ok(
-      this.write(
-        freshRef(this.latestAtByRef),
-        parsed.data.fragment,
-        "remember",
-        source
-      )
+      this.write(freshRef(this.refs), parsed.data.fragment, "remember", source)
     );
   }
 
@@ -324,42 +341,39 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   }
 
   restore({
-    at,
+    id,
     ref,
   }: {
-    at: number;
+    id: number;
     ref: string;
   }): Result<Restored, NotFound> {
     const row = this.db
       .select()
       .from(records)
-      .where(and(eq(records.ref, ref), eq(records.at, at)))
+      .where(and(eq(records.id, id), eq(records.ref, ref)))
       .get();
     if (!row) {
-      return notFound(at);
+      return notFound(id);
     }
     const op = this.corpus.has(ref) ? "revise" : "restore";
     const restored =
       row.fragment === null
         ? this.remove(ref, "user")
-        : Date.parse(this.write(ref, row.fragment, op, "user").at);
+        : this.append(ref, row.fragment, op, "user");
     return ok({
-      at: new Date(restored).toISOString(),
-      fragment: row.fragment,
-      op: row.fragment === null ? "forget" : op,
-      ref,
-      source: "user",
+      fragment: this.corpus.get(ref) ?? null,
+      version: toVersion(restored),
       versions: this.versions.get(ref) ?? 1,
     });
   }
 
   purge(input: { ref: string }): Result<{ ref: string }, NotFound> {
     const { ref } = input;
-    if (!this.latestAtByRef.has(ref)) {
+    if (!this.refs.has(ref)) {
       return notFound();
     }
     this.db.delete(records).where(eq(records.ref, ref)).run();
-    this.latestAtByRef.delete(ref);
+    this.refs.delete(ref);
     this.versions.delete(ref);
     this.corpus.delete(ref);
     this.clearLogCursor();
@@ -387,13 +401,12 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     const texts = new Set(
       [...this.corpus.values()].map(({ fragment }) => fragment)
     );
-    const rows: Row[] = [];
+    const rows: ParsedRow[] = [];
     const conflicts: string[] = [];
     let imported = 0;
     let skipped = 0;
     if ("texts" in parsed) {
-      const at = Date.now();
-      const taken = new Set(this.latestAtByRef.keys());
+      const taken = new Set(this.refs.keys());
       for (const fragment of parsed.texts) {
         if (texts.has(fragment)) {
           skipped += 1;
@@ -402,49 +415,48 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
         texts.add(fragment);
         const ref = freshRef(taken);
         taken.add(ref);
-        rows.push({ at, fragment, op: "remember", ref, source: "user" });
+        rows.push({ fragment, op: "remember", ref, source: "user" });
         imported += 1;
       }
     } else {
-      const { corpus, latestAtByRef } = replay(parsed.rows);
-      const history = Map.groupBy(parsed.rows, ({ ref }) => ref);
-      for (const ref of latestAtByRef.keys()) {
-        const current = corpus.get(ref)?.fragment ?? null;
-        if (this.latestAtByRef.has(ref)) {
-          if ((this.corpus.get(ref)?.fragment ?? null) === current) {
+      const last = new Map<string, string | null>();
+      for (const { fragment, ref } of parsed.rows) {
+        last.set(ref, fragment);
+      }
+      const accepted = new Set<string>();
+      for (const [ref, text] of last) {
+        if (this.refs.has(ref)) {
+          if ((this.corpus.get(ref)?.fragment ?? null) === text) {
             skipped += 1;
           } else {
             conflicts.push(ref);
           }
           continue;
         }
-        if (current !== null && texts.has(current)) {
+        if (text !== null && texts.has(text)) {
           skipped += 1;
           continue;
         }
-        rows.push(...(history.get(ref) ?? []));
-        if (current !== null) {
-          texts.add(current);
+        accepted.add(ref);
+        if (text !== null) {
+          texts.add(text);
           imported += 1;
         }
       }
+      rows.push(...parsed.rows.filter(({ ref }) => accepted.has(ref)));
     }
+    // Ids follow the file's line order, and so does the projection.
+    const stored: Row[] = [];
     this.ctx.storage.transactionSync(() => {
       if ("personas" in parsed) {
         this.addPersonas(parsed.personas);
       }
       for (const row of rows) {
-        this.db.insert(records).values(row).run();
+        stored.push(this.store(row));
       }
     });
-    this.countVersions(rows);
-    this.latestAt = latestAtOf(rows, this.latestAt);
-    const { corpus, latestAtByRef } = replay(rows);
-    for (const [ref, at] of latestAtByRef) {
-      this.latestAtByRef.set(ref, at);
-    }
-    for (const item of corpus.values()) {
-      this.corpus.set(item.ref, item);
+    for (const row of stored) {
+      this.project(row);
     }
     this.clearLogCursor();
     return ok({ conflicts, imported, skipped });
@@ -454,13 +466,15 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     return serializeLog(
       this.personas(),
       history
-        ? this.db.select().from(records).all()
-        : [...this.corpus.values()].map(({ at, fragment, ref, source }) => ({
-            at: Date.parse(at),
-            fragment,
-            ref,
-            source,
-          }))
+        ? this.db.select().from(records).orderBy(asc(records.id)).all()
+        : [...this.corpus.values()]
+            .toSorted((a, b) => a.versionId - b.versionId)
+            .map(({ fragment, ref, source, updatedAt }) => ({
+              createdAt: Date.parse(updatedAt),
+              fragment,
+              ref,
+              source,
+            }))
     );
   }
 
@@ -486,20 +500,10 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   }
 
   readLog({ after }: { after?: number | undefined }): LogRead {
-    const rows = this.db
-      .select({
-        at: records.at,
-        fragment: records.fragment,
-        op: records.op,
-        ref: records.ref,
-        source: records.source,
-      })
-      .from(records)
-      .orderBy(records.at, records.ref)
-      .all();
-    const cursor = rows.at(-1)?.at ?? 0;
-    const folded = rows.filter(({ at }) => after === undefined || at <= after);
-    const updates = rows.filter(({ at }) => after !== undefined && at > after);
+    const rows = this.db.select().from(records).orderBy(asc(records.id)).all();
+    const cursor = rows.at(-1)?.id ?? 0;
+    const folded = rows.filter(({ id }) => after === undefined || id <= after);
+    const updates = rows.filter(({ id }) => after !== undefined && id > after);
     return {
       cursor,
       fragments: [...replay(folded).corpus.values()],
@@ -508,14 +512,14 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
   }
 
   history({ ref }: { ref: string }): Result<History, NotFound> {
-    if (!this.latestAtByRef.has(ref)) {
+    if (!this.refs.has(ref)) {
       return notFound();
     }
     const rows = this.db
       .select()
       .from(records)
       .where(eq(records.ref, ref))
-      .orderBy(desc(records.at))
+      .orderBy(desc(records.id))
       .all();
     return ok({ versions: rows.map(toVersion) });
   }
@@ -533,15 +537,12 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
           source && eq(records.source, source),
           after &&
             or(
-              lt(records.at, Date.parse(after[0])),
-              and(
-                eq(records.at, Date.parse(after[0])),
-                gt(records.ref, after[1])
-              )
+              lt(records.createdAt, after[0]),
+              and(eq(records.createdAt, after[0]), lt(records.id, after[1]))
             )
         )
       )
-      .orderBy(desc(records.at), asc(records.ref))
+      .orderBy(desc(records.createdAt), desc(records.id))
       .limit(PAGE_SIZE + 1)
       .all();
     const entries = rows.slice(0, PAGE_SIZE).map((row) => ({
@@ -551,8 +552,8 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
           ? (this.db
               .select({ fragment: records.fragment })
               .from(records)
-              .where(and(eq(records.ref, row.ref), lt(records.at, row.at)))
-              .orderBy(desc(records.at))
+              .where(and(eq(records.ref, row.ref), lt(records.id, row.id)))
+              .orderBy(desc(records.id))
               .limit(1)
               .get()?.fragment ?? null)
           : null,
@@ -561,17 +562,21 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
     return {
       entries,
       nextCursor:
-        rows.length > PAGE_SIZE && last ? `${last.at},${last.ref}` : null,
+        rows.length > PAGE_SIZE && last ? `${last.createdAt},${last.id}` : null,
     };
   }
 
   sources(): SourceSummary[] {
     return this.db
-      .select({ lastAt: max(records.at), source: records.source })
+      .select({
+        lastAt: max(records.createdAt),
+        lastId: max(records.id),
+        source: records.source,
+      })
       .from(records)
       .where(isNotNull(records.source))
       .groupBy(records.source)
-      .orderBy(desc(max(records.at)))
+      .orderBy(desc(max(records.createdAt)), desc(max(records.id)))
       .all()
       .flatMap(({ lastAt, source }) =>
         source === null || lastAt === null
@@ -582,26 +587,19 @@ export class MemoryDO extends DurableObject<CoreEnv> implements MemoryCore {
 
   forgotten(): ForgottenList {
     const fragments = [];
-    for (const [ref, forgottenAt] of this.latestAtByRef) {
-      if (this.corpus.has(ref)) {
+    for (const [ref, state] of this.refs) {
+      if (state.active || state.text === null) {
         continue;
       }
-      const last = this.db
-        .select()
-        .from(records)
-        .where(and(eq(records.ref, ref), isNotNull(records.fragment)))
-        .orderBy(desc(records.at))
-        .limit(1)
-        .get();
-      if (last?.fragment) {
-        fragments.push({
-          at: new Date(last.at).toISOString(),
-          forgottenAt: new Date(forgottenAt).toISOString(),
-          fragment: last.fragment,
-          ref,
-          source: last.source,
-        });
-      }
+      fragments.push({
+        createdAt: new Date(state.createdAt).toISOString(),
+        forgottenAt: new Date(state.forgottenAt).toISOString(),
+        fragment: state.text.fragment,
+        ref,
+        source: state.text.source,
+        updatedAt: new Date(state.text.updatedAt).toISOString(),
+        versionId: state.text.id,
+      });
     }
     fragments.sort(
       (a, b) =>

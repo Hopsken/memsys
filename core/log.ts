@@ -17,15 +17,36 @@ import type {
 } from "./model";
 
 export interface Row {
-  at: number;
+  createdAt: number;
   fragment: string | null;
+  id: number;
   op: Op;
   ref: string;
   source: Source | null;
 }
 
-type Snapshot = Omit<Row, "op" | "source"> &
+export type ParsedRow = Omit<Row, "createdAt" | "id"> & {
+  /** Omitted when the store should stamp the record's write time. */
+  createdAt?: number;
+};
+
+type Snapshot = Omit<Row, "id" | "op" | "source"> &
   Partial<Pick<Row, "op" | "source">>;
+
+/** One ref's projection, after replaying its records in id order. */
+export interface RefState {
+  active: boolean;
+  /** The first non-null record's time, kept across a forget. */
+  createdAt: number;
+  /** The latest record's time, null record included. */
+  forgottenAt: number;
+  text: {
+    fragment: string;
+    id: number;
+    source: Source | null;
+    updatedAt: number;
+  } | null;
+}
 
 const impliedOp = (text: string | null, previous?: string | null): Op => {
   if (text === null) {
@@ -70,13 +91,16 @@ const toPersona = ({
   name,
 });
 
+/**
+ * Reads a log whose lines are the causal order. Timestamps are only times, so
+ * two records may share one, and a ref may appear, disappear, and come back.
+ */
 export const parseLog = (
   content: string
-): { personas: Persona[]; rows: Row[] } | { issues: Issue[] } => {
+): { personas: Persona[]; rows: ParsedRow[] } | { issues: Issue[] } => {
   const parsed: z.output<typeof logRecordSchema>[] = [];
   const personas = new Map<string, Persona>();
   const issues: Issue[] = [];
-  const seen = new Set<string>();
   for (const [index, line] of lines(content).entries()) {
     if (issues.length >= MAX_ISSUES) {
       break;
@@ -103,34 +127,25 @@ export const parseLog = (
       personas.set(record.persona, toPersona(record));
       continue;
     }
-    const key = `${record.ref} ${record.at}`;
-    if (seen.has(key)) {
-      issues.push({
-        message: `Ref ${record.ref} has two records at the same time`,
-        path: [number, "at"],
-      });
-      continue;
-    }
-    seen.add(key);
     parsed.push(record);
   }
   if (issues.length > 0) {
     return { issues };
   }
   const last = new Map<string, string | null>();
-  const rows = parsed
-    .toSorted((a, b) => a.at - b.at)
-    .map(({ at, fragment: text, op, ref, source = null }): Row => {
+  const rows = parsed.map(
+    ({ createdAt, fragment: text, op, ref, source = null }): ParsedRow => {
       const previous = last.has(ref) ? last.get(ref) : undefined;
       last.set(ref, text);
       return {
-        at,
+        createdAt,
         fragment: text,
         op: op ?? impliedOp(text, previous),
         ref,
         source,
       };
-    });
+    }
+  );
   return { personas: [...personas.values()], rows };
 };
 
@@ -178,20 +193,20 @@ const serializePersona = ({
   return `${JSON.stringify(record)}\n`;
 };
 
+/** Writes records in the order given; the caller owns the causal order. */
 export const serializeLog = (
   personas: Persona[],
   rows: Iterable<Snapshot>
 ): string =>
   personas.map(serializePersona).join("") +
   [...rows]
-    .toSorted((a, b) => a.at - b.at || a.ref.localeCompare(b.ref))
-    .map(({ at, fragment: text, op, ref, source }) => {
+    .map(({ createdAt, fragment: text, op, ref, source }) => {
       // oxlint-disable-next-line sort-keys
       const record: LogRecord = {
         v: 1,
         ref,
         fragment: text,
-        at: new Date(at).toISOString(),
+        createdAt: new Date(createdAt).toISOString(),
         ...(op && { op }),
         ...(source && { source }),
       };
@@ -199,28 +214,51 @@ export const serializeLog = (
     })
     .join("");
 
-export const replay = (
-  rows: Iterable<
-    Pick<Row, "at" | "fragment" | "ref"> & Partial<Pick<Row, "source">>
-  >
-) => {
-  const corpus = new Map<string, Fragment>();
-  const latestAtByRef = new Map<string, number>();
-  for (const { at, fragment: text, ref, source = null } of rows) {
-    if (at <= (latestAtByRef.get(ref) ?? Number.NEGATIVE_INFINITY)) {
-      continue;
-    }
-    latestAtByRef.set(ref, at);
-    if (text === null) {
-      corpus.delete(ref);
-    } else {
-      corpus.set(ref, {
-        at: new Date(at).toISOString(),
-        fragment: text,
+export const applyRecord = (
+  previous: RefState | undefined,
+  { createdAt, fragment, id, source }: Row
+): RefState => {
+  const state = previous ?? {
+    active: false,
+    createdAt,
+    forgottenAt: createdAt,
+    text: null,
+  };
+  if (fragment === null) {
+    return { ...state, active: false, forgottenAt: createdAt };
+  }
+  return {
+    active: true,
+    createdAt: state.text === null ? createdAt : state.createdAt,
+    forgottenAt: createdAt,
+    text: { fragment, id, source, updatedAt: createdAt },
+  };
+};
+
+export const toFragment = (ref: string, state: RefState): Fragment | null =>
+  state.active && state.text
+    ? {
+        createdAt: new Date(state.createdAt).toISOString(),
+        fragment: state.text.fragment,
         ref,
-        source,
-      });
+        source: state.text.source,
+        updatedAt: new Date(state.text.updatedAt).toISOString(),
+        versionId: state.text.id,
+      }
+    : null;
+
+/** Replays records already in ascending id order. */
+export const replay = (rows: Iterable<Row>) => {
+  const refs = new Map<string, RefState>();
+  for (const row of rows) {
+    refs.set(row.ref, applyRecord(refs.get(row.ref), row));
+  }
+  const corpus = new Map<string, Fragment>();
+  for (const [ref, state] of refs) {
+    const item = toFragment(ref, state);
+    if (item) {
+      corpus.set(ref, item);
     }
   }
-  return { corpus, latestAtByRef };
+  return { corpus, refs };
 };

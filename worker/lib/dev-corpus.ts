@@ -87,7 +87,7 @@ const memories: {
 
 export const corpus = memories.map(
   ({ date, fragment, ref, source = "user" }): LogRecord => ({
-    at: `${date}T12:00:00.000Z`,
+    createdAt: `${date}T12:00:00.000Z`,
     fragment,
     op: "remember",
     ref,

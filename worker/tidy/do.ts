@@ -10,6 +10,7 @@ import type { Change, Proposal, Skipped, TidyBusy, TidyState } from "./model";
 import { propose } from "./propose";
 
 const STATE_KEY = "state";
+const STATE_VERSION = 2;
 const SPACE_KEY = "space";
 const RUN_DEADLINE_MS = 10 * 60_000;
 // An alarm handler stops after 15 minutes; a run older than this has died.
@@ -25,10 +26,10 @@ const RUNNING = tidyBusy("memsys is already looking for changes.");
 const APPLYING = tidyBusy("memsys is applying changes. Try again shortly.");
 const NOTHING_TO_APPLY = tidyBusy("There are no changes to apply.");
 
-const isStale = (proposal: Proposal, current: ReadonlyMap<string, string>) =>
+const isStale = (proposal: Proposal, current: ReadonlyMap<string, number>) =>
   proposal.changes.some(
     (change) =>
-      change.type !== "remember" && current.get(change.ref) !== change.at
+      change.type !== "remember" && current.get(change.ref) !== change.versionId
   );
 
 const forgetsLast = (proposal: Proposal) =>
@@ -71,12 +72,23 @@ const applyProposal = async (
   return null;
 };
 
+interface StoredState {
+  state: TidyState;
+  version: number;
+}
+
 export class TidyDO extends DurableObject<Env> {
   #run: AbortController | null = null;
   #applying = false;
 
   async read(): Promise<TidyState> {
-    const state = await this.#state();
+    const { legacy, state: stored } = await this.#stored();
+    // A review saved before version ids replaced timestamps cannot be checked
+    // against current memories, so it is dropped rather than reported as stale.
+    if (legacy && stored.status === "ready") {
+      return await this.#save({ status: "outdated" });
+    }
+    const state = stored;
     if (state.status === "applying" && !this.#applying) {
       return await this.#save({
         last: {
@@ -178,7 +190,9 @@ export class TidyDO extends DurableObject<Env> {
     try {
       const memory = openMemory(await this.#space());
       const { fragments } = await memory.readLog({});
-      const current = new Map(fragments.map(({ at, ref }) => [ref, at]));
+      const current = new Map(
+        fragments.map(({ ref, versionId }) => [ref, versionId])
+      );
       for (const proposal of chosen) {
         const failure = isStale(proposal, current)
           ? CHANGED
@@ -280,13 +294,28 @@ export class TidyDO extends DurableObject<Env> {
   }
 
   async #state(): Promise<TidyState> {
-    return (
-      (await this.ctx.storage.get<TidyState>(STATE_KEY)) ?? { status: "idle" }
+    const { state } = await this.#stored();
+    return state;
+  }
+
+  async #stored(): Promise<{ legacy: boolean; state: TidyState }> {
+    const stored = await this.ctx.storage.get<StoredState | TidyState>(
+      STATE_KEY
     );
+    if (stored === undefined) {
+      return { legacy: false, state: { status: "idle" } };
+    }
+    if ("version" in stored) {
+      return { legacy: stored.version !== STATE_VERSION, state: stored.state };
+    }
+    return { legacy: true, state: stored };
   }
 
   async #save(state: TidyState): Promise<TidyState> {
-    await this.ctx.storage.put(STATE_KEY, state);
+    await this.ctx.storage.put(STATE_KEY, {
+      state,
+      version: STATE_VERSION,
+    } satisfies StoredState);
     return state;
   }
 

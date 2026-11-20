@@ -1,6 +1,6 @@
 # RFC 0007: Log sequence keys and record timestamps
 
-- Status: Proposed
+- Status: Accepted
 - Created: 2026-11-19
 - Discussion: [Amp thread](https://ampcode.com/threads/T-01a1f16c-857a-7549-8242-f04fb81ae3f5)
 - Updates: [RFC 0001](0001-append-only-fragment-log.md) and [RFC 0006](0006-natural-language-memory.md)
@@ -85,6 +85,8 @@ Each identifier and timestamp has one role:
 | `createdAt` | Portable across instances | Wall-clock time at write | Records when the log entry was created without logical clock shifts |
 
 `id` uses SQLite `AUTOINCREMENT` so that purging the most recent memory never reassigns its sequence number to a later write.
+
+SQLite stamps `createdAt` with `(unixepoch() * 1000)`, so a new record carries second precision and no caller chooses its time. Imports keep the times their file states.
 
 `ref` remains separate from `id` for two reasons. First, internal model loops address memories by `ref` when revising or forgetting. In a sparse 34-billion namespace, a mistyped or hallucinated identifier fails with `not-found`, whereas a dense integer sequence would silently mutate an adjacent memory. Second, independent instances allocate sequence numbers from `1`, so cross-instance imports require a location-independent entity identifier.
 

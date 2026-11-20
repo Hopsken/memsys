@@ -1,3 +1,4 @@
+import { LOG_CURSOR_KEY } from "@core";
 import type { Fragment } from "@core";
 import { evictDurableObject, runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
@@ -59,18 +60,22 @@ describe("Memory persistence", () => {
     ]);
   });
 
-  it("gives every new record a globally increasing timestamp", async () => {
+  it("gives every new record a larger id, even when clocks tie", async () => {
     const memory = env.MEMORY.getByName("timestamps");
     const results = await Promise.all(
       Array.from({ length: 20 }, (_, index) =>
         memory.remember({ fragment: `Item ${index}` }, "user")
       )
     );
-    const times = results.flatMap((result) =>
-      result.ok ? [Date.parse(result.value.at)] : []
+    const ids = results.flatMap((result) =>
+      result.ok ? [result.value.versionId] : []
     );
-    expect(new Set(times).size).toBe(times.length);
-    expect(times).toStrictEqual(times.toSorted((a, b) => a - b));
+    const stamps = results.flatMap((result) =>
+      result.ok ? [result.value.createdAt] : []
+    );
+    expect(new Set(ids).size).toBe(20);
+    expect(ids).toStrictEqual(ids.toSorted((a, b) => a - b));
+    expect(stamps.every((stamp) => stamp.endsWith(".000Z"))).toBeTruthy();
   });
 
   it("migrates each fragment to one record written at its last update", async () => {
@@ -94,24 +99,31 @@ describe("Memory persistence", () => {
         second
       );
       sql.exec(
-        "DELETE FROM __drizzle_migrations WHERE name IN ('20260927062704_fragment_log', '20260927110735_activity_ops', '20261116091431_by_to_source')"
+        "INSERT INTO metadata (key, value) VALUES ('logCursor', '{\"cursor\":1763000000000}')"
+      );
+      sql.exec(
+        "DELETE FROM __drizzle_migrations WHERE name IN ('20260927062704_fragment_log', '20260927110735_activity_ops', '20261116091431_by_to_source', '20261119043402_log-sequence')"
       );
     });
     await evictDurableObject(memory);
     await expect(memory.list({})).resolves.toStrictEqual({
       fragments: [
         {
-          at: "2026-02-01T00:00:00.000Z",
+          createdAt: "2026-02-01T00:00:00.000Z",
           fragment: "Revised",
           ref: "hjkmnpq",
           source: null,
+          updatedAt: "2026-02-01T00:00:00.000Z",
+          versionId: 2,
           versions: 1,
         },
         {
-          at: "2026-01-01T00:00:00.000Z",
+          createdAt: "2026-01-01T00:00:00.000Z",
           fragment: "Old #memsys",
           ref: "abcdefg",
           source: null,
+          updatedAt: "2026-01-01T00:00:00.000Z",
+          versionId: 1,
           versions: 1,
         },
       ],
@@ -119,11 +131,12 @@ describe("Memory persistence", () => {
     });
     await expect(memory.exportLog({ history: true })).resolves.toBe(
       [
-        '{"v":1,"ref":"abcdefg","fragment":"Old #memsys","at":"2026-01-01T00:00:00.000Z","op":"remember"}',
-        '{"v":1,"ref":"hjkmnpq","fragment":"Revised","at":"2026-02-01T00:00:00.000Z","op":"remember"}',
+        '{"v":1,"ref":"abcdefg","fragment":"Old #memsys","createdAt":"2026-01-01T00:00:00.000Z","op":"remember"}',
+        '{"v":1,"ref":"hjkmnpq","fragment":"Revised","createdAt":"2026-02-01T00:00:00.000Z","op":"remember"}',
         "",
       ].join("\n")
     );
+    await expect(memory.readMetadata(LOG_CURSOR_KEY)).resolves.toBeNull();
   });
 
   it("keeps existing records when the source column is renamed", async () => {
@@ -140,41 +153,47 @@ describe("Memory persistence", () => {
         "INSERT INTO records VALUES (1, 'persona:seedwrk', 'Deploys go through wrangler', 'remember', 'abcdefg'), (2, 'user', 'Prefers pnpm', 'remember', 'hjkmnpq'), (3, NULL, 'Imported long ago', 'remember', 'klmnpqr')"
       );
       sql.exec(
-        "DELETE FROM __drizzle_migrations WHERE name = '20261116091431_by_to_source'"
+        "DELETE FROM __drizzle_migrations WHERE name IN ('20261116091431_by_to_source', '20261119043402_log-sequence')"
       );
     });
     await evictDurableObject(memory);
     const renamed = await runInDurableObject(memory, (_, state) =>
       state.storage.sql
-        .exec("SELECT at, source FROM records ORDER BY at")
+        .exec("SELECT createdAt, source FROM records ORDER BY createdAt")
         .toArray()
     );
     expect(renamed).toStrictEqual([
-      { at: 1, source: "persona:seedwrk" },
-      { at: 2, source: "user" },
-      { at: 3, source: null },
+      { createdAt: 1, source: "persona:seedwrk" },
+      { createdAt: 2, source: "user" },
+      { createdAt: 3, source: null },
     ]);
     await expect(memory.list({})).resolves.toStrictEqual({
       fragments: [
         {
-          at: new Date(3).toISOString(),
+          createdAt: new Date(3).toISOString(),
           fragment: "Imported long ago",
           ref: "klmnpqr",
           source: null,
+          updatedAt: new Date(3).toISOString(),
+          versionId: 3,
           versions: 1,
         },
         {
-          at: new Date(2).toISOString(),
+          createdAt: new Date(2).toISOString(),
           fragment: "Prefers pnpm",
           ref: "hjkmnpq",
           source: "user",
+          updatedAt: new Date(2).toISOString(),
+          versionId: 2,
           versions: 1,
         },
         {
-          at: new Date(1).toISOString(),
+          createdAt: new Date(1).toISOString(),
           fragment: "Deploys go through wrangler",
           ref: "abcdefg",
           source: "persona:seedwrk",
+          updatedAt: new Date(1).toISOString(),
+          versionId: 1,
           versions: 1,
         },
       ],
@@ -195,7 +214,7 @@ describe("Memory persistence", () => {
         "INSERT INTO records VALUES (1, 'First', 'abcdefg'), (2, 'Second', 'abcdefg'), (3, NULL, 'abcdefg'), (4, 'First', 'abcdefg'), (5, 'Second', 'abcdefg'), (2, 'Other', 'hjkmnpq')"
       );
       sql.exec(
-        "DELETE FROM __drizzle_migrations WHERE name IN ('20260927110735_activity_ops', '20261116091431_by_to_source')"
+        "DELETE FROM __drizzle_migrations WHERE name IN ('20260927110735_activity_ops', '20261116091431_by_to_source', '20261119043402_log-sequence')"
       );
     });
     await evictDurableObject(memory);
@@ -217,6 +236,25 @@ describe("Memory persistence", () => {
     });
   });
 
+  it("addresses a version by id and never reuses one", async () => {
+    const memory = env.MEMORY.getByName("version-ids");
+    const kept = await memory.remember({ fragment: "Kept" }, "user");
+    const other = await memory.remember({ fragment: "Other" }, "user");
+    const purged = await memory.remember({ fragment: "Purged" }, "user");
+    if (!kept.ok || !other.ok || !purged.ok) {
+      throw new Error("Seeding failed");
+    }
+    await expect(
+      memory.restore({ id: other.value.versionId, ref: kept.value.ref })
+    ).resolves.toMatchObject({ error: { reason: "version-not-found" } });
+    await memory.purge({ ref: purged.value.ref });
+    const next = await memory.remember({ fragment: "Next" }, "user");
+    if (!next.ok) {
+      throw new Error(next.error.message);
+    }
+    expect(next.value.versionId).toBeGreaterThan(purged.value.versionId);
+  });
+
   it("appends one record per write, each later than the last", async () => {
     const memory = env.MEMORY.getByName("append");
     const saved = await memory.remember({ fragment: "One" }, "user");
@@ -235,8 +273,15 @@ describe("Memory persistence", () => {
       "Two",
       null,
     ]);
-    const times = records.map(({ at }) => Date.parse(at));
-    expect(new Set(times).size).toBe(3);
+    const rows = await runInDurableObject(memory, (_, state) =>
+      state.storage.sql
+        .exec<{ createdAt: number; id: number }>(
+          "SELECT id, createdAt FROM records ORDER BY id"
+        )
+        .toArray()
+    );
+    expect(rows.map(({ id }) => id)).toStrictEqual([1, 2, 3]);
+    const times = rows.map(({ createdAt }) => createdAt);
     expect(times).toStrictEqual(times.toSorted((a, b) => a - b));
   });
 });

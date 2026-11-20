@@ -37,7 +37,13 @@ export interface ForgottenList {
   fragments: ForgottenFragment[];
 }
 
-export type Restored = Version & { versions: number };
+export interface Restored {
+  /** The active fragment after the restore, or null when the restored record forgets. */
+  fragment: Fragment | null;
+  /** The record the restore appended. */
+  version: Version;
+  versions: number;
+}
 
 export type ImportFormat = "ndjson" | "text";
 
@@ -48,7 +54,7 @@ export interface ImportResult {
 }
 
 export interface LogRead {
-  /** The latest record's `at`, in milliseconds. */
+  /** The latest record's `id`; 0 when the log is empty. */
   cursor: number;
   fragments: Fragment[];
   records: Version[];
@@ -79,7 +85,7 @@ export interface MemoryCore {
     input: { ref: string },
     source: Source
   ) => Result<{ ref: string }, NotFound>;
-  restore: (input: { at: number; ref: string }) => Result<Restored, NotFound>;
+  restore: (input: { id: number; ref: string }) => Result<Restored, NotFound>;
   purge: (input: { ref: string }) => Result<{ ref: string }, NotFound>;
   importLog: (input: {
     content: string;

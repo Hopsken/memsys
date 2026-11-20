@@ -1,21 +1,23 @@
 # Export from the first space
 {"v":1,"persona":"<work-persona>","name":"Work assistant","createdAt":"<time>"}
 {"v":1,"persona":"<archived-persona>","name":"Old bot","createdAt":"<time>","archivedAt":"<time>"}
-{"v":1,"ref":"<ref-2>","fragment":"Deploys go through wrangler","at":"<time>","op":"remember","source":"persona:<work-persona>"}
+{"v":1,"ref":"<ref-2>","fragment":"Deploys go through wrangler","createdAt":"<time>","op":"remember","source":"persona:<work-persona>"}
 
 # Activity for the work persona in the second space
 [
   {
-    "at": "<time>",
+    "createdAt": "<time>",
     "fragment": "Written on the new instance",
+    "id": 2,
     "op": "remember",
     "ref": "<ref-1>",
     "source": "persona:<work-persona>",
     "previous": null
   },
   {
-    "at": "<time>",
+    "createdAt": "<time>",
     "fragment": "Deploys go through wrangler",
+    "id": 1,
     "op": "remember",
     "ref": "<ref-2>",
     "source": "persona:<work-persona>",

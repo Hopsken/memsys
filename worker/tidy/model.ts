@@ -8,14 +8,14 @@ export type Change =
       type: "revise";
       ref: string;
       fragment: string;
-      at: string;
+      versionId: number;
       current: string;
       source: Source | null;
     }
   | {
       type: "forget";
       ref: string;
-      at: string;
+      versionId: number;
       current: string;
       source: Source | null;
     };
@@ -38,6 +38,7 @@ export interface ApplyResult {
 
 export type TidyState =
   | { status: "idle"; last?: ApplyResult }
+  | { status: "outdated" }
   | { status: "running"; runId: string; startedAt: string; attempts: number }
   | {
       status: "ready";

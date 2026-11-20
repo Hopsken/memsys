@@ -155,12 +155,15 @@ const DeleteMemory = ({
 const Timeline = ({ versions }: { versions: Version[] }) => {
   const restore = useRestore();
   const [searchParams] = useSearchParams();
-  const [highlightedAt, setHighlightedAt] = useState(searchParams.get("at"));
+  const [highlightedId, setHighlightedId] = useState<number | null>(() => {
+    const id = Number(searchParams.get("id"));
+    return Number.isInteger(id) && id > 0 ? id : null;
+  });
   const highlighted = useRef<HTMLLIElement>(null);
   const current = versions[0]?.fragment ?? null;
 
   useEffect(() => {
-    if (!highlightedAt) {
+    if (highlightedId === null) {
       return;
     }
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -169,9 +172,9 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
       block: "nearest",
     });
     highlighted.current?.focus({ preventScroll: true });
-    const timer = setTimeout(() => setHighlightedAt(null), 2000);
+    const timer = setTimeout(() => setHighlightedId(null), 2000);
     return () => clearTimeout(timer);
-  }, [highlightedAt]);
+  }, [highlightedId]);
 
   return (
     <>
@@ -184,7 +187,7 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
       ) : null}
       <ol>
         {versions.map((version, index) => {
-          const { at, fragment, op, source } = version;
+          const { createdAt, fragment, id, op, source } = version;
           const isCurrent = index === 0 && fragment !== null;
           const canRestore = fragment !== null && fragment !== current;
           const before =
@@ -192,9 +195,9 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
           return (
             <li
               className="group relative pb-5 pl-6 outline-none last:pb-0"
-              key={at}
-              ref={highlightedAt === at ? highlighted : undefined}
-              tabIndex={highlightedAt === at ? -1 : undefined}
+              key={id}
+              ref={highlightedId === id ? highlighted : undefined}
+              tabIndex={highlightedId === id ? -1 : undefined}
             >
               <span
                 aria-hidden="true"
@@ -210,7 +213,7 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
               <div
                 className={cn(
                   "-mx-2 space-y-1 rounded-lg px-2 py-1 transition-colors duration-700",
-                  highlightedAt === at && "bg-muted"
+                  highlightedId === id && "bg-muted"
                 )}
               >
                 <div className="text-muted-foreground flex min-h-7 items-center justify-between gap-3 text-xs">
@@ -218,8 +221,11 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
                     <OpBadge op={op} />
                     <SourceLine source={source} />
                     <span aria-hidden="true">·</span>
-                    <time dateTime={at} title={new Date(at).toLocaleString()}>
-                      {stamp(at)}
+                    <time
+                      dateTime={createdAt}
+                      title={new Date(createdAt).toLocaleString()}
+                    >
+                      {stamp(createdAt)}
                     </time>
                     {fragment === null ? null : (
                       <>
@@ -234,10 +240,10 @@ const Timeline = ({ versions }: { versions: Version[] }) => {
                       disabled={restore.isPending}
                       onClick={() =>
                         restore.mutate(
-                          { at, ref: version.ref },
+                          { id, ref: version.ref },
                           {
                             onSuccess: (restored) =>
-                              setHighlightedAt(restored.at),
+                              setHighlightedId(restored.version.id),
                           }
                         )
                       }

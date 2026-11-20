@@ -48,7 +48,7 @@ const ForgottenRow = ({ item }: { item: ForgottenFragment }) => {
             disabled={restore.isPending}
             onClick={() =>
               restore.mutate(
-                { at: item.at, ref: item.ref },
+                { id: item.versionId, ref: item.ref },
                 { onSuccess: () => toasts.add({ title: "Restored" }) }
               )
             }
