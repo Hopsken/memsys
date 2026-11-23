@@ -1,4 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
+import { z } from "zod";
 
 import { err, ok } from "@lib/result";
 import type { Result } from "@lib/result";
@@ -25,10 +26,21 @@ const RUNNING = tidyBusy("memsys is already looking for changes.");
 const APPLYING = tidyBusy("memsys is applying changes. Try again shortly.");
 const NOTHING_TO_APPLY = tidyBusy("There are no changes to apply.");
 
-const isStale = (proposal: Proposal, current: ReadonlyMap<string, string>) =>
+const isStale = (proposal: Proposal, current: ReadonlyMap<string, number>) =>
   proposal.changes.some(
     (change) =>
-      change.type !== "remember" && current.get(change.ref) !== change.at
+      change.type !== "remember" && current.get(change.ref) !== change.versionId
+  );
+
+const versionIdSchema = z.int().positive();
+
+const hasLegacyProposals = (proposals: Proposal[]) =>
+  proposals.some((proposal) =>
+    proposal.changes.some(
+      (change) =>
+        change.type !== "remember" &&
+        !versionIdSchema.safeParse(change.versionId).success
+    )
   );
 
 const forgetsLast = (proposal: Proposal) =>
@@ -77,6 +89,15 @@ export class TidyDO extends DurableObject<Env> {
 
   async read(): Promise<TidyState> {
     const state = await this.#state();
+    // Drop a review saved before version ids replaced timestamps so it is not
+    // misreported as stale after deploy.
+    if (
+      (state.status === "ready" ||
+        (state.status === "applying" && !this.#applying)) &&
+      hasLegacyProposals(state.proposals)
+    ) {
+      return await this.#save({ status: "idle" });
+    }
     if (state.status === "applying" && !this.#applying) {
       return await this.#save({
         last: {
@@ -178,7 +199,9 @@ export class TidyDO extends DurableObject<Env> {
     try {
       const memory = openMemory(await this.#space());
       const { fragments } = await memory.readLog({});
-      const current = new Map(fragments.map(({ at, ref }) => [ref, at]));
+      const current = new Map(
+        fragments.map(({ ref, versionId }) => [ref, versionId])
+      );
       for (const proposal of chosen) {
         const failure = isStale(proposal, current)
           ? CHANGED

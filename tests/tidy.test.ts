@@ -1,6 +1,6 @@
 import type { Fragment } from "@core";
 import type { AssistantMessage, Message } from "@earendil-works/pi-ai";
-import { runDurableObjectAlarm } from "cloudflare:test";
+import { runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -337,6 +337,53 @@ describe("Tidy up", () => {
     );
 
     expect(response.status).toBe(401);
+  });
+
+  it("drops a review saved before version ids back to idle", async () => {
+    const user = await signIn();
+    const legacyProposals = [
+      {
+        changes: [
+          {
+            at: "2026-01-01T00:00:00.000Z",
+            current: "Old text",
+            fragment: "New text",
+            ref: "abcdefg",
+            source: "user",
+            type: "revise",
+          },
+        ],
+        id: "proposal-1",
+        reason: "Outdated.",
+      },
+    ];
+    await runInDurableObject(
+      env.TIDY.getByName(defaultSpace(user.id)),
+      async (_instance, state) => {
+        await state.storage.put("state", {
+          finishedAt: new Date().toISOString(),
+          proposals: legacyProposals,
+          runId: "run-1",
+          status: "ready",
+          summary: "Done.",
+        });
+      }
+    );
+    await expect(read(user)).resolves.toStrictEqual({ status: "idle" });
+
+    await runInDurableObject(
+      env.TIDY.getByName(defaultSpace(user.id)),
+      async (_instance, state) => {
+        await state.storage.put("state", {
+          done: [],
+          proposals: legacyProposals,
+          runId: "run-2",
+          skipped: [],
+          status: "applying",
+        });
+      }
+    );
+    await expect(read(user)).resolves.toStrictEqual({ status: "idle" });
   });
 
   it("exports and imports memsys changes with their source", async () => {

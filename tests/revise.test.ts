@@ -25,7 +25,7 @@ describe("Revise", () => {
       fragment: "$& $1 $` $' #new",
       ref: item.ref,
     });
-    expect(Date.parse(revised.at)).toBeGreaterThan(Date.parse(item.at));
+    expect(revised.versionId).toBeGreaterThan(item.versionId);
     await expect(list(user)).resolves.toStrictEqual({
       fragments: [withVersions(revised, 2, "user")],
       nextCursor: null,

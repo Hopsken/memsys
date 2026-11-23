@@ -27,7 +27,7 @@ describe("Fragment HTTP API", () => {
       fragment: "Changed design #project/b",
       ref: item.ref,
     });
-    expect(Date.parse(next.at)).toBeGreaterThan(Date.parse(item.at));
+    expect(next.versionId).toBeGreaterThan(item.versionId);
     const script = scripted();
     faux.setResponses([script.text("The design changed.")]);
     const found = await post(

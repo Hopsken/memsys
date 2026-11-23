@@ -53,18 +53,18 @@ propose_change (error): Another change already covers <ref-3>. Put each memory i
     {
       "changes": [
         {
-          "at": "<time>",
           "current": "Prefers bun over pnpm",
           "ref": "<ref-1>",
           "source": "user",
+          "versionId": 1,
           "fragment": "Switched from pnpm to bun and prefers it",
           "type": "revise"
         },
         {
-          "at": "<time>",
           "current": "Switched to bun last month",
           "ref": "<ref-2>",
           "source": "user",
+          "versionId": 2,
           "type": "forget"
         }
       ],
@@ -74,10 +74,10 @@ propose_change (error): Another change already covers <ref-3>. Put each memory i
     {
       "changes": [
         {
-          "at": "<time>",
           "current": "Prefers aisle seats and no meetings before 10am",
           "ref": "<ref-4>",
           "source": "user",
+          "versionId": 4,
           "fragment": "Prefers aisle seats",
           "type": "revise"
         },
@@ -92,10 +92,10 @@ propose_change (error): Another change already covers <ref-3>. Put each memory i
     {
       "changes": [
         {
-          "at": "<time>",
           "current": "Flying to Lisbon next week to visit Mei",
           "ref": "<ref-3>",
           "source": "user",
+          "versionId": 3,
           "fragment": "Visited Mei in Lisbon in November 2026",
           "type": "revise"
         }
@@ -118,10 +118,10 @@ propose_change (error): Another change already covers <ref-3>. Put each memory i
         "proposal": {
           "changes": [
             {
-              "at": "<time>",
               "current": "Flying to Lisbon next week to visit Mei",
               "ref": "<ref-3>",
               "source": "user",
+              "versionId": 3,
               "fragment": "Visited Mei in Lisbon in November 2026",
               "type": "revise"
             }
@@ -137,13 +137,13 @@ propose_change (error): Another change already covers <ref-3>. Put each memory i
 }
 
 ## Memory log after applying
-{"v":1,"ref":"<ref-1>","fragment":"Prefers bun over pnpm","at":"<time>","op":"remember","source":"user"}
-{"v":1,"ref":"<ref-2>","fragment":"Switched to bun last month","at":"<time>","op":"remember","source":"user"}
-{"v":1,"ref":"<ref-3>","fragment":"Flying to Lisbon next week to visit Mei","at":"<time>","op":"remember","source":"user"}
-{"v":1,"ref":"<ref-4>","fragment":"Prefers aisle seats and no meetings before 10am","at":"<time>","op":"remember","source":"user"}
-{"v":1,"ref":"<ref-5>","fragment":"Sister Mei lives in Lisbon","at":"<time>","op":"remember","source":"user"}
-{"v":1,"ref":"<ref-3>","fragment":"Flying to Lisbon on Friday","at":"<time>","op":"revise","source":"user"}
-{"v":1,"ref":"<ref-1>","fragment":"Switched from pnpm to bun and prefers it","at":"<time>","op":"revise","source":"system"}
-{"v":1,"ref":"<ref-2>","fragment":null,"at":"<time>","op":"forget","source":"system"}
-{"v":1,"ref":"<ref-4>","fragment":"Prefers aisle seats","at":"<time>","op":"revise","source":"system"}
-{"v":1,"ref":"<ref-6>","fragment":"No meetings before 10am","at":"<time>","op":"remember","source":"system"}
+{"v":1,"ref":"<ref-1>","fragment":"Prefers bun over pnpm","createdAt":"<time>","op":"remember","source":"user"}
+{"v":1,"ref":"<ref-2>","fragment":"Switched to bun last month","createdAt":"<time>","op":"remember","source":"user"}
+{"v":1,"ref":"<ref-3>","fragment":"Flying to Lisbon next week to visit Mei","createdAt":"<time>","op":"remember","source":"user"}
+{"v":1,"ref":"<ref-4>","fragment":"Prefers aisle seats and no meetings before 10am","createdAt":"<time>","op":"remember","source":"user"}
+{"v":1,"ref":"<ref-5>","fragment":"Sister Mei lives in Lisbon","createdAt":"<time>","op":"remember","source":"user"}
+{"v":1,"ref":"<ref-3>","fragment":"Flying to Lisbon on Friday","createdAt":"<time>","op":"revise","source":"user"}
+{"v":1,"ref":"<ref-1>","fragment":"Switched from pnpm to bun and prefers it","createdAt":"<time>","op":"revise","source":"system"}
+{"v":1,"ref":"<ref-2>","fragment":null,"createdAt":"<time>","op":"forget","source":"system"}
+{"v":1,"ref":"<ref-4>","fragment":"Prefers aisle seats","createdAt":"<time>","op":"revise","source":"system"}
+{"v":1,"ref":"<ref-6>","fragment":"No meetings before 10am","createdAt":"<time>","op":"remember","source":"system"}

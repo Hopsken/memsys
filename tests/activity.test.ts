@@ -98,10 +98,8 @@ describe("Activity", () => {
     const all = [...first.body.entries, ...second.body.entries];
     expect(new Set(all.map(({ ref }) => ref)).size).toBe(60);
     expect(
-      all
-        .map(({ fragment, op, source }) => `${fragment} ${op} ${source}`)
-        .toSorted()
-    ).toStrictEqual(lines.map((line) => `${line} remember user`).toSorted());
+      all.map(({ fragment, op, source }) => `${fragment} ${op} ${source}`)
+    ).toStrictEqual(lines.toReversed().map((line) => `${line} remember user`));
   });
 
   it("drops a purged fragment and rejects a malformed cursor or a filter", async () => {
@@ -113,6 +111,11 @@ describe("Activity", () => {
       body: { entries: [{ ref: kept.ref }], nextCursor: null },
     });
     await expect(activity(user, "?cursor=nope")).resolves.toMatchObject({
+      status: 400,
+    });
+    await expect(
+      activity(user, "?cursor=2026-01-01T00:00:00.000Z,99999999999999999999")
+    ).resolves.toMatchObject({
       status: 400,
     });
     await expect(activity(user, "?tag=memsys")).resolves.toMatchObject({

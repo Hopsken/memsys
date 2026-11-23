@@ -86,9 +86,9 @@ forget: Forgot <ref-2>.
 Memory updated: remembered 1 memory, revised 1 memory, forgot 1 memory.
 
 ## Memory log after the run
-{"v":1,"ref":"<ref-1>","fragment":"Prefers pnpm over npm","at":"<time>","op":"remember","source":"user"}
-{"v":1,"ref":"<ref-2>","fragment":"Uses npm for this one old repo","at":"<time>","op":"remember","source":"agent:Laptop script"}
-{"v":1,"ref":"<ref-3>","fragment":"Deploys run through wrangler","at":"<time>","op":"remember","source":"agent:Laptop script"}
-{"v":1,"ref":"<ref-4>","fragment":"Lives in Singapore","at":"<time>","op":"remember","source":"agent:Laptop script"}
-{"v":1,"ref":"<ref-1>","fragment":"Prefers pnpm; npm only for the one old repo","at":"<time>","op":"revise","source":"agent:Laptop script"}
-{"v":1,"ref":"<ref-2>","fragment":null,"at":"<time>","op":"forget","source":"agent:Laptop script"}
+{"v":1,"ref":"<ref-1>","fragment":"Prefers pnpm over npm","createdAt":"<time>","op":"remember","source":"user"}
+{"v":1,"ref":"<ref-2>","fragment":"Uses npm for this one old repo","createdAt":"<time>","op":"remember","source":"agent:Laptop script"}
+{"v":1,"ref":"<ref-3>","fragment":"Deploys run through wrangler","createdAt":"<time>","op":"remember","source":"agent:Laptop script"}
+{"v":1,"ref":"<ref-4>","fragment":"Lives in Singapore","createdAt":"<time>","op":"remember","source":"agent:Laptop script"}
+{"v":1,"ref":"<ref-1>","fragment":"Prefers pnpm; npm only for the one old repo","createdAt":"<time>","op":"revise","source":"agent:Laptop script"}
+{"v":1,"ref":"<ref-2>","fragment":null,"createdAt":"<time>","op":"forget","source":"agent:Laptop script"}

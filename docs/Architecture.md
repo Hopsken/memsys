@@ -46,7 +46,7 @@ Rules that shape a model's reading or curation belong with the memory model. Rul
 
 ## The log
 
-- A fragment is text, a ref, a source, and the time it was written.
+- A fragment is text, a ref, a source, and the times it was created and last written.
 - `revise` appends a new version; `forget` appends a record with no text. The current corpus is the replay of the log.
 - Only the owner deletes records, by purging a fragment in the web UI. Purging also discards the snapshot cutoff, because the log no longer has the same shape.
 - Import adds records without rewriting existing ones; it discards the snapshot cutoff too. Export writes the log verbatim.

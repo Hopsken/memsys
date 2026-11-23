@@ -4,28 +4,32 @@ import { describe, expect, it } from "vitest";
 
 import { FRAGMENT_MAX } from "@lib/fragment";
 
-const at = (day: number) => Date.parse(`2026-09-${day}T08:00:00.000Z`);
+const day = (value: number) => Date.parse(`2026-09-${value}T08:00:00.000Z`);
+const iso = (value: number) => new Date(day(value)).toISOString();
 
 describe("Fragment log", () => {
   it("round-trips records through NDJSON", () => {
     const rows: Row[] = [
       {
-        at: at(22),
+        createdAt: day(22),
         fragment: 'Line one\nline two 😀 "quoted"',
+        id: 1,
         op: "remember",
         ref: "abcdefg",
         source: "agent:Claude Code",
       },
       {
-        at: at(21),
+        createdAt: day(21),
         fragment: "é".repeat(FRAGMENT_MAX),
+        id: 2,
         op: "remember",
         ref: "hjkmnpq",
         source: null,
       },
       {
-        at: at(23),
+        createdAt: day(21),
         fragment: null,
+        id: 3,
         op: "forget",
         ref: "hjkmnpq",
         source: "user",
@@ -33,29 +37,40 @@ describe("Fragment log", () => {
     ];
     const text = serializeLog([], rows);
     expect(text).toMatch(/\n$/u);
-    expect(text.split("\n")).toHaveLength(4);
-    expect(text.split("\n")[0]).toBe(
-      `{"v":1,"ref":"hjkmnpq","fragment":"${"é".repeat(FRAGMENT_MAX)}","at":"2026-09-21T08:00:00.000Z","op":"remember"}`
-    );
-    expect(text.split("\n")[2]).toBe(
-      '{"v":1,"ref":"hjkmnpq","fragment":null,"at":"2026-09-23T08:00:00.000Z","op":"forget","source":"user"}'
-    );
+    const lines = text.split("\n");
+    expect(lines).toHaveLength(4);
+    expect(JSON.parse(lines[0] ?? "")).toStrictEqual({
+      createdAt: iso(22),
+      fragment: 'Line one\nline two 😀 "quoted"',
+      op: "remember",
+      ref: "abcdefg",
+      source: "agent:Claude Code",
+      v: 1,
+    });
+    expect(JSON.parse(lines[2] ?? "")).toStrictEqual({
+      createdAt: iso(21),
+      fragment: null,
+      op: "forget",
+      ref: "hjkmnpq",
+      source: "user",
+      v: 1,
+    });
     expect(parseLog(text)).toStrictEqual({
       personas: [],
-      rows: rows.toSorted((a, b) => a.at - b.at),
+      rows: rows.map(({ id: _, ...row }) => row),
     });
   });
 
   it("ignores unknown keys and a missing final line break", () => {
     expect(
       parseLog(
-        '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","note":"x"}'
+        `{"v":1,"ref":"abcdefg","fragment":"Hi","createdAt":"${iso(21)}","note":"x","id":9}`
       )
     ).toStrictEqual({
       personas: [],
       rows: [
         {
-          at: at(21),
+          createdAt: day(21),
           fragment: "Hi",
           op: "remember",
           ref: "abcdefg",
@@ -65,9 +80,13 @@ describe("Fragment log", () => {
     });
   });
 
-  it("gives records without an op the one their place in the log implies", () => {
-    const line = (day: number, fragment: string | null, ref = "abcdefg") =>
-      `${JSON.stringify({ at: new Date(at(day)).toISOString(), fragment, ref, v: 1 })}\n`;
+  it("reads lines as the causal order, not timestamps", () => {
+    const line = (
+      createdAt: number,
+      fragment: string | null,
+      ref = "abcdefg"
+    ) =>
+      `${JSON.stringify({ createdAt: iso(createdAt), fragment, ref, v: 1 })}\n`;
     const parsed = parseLog(
       [
         line(24, "Back"),
@@ -82,40 +101,52 @@ describe("Fragment log", () => {
     ).toStrictEqual([
       "abcdefg remember",
       "abcdefg revise",
-      "hjkmnpq remember",
+      "abcdefg revise",
       "abcdefg forget",
-      "abcdefg restore",
+      "hjkmnpq remember",
     ]);
+    expect(
+      "rows" in parsed && parsed.rows.map(({ createdAt }) => createdAt)
+    ).toStrictEqual([day(24), day(21), day(22), day(23), day(22)]);
+  });
+
+  it("keeps two records of one ref written at the same time", () => {
+    const line = (fragment: string) =>
+      `${JSON.stringify({
+        createdAt: iso(21),
+        fragment,
+        ref: "abcdefg",
+        v: 1,
+      })}\n`;
+    const parsed = parseLog(`${line("First")}${line("Second")}`);
+    expect(
+      "rows" in parsed && parsed.rows.map(({ fragment, op }) => fragment && op)
+    ).toStrictEqual(["remember", "revise"]);
+    expect("rows" in parsed && parsed.rows).toHaveLength(2);
   });
 
   it.each([
+    [`{"v":2,"ref":"abcdefg","fragment":"Hi","createdAt":"${iso(21)}"}`, "v"],
     [
-      '{"v":2,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z"}',
-      "v",
+      '{"v":1,"ref":"abcdefg","fragment":"Hi","createdAt":"2026-09-21T08:00:00Z"}',
+      "createdAt",
     ],
+    ['{"v":1,"ref":"abcdefg","fragment":"Hi"}', "createdAt"],
     [
-      '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00Z"}',
-      "at",
-    ],
-    ['{"v":1,"ref":"abcdefg","fragment":"Hi"}', "at"],
-    [
-      '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","op":"forget"}',
+      `{"v":1,"ref":"abcdefg","fragment":"Hi","createdAt":"${iso(21)}","op":"forget"}`,
       "op",
     ],
     [
-      '{"v":1,"ref":"abcdefg","fragment":null,"at":"2026-09-21T08:00:00.000Z","op":"revise"}',
+      `{"v":1,"ref":"abcdefg","fragment":null,"createdAt":"${iso(21)}","op":"revise"}`,
       "op",
     ],
     [
-      '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z","source":"You"}',
+      `{"v":1,"ref":"abcdefg","fragment":"Hi","createdAt":"${iso(21)}","source":"You"}`,
       "source",
     ],
+    [`{"v":1,"ref":"0000000","fragment":"Hi","createdAt":"${iso(21)}"}`, "ref"],
     [
-      '{"v":1,"ref":"0000000","fragment":"Hi","at":"2026-09-21T08:00:00.000Z"}',
-      "ref",
-    ],
-    [
-      '{"v":1,"ref":"abcdefg","fragment":" ","at":"2026-09-21T08:00:00.000Z"}',
+      `{"v":1,"ref":"abcdefg","fragment":" ","createdAt":"${iso(21)}"}`,
       "fragment",
     ],
   ])("rejects %s", (line, field) => {
@@ -124,51 +155,153 @@ describe("Fragment log", () => {
     });
   });
 
-  it("rejects torn lines, blank lines, and two records of a ref at one time", () => {
-    const line =
-      '{"v":1,"ref":"abcdefg","fragment":"Hi","at":"2026-09-21T08:00:00.000Z"}';
+  it("rejects torn lines and blank lines", () => {
+    const line = `{"v":1,"ref":"abcdefg","fragment":"Hi","createdAt":"${iso(21)}"}`;
     expect(parseLog(`${line}\n{"v":1,"ref"`)).toMatchObject({
       issues: [{ path: ["2"] }],
     });
     expect(parseLog(`${line}\n\n${line}\n`)).toMatchObject({
-      issues: [{ path: ["2"] }, { path: ["3", "at"] }],
+      issues: [{ path: ["2"] }],
     });
   });
 
-  it("replays the latest record of each ref in any order", () => {
-    const rows = [
+  it("projects creation from the first record and updates from the last", () => {
+    const rows: Row[] = [
       {
-        at: at(24),
-        fragment: "Back again",
-        ref: "abcdefg",
-        source: "user" as const,
-      },
-      {
-        at: at(21),
+        createdAt: day(21),
         fragment: "First",
+        id: 1,
+        op: "remember",
         ref: "abcdefg",
-        source: "agent:a" as const,
+        source: "agent:a",
       },
-      { at: at(23), fragment: null, ref: "abcdefg" },
-      { at: at(22), fragment: "Second", ref: "abcdefg" },
-      { at: at(21), fragment: "Gone", ref: "hjkmnpq" },
-      { at: at(22), fragment: null, ref: "hjkmnpq" },
-    ];
-    const { corpus, latestAtByRef } = replay(rows);
-    expect([...corpus.values()]).toStrictEqual([
       {
-        at: "2026-09-24T08:00:00.000Z",
-        fragment: "Back again",
+        createdAt: day(21),
+        fragment: "Gone",
+        id: 2,
+        op: "remember",
+        ref: "hjkmnpq",
+        source: null,
+      },
+      {
+        createdAt: day(22),
+        fragment: "Second",
+        id: 3,
+        op: "revise",
+        ref: "abcdefg",
+        source: null,
+      },
+      {
+        createdAt: day(22),
+        fragment: null,
+        id: 4,
+        op: "forget",
+        ref: "hjkmnpq",
+        source: "user",
+      },
+      {
+        createdAt: day(23),
+        fragment: null,
+        id: 5,
+        op: "forget",
         ref: "abcdefg",
         source: "user",
       },
+      {
+        createdAt: day(24),
+        fragment: "Back again",
+        id: 6,
+        op: "restore",
+        ref: "abcdefg",
+        source: "user",
+      },
+    ];
+    const { corpus, refs } = replay(rows);
+    expect([...corpus.values()]).toStrictEqual([
+      {
+        createdAt: iso(21),
+        fragment: "Back again",
+        ref: "abcdefg",
+        source: "user",
+        updatedAt: iso(24),
+        versionId: 6,
+      },
     ]);
-    expect(latestAtByRef).toStrictEqual(
-      new Map([
-        ["abcdefg", at(24)],
-        ["hjkmnpq", at(22)],
+    expect(refs.get("abcdefg")).toStrictEqual({
+      active: true,
+      createdAt: day(21),
+      latestAt: day(24),
+      latestId: 6,
+      text: {
+        fragment: "Back again",
+        id: 6,
+        source: "user",
+        updatedAt: day(24),
+      },
+      versions: 4,
+    });
+    expect(refs.get("hjkmnpq")).toStrictEqual({
+      active: false,
+      createdAt: day(21),
+      latestAt: day(22),
+      latestId: 4,
+      text: { fragment: "Gone", id: 2, source: null, updatedAt: day(21) },
+      versions: 2,
+    });
+  });
+
+  it("rejects out-of-order ids during replay", () => {
+    expect(() =>
+      replay([
+        {
+          createdAt: day(22),
+          fragment: "Second",
+          id: 2,
+          op: "revise",
+          ref: "abcdefg",
+          source: "user",
+        },
+        {
+          createdAt: day(21),
+          fragment: "First",
+          id: 1,
+          op: "remember",
+          ref: "abcdefg",
+          source: "user",
+        },
       ])
-    );
+    ).toThrow(/ascending id order/u);
+  });
+
+  it("takes creation from the first record that has text", () => {
+    const rows: Row[] = [
+      {
+        createdAt: day(20),
+        fragment: null,
+        id: 1,
+        op: "forget",
+        ref: "klmnpqr",
+        source: "user",
+      },
+      {
+        createdAt: day(25),
+        fragment: "Late",
+        id: 2,
+        op: "restore",
+        ref: "klmnpqr",
+        source: "user",
+      },
+    ];
+    expect([...replay(rows).corpus.values()]).toStrictEqual([
+      {
+        createdAt: iso(25),
+        fragment: "Late",
+        ref: "klmnpqr",
+        source: "user",
+        updatedAt: iso(25),
+        versionId: 2,
+      },
+    ]);
   });
 
   it("reads plain text as one fragment per non-empty line", () => {

@@ -1,3 +1,4 @@
+import { LOG_CURSOR_KEY, logRecordSchema } from "@core";
 import type { Fragment, ImportResult, LogRecord } from "@core";
 import { evictDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
@@ -79,17 +80,32 @@ describe("Fragment export and import", () => {
     expect(file.split("\n")).toHaveLength(3);
 
     const target = await signIn();
+    await memoryOf(target).patchMetadata(LOG_CURSOR_KEY, { cursor: 1 });
     const imported = await importFile(target, file);
-    expect(imported.status).toBe(200);
-    await expect(imported.json()).resolves.toStrictEqual({
-      conflicts: [],
-      imported: 2,
-      skipped: 0,
+    expect({
+      body: await imported.json(),
+      status: imported.status,
+    }).toStrictEqual({
+      body: { conflicts: [], imported: 2, skipped: 0 },
+      status: 200,
     });
+    await expect(
+      memoryOf(target).readMetadata(LOG_CURSOR_KEY)
+    ).resolves.toBeNull();
     const [before, after] = await Promise.all([list(source), list(target)]);
     expect(after).toStrictEqual({
-      ...before,
-      fragments: before.fragments.map((item) => ({ ...item, versions: 1 })),
+      fragments: before.fragments.map(
+        ({ fragment, ref, source: writtenBy, updatedAt }) => ({
+          createdAt: updatedAt,
+          fragment,
+          ref,
+          source: writtenBy,
+          updatedAt,
+          versionId: expect.any(Number),
+          versions: 1,
+        })
+      ),
+      nextCursor: null,
     });
   });
 
@@ -140,15 +156,15 @@ describe("Fragment export and import", () => {
     const same = await remember(user, "Same text elsewhere");
     const forgotten = await remember(user, "Forgotten here");
     await post("/api/forget", { ref: forgotten.ref }, user);
-    const at = "2020-01-01T00:00:00.000Z";
+    const createdAt = "2020-01-01T00:00:00.000Z";
     const response = await importFile(
       user,
       log([
-        { at, fragment: kept.fragment, ref: kept.ref },
-        { at, fragment: "Imported text", ref: changed.ref },
-        { at, fragment: forgotten.fragment, ref: forgotten.ref },
-        { at, fragment: same.fragment, ref: "zzzzzzz" },
-        { at, fragment: "New one", ref: "yyyyyyy" },
+        { createdAt, fragment: kept.fragment, ref: kept.ref },
+        { createdAt, fragment: "Imported text", ref: changed.ref },
+        { createdAt, fragment: forgotten.fragment, ref: forgotten.ref },
+        { createdAt, fragment: same.fragment, ref: "zzzzzzz" },
+        { createdAt, fragment: "New one", ref: "yyyyyyy" },
       ])
     );
     await expect(response.json<ImportResult>()).resolves.toStrictEqual({
@@ -165,7 +181,7 @@ describe("Fragment export and import", () => {
     await evictDurableObject(memoryOf(user));
     const again = await importFile(
       user,
-      log([{ at, fragment: "Back", ref: forgotten.ref }])
+      log([{ createdAt, fragment: "Back", ref: forgotten.ref }])
     );
     await expect(again.json()).resolves.toMatchObject({
       conflicts: [forgotten.ref],
@@ -203,12 +219,16 @@ describe("Fragment export and import", () => {
   it("stores nothing when any line is invalid and says which", async () => {
     const user = await signIn();
     const valid = log([
-      { at: "2020-01-01T00:00:00.000Z", fragment: "Fine", ref: "abcdefg" },
+      {
+        createdAt: "2020-01-01T00:00:00.000Z",
+        fragment: "Fine",
+        ref: "abcdefg",
+      },
     ]);
     const cases = [
       `${valid}not json\n`,
-      `${valid}{"v":2,"ref":"hjkmnpq","fragment":"Later","at":"2020-01-01T00:00:00.000Z"}\n`,
-      `${valid}${valid}`,
+      `${valid}{"v":2,"ref":"hjkmnpq","fragment":"Later","createdAt":"2020-01-01T00:00:00.000Z"}\n`,
+      `${valid}{"v":1,"ref":"hjkmnpq","fragment":"Later"}\n`,
       `${valid}\n`,
     ];
     const responses = await Promise.all(
@@ -229,6 +249,44 @@ describe("Fragment export and import", () => {
       fragments: [],
       nextCursor: null,
     });
+  });
+
+  it("keeps file order across equal timestamps and does not skew later writes", async () => {
+    const user = await signIn();
+    const sameTime = "2026-01-01T00:00:00.000Z";
+    const futureTime = "2099-01-01T00:00:00.000Z";
+    const response = await importFile(
+      user,
+      log([
+        { createdAt: sameTime, fragment: "First", ref: "zzzzzzz" },
+        { createdAt: sameTime, fragment: "Second", ref: "2222222" },
+        { createdAt: sameTime, fragment: "Third", ref: "mmmmmmm" },
+        { createdAt: futureTime, fragment: "From the future", ref: "fffffff" },
+      ])
+    );
+    expect(response.status).toBe(200);
+    const local = await remember(user, "Written locally");
+    expect(Date.parse(local.createdAt)).toBeLessThan(Date.parse(futureTime));
+    const page = await list(user);
+    expect(page.fragments.map(({ ref }) => ref)).toStrictEqual([
+      "fffffff",
+      local.ref,
+      "mmmmmmm",
+      "2222222",
+      "zzzzzzz",
+    ]);
+    const exported = await memoryOf(user).exportLog({ history: true });
+    const exportedRefs = exported
+      .trim()
+      .split("\n")
+      .map((line) => logRecordSchema.parse(JSON.parse(line)).ref);
+    expect(exportedRefs).toStrictEqual([
+      "zzzzzzz",
+      "2222222",
+      "mmmmmmm",
+      "fffffff",
+      local.ref,
+    ]);
   });
 
   it("accepts a whole memory above the normal request limit", async () => {
