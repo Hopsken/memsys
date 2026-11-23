@@ -30,11 +30,11 @@ const oneLine = (text: string) =>
 const from = (source: Fragment["source"]) =>
   `from:${escapeMarkup((source ?? "unknown").replaceAll(/\s+/gu, " "))}`;
 
-const renderFragment = ({ at, fragment, ref, source }: Fragment) =>
-  `[${ref}] ${from(source)} written ${at}: ${oneLine(fragment)}`;
+const renderFragment = ({ fragment, ref, source, updatedAt }: Fragment) =>
+  `[${ref}] ${from(source)} written ${updatedAt}: ${oneLine(fragment)}`;
 
-const renderRecord = ({ at, fragment, op, ref, source }: Version) =>
-  `[${ref}] ${from(source)} ${op} at ${at}${fragment === null ? "" : `: ${oneLine(fragment)}`}`;
+const renderRecord = ({ createdAt, fragment, op, ref, source }: Version) =>
+  `[${ref}] ${from(source)} ${op} at ${createdAt}${fragment === null ? "" : `: ${oneLine(fragment)}`}`;
 
 const updatedCharacters = (records: readonly Version[]) =>
   records.reduce((sum, record) => sum + (record.fragment?.length ?? 0), 0);

@@ -8,6 +8,7 @@ import {
   personaNameSchema,
   refSchema,
   sourceSchema,
+  timestampSchema,
 } from "./model";
 import type { Fragment, Source } from "./model";
 
@@ -17,7 +18,12 @@ const cursorSchema = z
   .string()
   .max(64)
   .transform((value) => value.split(","))
-  .pipe(z.tuple([z.iso.datetime({ precision: 3 }), refSchema]));
+  .pipe(
+    z.tuple([
+      timestampSchema,
+      z.coerce.number<string>().pipe(z.int().positive()),
+    ])
+  );
 
 const tagSchema = z
   .string()
@@ -34,7 +40,10 @@ export const listInputSchema = z
   .strict();
 
 export const activityInputSchema = z
-  .object({ cursor: cursorSchema.optional(), source: sourceSchema.optional() })
+  .object({
+    cursor: cursorSchema.optional(),
+    source: sourceSchema.optional(),
+  })
   .strict();
 
 export const inputSchemas = {
@@ -53,9 +62,7 @@ export const importInputSchema = z
   .object({ content: z.string(), format: z.enum(["ndjson", "text"]) })
   .strict();
 
-export const restoreInputSchema = z
-  .object({ at: z.iso.datetime({ precision: 3 }) })
-  .strict();
+export const restoreInputSchema = z.object({ id: z.int().positive() }).strict();
 
 export const listFragments = <T extends Fragment & { source?: Source | null }>(
   corpus: Iterable<T>,
@@ -71,8 +78,8 @@ export const listFragments = <T extends Fragment & { source?: Source | null }>(
     .filter(
       (item) =>
         !after ||
-        item.at < after[0] ||
-        (item.at === after[0] && item.ref > after[1])
+        item.updatedAt < after[0] ||
+        (item.updatedAt === after[0] && item.versionId < after[1])
     )
     .filter((item) => {
       const anchors = extractAnchors(item.fragment);
@@ -80,12 +87,17 @@ export const listFragments = <T extends Fragment & { source?: Source | null }>(
         anchors.some((anchor) => withinTag(anchor, each))
       );
     })
-    .toSorted((a, b) => b.at.localeCompare(a.at) || a.ref.localeCompare(b.ref));
+    .toSorted(
+      (a, b) =>
+        b.updatedAt.localeCompare(a.updatedAt) || b.versionId - a.versionId
+    );
   const fragments = ordered.slice(0, PAGE_SIZE);
   const last = fragments.at(-1);
   return {
     fragments,
     nextCursor:
-      ordered.length > PAGE_SIZE && last ? `${last.at},${last.ref}` : null,
+      ordered.length > PAGE_SIZE && last
+        ? `${last.updatedAt},${last.versionId}`
+        : null,
   };
 };

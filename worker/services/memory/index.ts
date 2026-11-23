@@ -69,7 +69,7 @@ export class MemoryService {
     return await this.#memory.forget(input, source);
   }
 
-  async restore(input: { at: number; ref: string }) {
+  async restore(input: { id: number; ref: string }) {
     return await this.#memory.restore(input);
   }
 

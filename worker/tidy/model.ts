@@ -8,14 +8,14 @@ export type Change =
       type: "revise";
       ref: string;
       fragment: string;
-      at: string;
+      versionId: number;
       current: string;
       source: Source | null;
     }
   | {
       type: "forget";
       ref: string;
-      at: string;
+      versionId: number;
       current: string;
       source: Source | null;
     };
