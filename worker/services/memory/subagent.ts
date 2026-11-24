@@ -20,7 +20,13 @@ import type { Failure, Result } from "@lib/result";
 import { memoryUnavailable } from "../../errors";
 import type { MemoryUnavailable } from "../../errors";
 import type { MemoryService } from "./index";
-import { noteMessage, prepareSystemPrompt, recallMessage } from "./prompt";
+import {
+  formatSource,
+  noteMessage,
+  personaNames,
+  prepareSystemPrompt,
+  recallMessage,
+} from "./prompt";
 import { createProvider } from "./provider";
 
 export const MODEL_PROVIDER = "deepseek";
@@ -194,7 +200,8 @@ export class Subagent {
   }
 
   async recall(
-    context: string
+    context: string,
+    source: Source
   ): Promise<Result<{ answer: string }, MemoryUnavailable>> {
     if ((await this.#memory.count()) === 0) {
       return ok({ answer: EMPTY_ANSWER });
@@ -203,11 +210,19 @@ export class Subagent {
     if (!subject) {
       return err(failed("The DeepSeek model is not available"));
     }
-    const { settings } = await this.#memory.settings();
+    const [{ settings }, personas] = await Promise.all([
+      this.#memory.settings(),
+      this.#memory.personas(),
+    ]);
+    const names = personaNames(personas);
     try {
       const last = await run(subject, {
-        message: recallMessage(context),
-        system: await prepareSystemPrompt(this.#memory, settings.instructions),
+        message: recallMessage(context, formatSource(source, names)),
+        system: await prepareSystemPrompt(
+          this.#memory,
+          settings.instructions,
+          names
+        ),
         toolChoice: "none",
         tools: TOOL_DECLARATIONS.map((declaration) => ({
           ...declaration,
@@ -237,7 +252,11 @@ export class Subagent {
     if (!subject) {
       return err(failed("The DeepSeek model is not available"));
     }
-    const { settings } = await this.#memory.settings();
+    const [{ settings }, personas] = await Promise.all([
+      this.#memory.settings(),
+      this.#memory.personas(),
+    ]);
+    const names = personaNames(personas);
     const counts = noCounts();
     const store = async (
       name: "remember" | "revise",
@@ -314,8 +333,12 @@ export class Subagent {
             ? { action: "end" as const }
             : undefined;
         },
-        message: noteMessage(context),
-        system: await prepareSystemPrompt(this.#memory, settings.instructions),
+        message: noteMessage(context, formatSource(source, names)),
+        system: await prepareSystemPrompt(
+          this.#memory,
+          settings.instructions,
+          names
+        ),
         toolChoice: "auto",
         tools,
       });

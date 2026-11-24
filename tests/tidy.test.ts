@@ -216,6 +216,11 @@ describe("Tidy up", () => {
       let result = value
         .replaceAll(/\d{4}-\d\d-\d\dT[\d:.]+Z/gu, "<time>")
         .replaceAll(
+          /\d{4}-\d\d-\d\d \d\d:\d\d UTC \((?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\)/gu,
+          "<time>"
+        )
+        .replaceAll(/\d{4}-\d\d-\d\d \d\d:\d\dZ/gu, "<time>")
+        .replaceAll(
           /[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}/gu,
           "<id>"
         );

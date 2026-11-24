@@ -137,8 +137,8 @@ export class MemoryService {
     return await this.#memory.forgotten();
   }
 
-  async recall(input: MemoryInput) {
-    return await this.#subagent.recall(input.context);
+  async recall(input: MemoryInput, source: Source) {
+    return await this.#subagent.recall(input.context, source);
   }
 
   async note(input: MemoryInput, source: Source) {

@@ -55,7 +55,7 @@ const createMcpServer = (
           })
           .strict(),
       },
-      async (input) => prose(await memory.recall(input))
+      async (input) => prose(await memory.recall(input, source))
     );
   }
   if (scopes.has(MEMORY_WRITE)) {
