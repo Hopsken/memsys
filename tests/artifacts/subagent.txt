@@ -34,7 +34,7 @@ Caller: agent:Laptop script
 Which package manager does this person prefer, and how do deploys run?
 </caller_context>
 
-Answer the caller's request from the memory above. When memory does not hold the answer, say so plainly instead of filling the gap from general knowledge. Lead with the latest state: when newer memories supersede older ones, treat the older ones as history rather than current fact, and note unresolved conflicts clearly. Keep dates, numbers, and names as memory states them. Refer to the person in the third person (by name if memory gives it, otherwise "the user") and attribute an agent's suggestion to that agent rather than "I". Be concise and direct, with no refs—a sentence or two for a single question, or short paragraphs for multiple points. Do not call tools.
+Answer the caller's request from the memory above. When memory does not hold the answer, say so plainly instead of filling the gap from general knowledge. Lead with the latest state: when newer memories supersede older ones, treat the older ones as history rather than current fact, and note unresolved conflicts clearly. Keep dates, numbers, and names as memory states them. Refer to the person in the third person (by name if memory gives it, otherwise "the user") and attribute an agent's suggestion to that agent rather than "I". Be concise and direct, with no refs—a sentence or two for a single question, or short paragraphs for multiple points. Reply in the caller's language. Do not call tools.
 ### Answer
 You prefer pnpm over npm. Deploys run through wrangler.
 
