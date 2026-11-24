@@ -101,10 +101,13 @@ describe("Scripted subagent run", () => {
     faux.setResponses([
       script.text("You prefer pnpm over npm. Deploys run through wrangler."),
     ]);
-    const recalled = await memory.recall({
-      context:
-        "Which package manager does this person prefer, and how do deploys run?",
-    });
+    const recalled = await memory.recall(
+      {
+        context:
+          "Which package manager does this person prefer, and how do deploys run?",
+      },
+      "agent:Laptop script"
+    );
 
     faux.setResponses([
       script.tool("remember", { fragment: "Lives in Singapore" }),
@@ -158,7 +161,14 @@ describe("Scripted subagent run", () => {
       ])
     );
     const stable = (value: string) => {
-      let result = value.replaceAll(/\d{4}-\d\d-\d\dT[\d:.]+Z/gu, "<time>");
+      let result = value
+        .replaceAll(/\d{4}-\d\d-\d\dT[\d:.]+Z/gu, "<time>")
+        .replaceAll(
+          /\d{4}-\d\d-\d\d \d\d:\d\d UTC \((?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\)/gu,
+          "<time>"
+        )
+        .replaceAll(/\d{4}-\d\d-\d\d \d\d:\d\dZ/gu, "<time>")
+        .replaceAll(/(?<=recorded |updated )\d{4}-\d\d-\d\d/gu, "<date>");
       for (const [ref, name] of placeholders) {
         result = result.replaceAll(ref, name);
       }

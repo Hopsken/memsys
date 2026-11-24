@@ -13,7 +13,7 @@ Propose changes for these defects:
 - A later memory corrects or replaces an earlier one: revise the earlier one into history that stays true, such as "Used VS Code until October 2026", or forget it when the later memory already says what changed. The person's own words win over an agent's, and a later date alone does not settle a conflict. When you cannot tell which is right, change neither.
 - A memory states as the person's decision what another memory shows was only an agent's suggestion: revise it to say who suggested what.
 - A memory copies what can be found again elsewhere, such as code, docs, commits, benchmark results, a vendor's documentation, or entries read from a calendar, inbox, or issue tracker: revise it to what that source cannot tell, such as the decision, the result, or why it matters to the person, plus where to find the rest, and drop the details the source keeps. Keep every path, URL, commit, or tool it names, and do not invent one. What the person said is never such a copy, even when the same thing is in their calendar. Forget it only when nothing is left that is about the person, such as general knowledge any model has.
-- A memory says "last month", "next week", or another time relative to when it was written: revise it to the date it means, counted from its written time.
+- A memory says "last month", "next week", or another time relative to when it was written: revise it to the date it means, counted from its recorded time.
 - A memory holds ideas that would go out of date separately: revise it to one of them and remember each of the others. The details of one thing, such as a name, a place, and a date, are one idea.
 
 Leave everything else as it is:
