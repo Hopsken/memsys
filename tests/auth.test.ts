@@ -1,6 +1,7 @@
 import type { Fragment } from "@core";
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import worker from "../worker/index";
 import {
@@ -29,6 +30,27 @@ const createToken = async (user: User, name: string) => {
     Origin: ORIGIN,
   });
   return response.json<{ id: string; key: string }>();
+};
+
+const findCookie = (response: Response, suffix: string) =>
+  response.headers
+    .getSetCookie()
+    .find((header) => header.split("=", 1)[0]?.endsWith(suffix));
+
+const maxAgeOf = (header: string | undefined) => {
+  const seconds = /Max-Age=(?<seconds>\d+)/iu.exec(header ?? "")?.groups?.[
+    "seconds"
+  ];
+  return seconds ? Number(seconds) : null;
+};
+
+const sessionExpiryOf = async (userId: string) => {
+  const raw = await env.DB.prepare(
+    'SELECT "expiresAt" FROM "session" WHERE "userId" = ?'
+  )
+    .bind(userId)
+    .first("expiresAt");
+  return z.coerce.date().parse(raw).getTime();
 };
 
 describe("Authentication", () => {
@@ -234,6 +256,86 @@ describe("Authentication", () => {
     await expect(list(alice)).resolves.toStrictEqual({
       fragments: [withVersions(item)],
       nextCursor: null,
+    });
+  });
+
+  it("issues 90-day sessions and forwards refreshed cookies on /api/* requests", async () => {
+    const daySeconds = 24 * 60 * 60;
+    const sessionLifetimeSeconds = 90 * daySeconds;
+    const dayMs = daySeconds * 1000;
+
+    const user = await signIn();
+    const tokenCookie =
+      user.cookie
+        .split("; ")
+        .find((part) => part.split("=", 1)[0]?.endsWith("session_token")) ?? "";
+
+    const initialExpiry = await sessionExpiryOf(user.id);
+    const remainingDays = (initialExpiry - Date.now()) / dayMs;
+
+    await env.DB.prepare(
+      'UPDATE "session" SET "expiresAt" = ? WHERE "userId" = ?'
+    )
+      .bind(initialExpiry - 6 * dayMs, user.id)
+      .run();
+    const beforeUpdateAge = await get("/api/fragments", {
+      Cookie: tokenCookie,
+    });
+
+    await env.DB.prepare(
+      'UPDATE "session" SET "expiresAt" = ? WHERE "userId" = ?'
+    )
+      .bind(initialExpiry - 8 * dayMs, user.id)
+      .run();
+    const refreshedApi = await get("/api/fragments", {
+      Cookie: tokenCookie,
+    });
+    const extendedDays =
+      ((await sessionExpiryOf(user.id)) - Date.now()) / dayMs;
+
+    await env.DB.prepare(
+      'UPDATE "session" SET "expiresAt" = ? WHERE "userId" = ?'
+    )
+      .bind(Date.now() - 1000, user.id)
+      .run();
+    const expiredApi = await get("/api/fragments", {
+      Cookie: tokenCookie,
+    });
+
+    expect({
+      beforeUpdateAge: {
+        hasCache: findCookie(beforeUpdateAge, "session_data") !== undefined,
+        status: beforeUpdateAge.status,
+        tokenMaxAge: maxAgeOf(findCookie(beforeUpdateAge, "session_token")),
+      },
+      expired: {
+        status: expiredApi.status,
+        tokenMaxAge: maxAgeOf(findCookie(expiredApi, "session_token")),
+      },
+      extendedDays: Math.round(extendedDays),
+      initialDays: Math.round(remainingDays),
+      refreshed: {
+        hasCache: findCookie(refreshedApi, "session_data") !== undefined,
+        status: refreshedApi.status,
+        tokenMaxAge: maxAgeOf(findCookie(refreshedApi, "session_token")),
+      },
+    }).toStrictEqual({
+      beforeUpdateAge: {
+        hasCache: true,
+        status: 200,
+        tokenMaxAge: null,
+      },
+      expired: {
+        status: 401,
+        tokenMaxAge: 0,
+      },
+      extendedDays: 90,
+      initialDays: 90,
+      refreshed: {
+        hasCache: true,
+        status: 200,
+        tokenMaxAge: sessionLifetimeSeconds,
+      },
     });
   });
 });

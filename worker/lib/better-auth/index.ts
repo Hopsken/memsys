@@ -141,6 +141,8 @@ const mcpPlugin = (env: Env) =>
     scopes: OAUTH_SCOPES,
   }) as { id: "oauth-provider" };
 
+const DAY_IN_SECONDS = 60 * 60 * 24;
+
 const createAuth = (env: Env) =>
   betterAuth({
     advanced: { ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] } },
@@ -192,7 +194,11 @@ const createAuth = (env: Env) =>
       storage: "database",
     },
     secret: env.BETTER_AUTH_SECRET,
-    session: { cookieCache: { enabled: true, maxAge: 5 * 60 } },
+    session: {
+      cookieCache: { enabled: true, maxAge: 5 * 60 },
+      expiresIn: 90 * DAY_IN_SECONDS,
+      updateAge: 7 * DAY_IN_SECONDS,
+    },
     telemetry: { enabled: false },
   });
 
